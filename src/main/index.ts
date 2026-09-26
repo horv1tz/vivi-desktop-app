@@ -1,8 +1,15 @@
-import { app, nativeTheme, Notification } from 'electron'
+import { app, crashReporter, nativeTheme, Notification } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initLogging, logger } from './logging/log'
 import { settings } from './settings/store'
-import { createMainWindow, createOverlayWindow, destroyAllWindows, markQuitting, showMainWindow, toggleOverlay } from './app/windows'
+import {
+  createMainWindow,
+  createOverlayWindow,
+  destroyAllWindows,
+  markQuitting,
+  showMainWindow,
+  toggleOverlay,
+} from './app/windows'
 import { createTray, destroyTray, refreshTrayMenu } from './app/tray'
 import { registerShortcuts, unregisterShortcuts } from './app/shortcuts'
 import { registerCoreHandlers } from './ipc/register-core'
@@ -23,6 +30,10 @@ import { registerUpdater } from './app/updater'
 const log = logger('main')
 
 const mockAgent = process.env.VIVI_MOCK_AGENT === '1'
+
+// OBS-01: local-only crash dumps (never uploaded anywhere) for support/diagnostics; started as
+// early as possible, before app.whenReady(), so a crash during startup itself is still captured.
+crashReporter.start({ uploadToServer: false, productName: 'Vivi' })
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -107,7 +118,10 @@ async function bootstrap(): Promise<void> {
   syncConfigDirEnv()
   voice.attachAgent()
   voice.registerIpc()
-  const updater = registerUpdater({ getSettings: () => store.get(), onStatus: (status) => emit('update:status', status) })
+  const updater = registerUpdater({
+    getSettings: () => store.get(),
+    onStatus: (status) => emit('update:status', status),
+  })
   updater.registerIpc()
   registerCoreHandlers({ mockAgent, backend: () => agent.kind })
   agent.registerIpc()
@@ -144,7 +158,10 @@ async function bootstrap(): Promise<void> {
     // AG-05: model/permission-mode changes apply live to a running agent instead of restarting.
     const previous = previousAgentSettings
     previousAgentSettings = next
-    if (previous.agent.model !== next.agent.model || previous.agent.permissionMode !== next.agent.permissionMode) {
+    if (
+      previous.agent.model !== next.agent.model ||
+      previous.agent.permissionMode !== next.agent.permissionMode
+    ) {
       void agent.applyLiveModelAndMode(previous, next).then((applied) => {
         if (!applied) {
           log.info('model/permission-mode change could not apply live; restarting agent process')
@@ -173,7 +190,8 @@ async function bootstrap(): Promise<void> {
       setTimeout(() => inputGuard.reset(), 5000)
       void agent.killSwitch()
       void voice.stopSpeaking()
-      if (Notification.isSupported()) new Notification({ title: 'Vivi', body: t('notify.killSwitch') }).show()
+      if (Notification.isSupported())
+        new Notification({ title: 'Vivi', body: t('notify.killSwitch') }).show()
     },
   }
   registerShortcuts(shortcutActions)
@@ -222,12 +240,23 @@ async function bootstrap(): Promise<void> {
  * `agent.permissionMode` are deliberately excluded (AG-05): they're applied live to a running
  * agent via `applyLiveModelAndMode` instead of restarting and interrupting an in-flight turn.
  */
-function agentSettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
+function agentSettingsFingerprint(
+  s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never,
+): string {
   const agent = { ...s.agent, model: undefined, permissionMode: undefined }
-  return JSON.stringify({ agent, proxy: s.proxy, auth: s.auth, permissions: { ...s.permissions, alwaysAllowRules: undefined }, lang: s.appearance.language, debug: s.features.debugSdk })
+  return JSON.stringify({
+    agent,
+    proxy: s.proxy,
+    auth: s.auth,
+    permissions: { ...s.permissions, alwaysAllowRules: undefined },
+    lang: s.appearance.language,
+    debug: s.features.debugSdk,
+  })
 }
 
-function hotkeySettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
+function hotkeySettingsFingerprint(
+  s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never,
+): string {
   return `${s.appearance.overlayHotkey}\u0000${s.appearance.killSwitchHotkey}`
 }
 

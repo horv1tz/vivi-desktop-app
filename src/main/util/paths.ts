@@ -22,6 +22,10 @@ export const paths = {
   get logsDir(): string {
     return app.getPath('logs')
   },
+  /** OBS-01: local-only crash dumps (crashReporter is started with uploadToServer: false). */
+  get crashesDir(): string {
+    return app.getPath('crashDumps')
+  },
   get defaultWorkspace(): string {
     return join(homedir(), 'Vivi')
   },

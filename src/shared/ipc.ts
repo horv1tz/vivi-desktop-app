@@ -61,6 +61,9 @@ export interface InvokeMap {
   'app:requestOsPermission': { args: ['microphone' | 'screen' | 'accessibility']; result: boolean }
   'app:openLogs': { args: []; result: void }
   'app:relaunch': { args: []; result: void }
+  /** OBS-01: writes a diagnostics report (app info, redaction-free settings, OS permissions, log
+   *  tail) to a user-chosen file. Returns the saved path, or null if the save dialog was cancelled. */
+  'diagnostics:export': { args: []; result: string | null }
 
   'update:check': { args: []; result: void }
   'update:install': { args: []; result: void }
@@ -130,7 +133,13 @@ export interface EventMap {
   'auth:loginFlow': LoginFlowEvent
   'voice:state': VoiceStateEvent
   'voice:transcript': VoiceTranscriptEvent
-  'voice:audio': { generation: number; seq: number; sampleRate: number; pcm: ArrayBuffer; last: boolean }
+  'voice:audio': {
+    generation: number
+    seq: number
+    sampleRate: number
+    pcm: ArrayBuffer
+    last: boolean
+  }
   'voice:stopPlayback': { generation: number }
   'voice:modelProgress': ModelDownloadProgress
   'voice:level': number
@@ -144,6 +153,9 @@ export type EventChannel = keyof EventMap
 
 export interface ViviBridge {
   platform: Platform
-  invoke<K extends InvokeChannel>(channel: K, ...args: InvokeMap[K]['args']): Promise<InvokeMap[K]['result']>
+  invoke<K extends InvokeChannel>(
+    channel: K,
+    ...args: InvokeMap[K]['args']
+  ): Promise<InvokeMap[K]['result']>
   on<K extends EventChannel>(channel: K, listener: (payload: EventMap[K]) => void): () => void
 }

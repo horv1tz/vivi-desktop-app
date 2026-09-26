@@ -173,6 +173,8 @@
       "sdk": "Claude Agent SDK",
       "binary": "Claude Code binary",
       "logs": "Open logs folder",
+      "diagnostics": "Export diagnostics",
+      "diagnosticsSaved": "Diagnostics report saved to {{path}}",
       "userData": "App data",
       "notice": "Vivi is a personal assistant for your own use. Signing in with a Claude subscription is meant only for personal use with your own subscription and is not a way to distribute the product; for anything else use an API key.",
       "reset": "Reset settings",

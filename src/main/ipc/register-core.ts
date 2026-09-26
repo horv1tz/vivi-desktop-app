@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { app, dialog, nativeTheme, shell } from 'electron'
 import type { AppInfo, OsPermissionStatus } from '@shared/events'
 import { settings } from '../settings/store'
@@ -6,29 +8,35 @@ import { describeClaudeBinary } from '../util/claude-bin'
 import { acpAdapterVersion } from '../util/acp-adapter'
 import { getMainWindow, hideOverlay, showMainWindow, toggleOverlay } from '../app/windows'
 import { getOsPermissions, requestOsPermission } from '../app/os-permissions'
+import { buildDiagnosticsReport } from '../app/diagnostics'
 import { handle } from './handlers'
 import { emit } from './emitters'
 
 export const SDK_VERSION = '0.3.283'
 
-export function registerCoreHandlers(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): void {
-  handle('app:getInfo', (): AppInfo => {
-    const s = settings().get()
-    return {
-      version: app.getVersion(),
-      platform: process.platform,
-      arch: process.arch,
-      isPackaged: app.isPackaged,
-      userDataPath: paths.userData,
-      logsPath: paths.logsDir,
-      workspaceDir: paths.workspace(s.agent.workspaceDir),
-      claudeBinary: describeClaudeBinary(),
-      sdkVersion: SDK_VERSION,
-      mockAgent: opts.mockAgent,
-      backend: opts.backend(),
-      acpAdapterVersion: acpAdapterVersion(),
-    }
-  })
+function getAppInfo(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): AppInfo {
+  const s = settings().get()
+  return {
+    version: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    isPackaged: app.isPackaged,
+    userDataPath: paths.userData,
+    logsPath: paths.logsDir,
+    workspaceDir: paths.workspace(s.agent.workspaceDir),
+    claudeBinary: describeClaudeBinary(),
+    sdkVersion: SDK_VERSION,
+    mockAgent: opts.mockAgent,
+    backend: opts.backend(),
+    acpAdapterVersion: acpAdapterVersion(),
+  }
+}
+
+export function registerCoreHandlers(opts: {
+  mockAgent: boolean
+  backend: () => AppInfo['backend']
+}): void {
+  handle('app:getInfo', (): AppInfo => getAppInfo(opts))
   handle('app:getOsPermissions', (): OsPermissionStatus => getOsPermissions())
   handle('app:requestOsPermission', (_e, kind) => requestOsPermission(kind))
   handle('app:openLogs', async () => {
@@ -37,6 +45,31 @@ export function registerCoreHandlers(opts: { mockAgent: boolean; backend: () => 
   handle('app:relaunch', () => {
     app.relaunch()
     app.exit(0)
+  })
+  handle('diagnostics:export', async (): Promise<string | null> => {
+    const report = buildDiagnosticsReport({
+      appInfo: getAppInfo(opts),
+      settings: settings().get(),
+      osPermissions: getOsPermissions(),
+      logFilePath: join(paths.logsDir, 'vivi.log'),
+    })
+    const defaultPath = join(
+      app.getPath('desktop'),
+      `vivi-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+    )
+    const win = getMainWindow()
+    const res = win
+      ? await dialog.showSaveDialog(win, {
+          defaultPath,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        })
+      : await dialog.showSaveDialog({
+          defaultPath,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        })
+    if (res.canceled || !res.filePath) return null
+    writeFileSync(res.filePath, JSON.stringify(report, null, 2), 'utf8')
+    return res.filePath
   })
 
   handle('settings:get', () => settings().get())
@@ -54,8 +87,14 @@ export function registerCoreHandlers(opts: { mockAgent: boolean; backend: () => 
   handle('settings:pickDirectory', async (_e, defaultPath) => {
     const win = getMainWindow()
     const res = win
-      ? await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], defaultPath })
-      : await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], defaultPath })
+      ? await dialog.showOpenDialog(win, {
+          properties: ['openDirectory', 'createDirectory'],
+          defaultPath,
+        })
+      : await dialog.showOpenDialog({
+          properties: ['openDirectory', 'createDirectory'],
+          defaultPath,
+        })
     return res.canceled ? null : (res.filePaths[0] ?? null)
   })
   handle('settings:pickFile', async (_e, defaultPath) => {
