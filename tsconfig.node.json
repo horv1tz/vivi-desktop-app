@@ -15,6 +15,7 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/voice-worker/**/*",
+    "src/acp-bootstrap/**/*",
     "scripts/**/*.ts",
     "tests/unit/**/*",
     "tests/e2e/**/*"

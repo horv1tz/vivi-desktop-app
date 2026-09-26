@@ -51,6 +51,7 @@ export class SdkBackend implements AgentBackend {
   private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
   readonly broker: PermissionBroker
   private voiceMode = false
+  private disposed = false
 
   constructor(private readonly deps: SdkBackendDeps) {
     this.broker = new PermissionBroker({
@@ -161,6 +162,7 @@ export class SdkBackend implements AgentBackend {
   }
 
   async send(args: SendArgs): Promise<{ messageId: string }> {
+    if (this.disposed) throw new Error('agent backend is disposed')
     this.voiceMode = !!args.fromVoice
     let session: AgentSession
     try {
@@ -179,6 +181,11 @@ export class SdkBackend implements AgentBackend {
   }
 
   async dispose(): Promise<void> {
+    this.disposed = true
+    await this.stopSession()
+  }
+
+  private async stopSession(): Promise<void> {
     this.broker.cancelAll()
     const s = this.session
     this.session = null
@@ -186,7 +193,7 @@ export class SdkBackend implements AgentBackend {
   }
 
   async newSession(): Promise<void> {
-    await this.dispose()
+    await this.stopSession()
     this.selectedSessionId = null
     this.selectedTitle = null
     this.totalCost = 0
@@ -213,7 +220,7 @@ export class SdkBackend implements AgentBackend {
 
   async resumeSession(sessionId: string): Promise<UiMessage[]> {
     if (this.session?.sessionId === sessionId && this.session.isAlive) return this.loadHistory(sessionId)
-    await this.dispose()
+    await this.stopSession()
     this.selectedSessionId = sessionId
     this.policyState.sessionGrants.clear()
     const messages = await this.loadHistory(sessionId)
@@ -247,7 +254,7 @@ export class SdkBackend implements AgentBackend {
 
   /** Restart the live process so new env/settings (auth, proxy, model) take effect. */
   async restart(): Promise<void> {
-    await this.dispose()
+    await this.stopSession()
     this.emit({ type: 'state', state: 'idle' })
   }
 }

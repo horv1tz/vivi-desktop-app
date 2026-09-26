@@ -61,6 +61,7 @@ export class PermissionBroker {
 
   /** Shows the permission dialog and resolves with the user's decision (deny on timeout/abort). */
   ask(req: AskInput, signal?: AbortSignal): Promise<PermissionDecision> {
+    if (signal?.aborted) return Promise.resolve('deny')
     const requestId = randomUUID()
     return new Promise<PermissionDecision>((resolve) => {
       const timer = setTimeout(() => this.settle(requestId, 'deny'), this.deps.timeoutMs ?? 5 * 60_000)
@@ -145,6 +146,7 @@ export class PermissionBroker {
 
   /** Shows the question dialog; resolves with answers keyed by question text ({} when dismissed/aborted). */
   askQuestions(questions: QuestionItem[], signal?: AbortSignal): Promise<Record<string, string>> {
+    if (signal?.aborted) return Promise.resolve({})
     const requestId = randomUUID()
     return new Promise<Record<string, string>>((resolve) => {
       this.pendingQuestions.set(requestId, resolve)

@@ -12,7 +12,7 @@ import { logger } from '../logging/log'
 import { settings } from '../settings/store'
 import { paths } from '../util/paths'
 import { resolveClaudeBinary } from '../util/claude-bin'
-import { resolveAcpAdapterEntry } from '../util/acp-adapter'
+import { resolveAcpAdapterEntry, resolveAcpBootstrap } from '../util/acp-adapter'
 import { getMainWindow, showMainWindow } from '../app/windows'
 import { createViviMcpServer } from './tools'
 import type { InputDriver } from './tools/input-driver'
@@ -105,6 +105,7 @@ export class AgentController {
       return new AcpBackend({
         ...common,
         adapterEntry: resolveAcpAdapterEntry,
+        adapterBootstrap: resolveAcpBootstrap,
         createMcpServer: () => this.viviTools().instance,
         appVersion: app.getVersion(),
         titlesFile: join(paths.userData, 'acp-session-titles.json'),
@@ -143,14 +144,24 @@ export class AgentController {
     await this.backend.interrupt()
   }
 
+  private restarting: Promise<void> = Promise.resolve()
+
   /** Restart the agent process so changed auth/proxy/model settings apply; swaps the backend kind if it changed. */
-  async restart(): Promise<void> {
+  restart(): Promise<void> {
+    // Serialized: overlapping restarts (auth change + settings change) must not race each other.
+    this.restarting = this.restarting.then(() => this.doRestart()).catch((err) => log.warn('agent restart failed', err))
+    return this.restarting
+  }
+
+  private async doRestart(): Promise<void> {
     const desired = this.desiredKind()
     if (desired !== this.backend.kind) {
       log.info(`switching agent backend ${this.backend.kind} → ${desired}`)
+      const old = this.backend
       this.unsubscribe?.()
-      await this.backend.dispose().catch((err) => log.warn('backend dispose failed', err))
+      // Swap first so sends arriving during the old backend's teardown reach the new one.
       this.backend = this.createBackend()
+      await old.dispose().catch((err) => log.warn('backend dispose failed', err))
       await this.start()
       return
     }

@@ -10,6 +10,9 @@ export interface McpHttpEndpoint {
   headers: { name: string; value: string }[]
 }
 
+/** Env var through which the bearer token reaches the Claude CLI (it expands ${VAR} in MCP headers), keeping it out of argv. */
+export const MCP_TOKEN_ENV = 'VIVI_MCP_TOKEN'
+
 export interface ViviMcpHttpServerDeps {
   /** Creates a fresh MCP server instance (one per MCP session). */
   createServer: () => McpServer
@@ -26,6 +29,7 @@ export class ViviMcpHttpServer {
   private readonly token = randomBytes(24).toString('hex')
   private readonly sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>()
   private endpoint: McpHttpEndpoint | null = null
+  private starting: Promise<McpHttpEndpoint> | null = null
 
   constructor(private readonly deps: ViviMcpHttpServerDeps) {}
 
@@ -33,8 +37,30 @@ export class ViviMcpHttpServer {
     return this.endpoint?.url ?? null
   }
 
-  async start(): Promise<McpHttpEndpoint> {
-    if (this.endpoint) return this.endpoint
+  /** The bearer token expected on every request (hand it to the agent via its environment). */
+  get bearerToken(): string {
+    return this.token
+  }
+
+  /**
+   * Endpoint description for an agent. `viaEnv` substitutes a `${VIVI_MCP_TOKEN}` placeholder that
+   * Claude Code expands from the agent's environment, so the secret never appears on a command line.
+   */
+  async endpointFor(viaEnv: boolean): Promise<McpHttpEndpoint> {
+    const ep = await this.start()
+    return viaEnv ? { url: ep.url, headers: [{ name: 'Authorization', value: `Bearer \${${MCP_TOKEN_ENV}}` }] } : ep
+  }
+
+  start(): Promise<McpHttpEndpoint> {
+    if (this.endpoint) return Promise.resolve(this.endpoint)
+    if (this.starting) return this.starting
+    this.starting = this.listen().finally(() => {
+      this.starting = null
+    })
+    return this.starting
+  }
+
+  private async listen(): Promise<McpHttpEndpoint> {
     const server = createServer((req, res) => void this.handle(req, res))
     this.server = server
     await new Promise<void>((resolve, reject) => {
@@ -51,6 +77,7 @@ export class ViviMcpHttpServer {
   }
 
   async stop(): Promise<void> {
+    if (this.starting) await this.starting.catch(() => undefined)
     for (const [id, s] of this.sessions) {
       this.sessions.delete(id)
       await s.transport.close().catch(() => undefined)

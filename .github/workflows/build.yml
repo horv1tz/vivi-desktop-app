@@ -4,14 +4,48 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Create the GitHub release v<package.json version> at this commit and upload the installers'
+        type: boolean
+        default: false
 
-# GITHUB_TOKEN needs write access to create the GitHub Release and upload installers.
+# GITHUB_TOKEN needs write access to create the GitHub Release (and its tag) and upload installers.
 permissions:
   contents: write
 
 jobs:
+  release:
+    name: GitHub release
+    # A tag push or an explicit "publish" dispatch creates the release up front; the build jobs then
+    # upload their installers into it (electron-builder finds it by tag).
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.create.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release if missing
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Vivi $VERSION" --notes-file .github/release-notes.md
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vivi $VERSION" --notes-file .github/release-notes.md
+          fi
+
   build:
     name: ${{ matrix.os }}
+    needs: [release]
+    if: ${{ !cancelled() && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -62,7 +96,10 @@ jobs:
             echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_SECRET" >> "$GITHUB_ENV"
           fi
       - name: Package
-        run: npx electron-builder ${{ matrix.target }} --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          # Allow uploading into a release created earlier than two hours ago (re-runs).
+          EP_GH_IGNORE_TIME: 'true'
+        run: npx electron-builder ${{ matrix.target }} --publish ${{ needs.release.result == 'success' && 'always' || 'never' }}
       - uses: actions/upload-artifact@v4
         with:
           name: vivi-${{ matrix.os }}

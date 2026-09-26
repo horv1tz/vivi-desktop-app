@@ -104,6 +104,42 @@ describe('AcpTranslator (live turn)', () => {
   })
 })
 
+describe('AcpTranslator (usage and diffs)', () => {
+  it('reports per-turn token deltas from cumulative session usage', () => {
+    const { t } = make()
+    t.beginTurn()
+    const r1 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 110, inputTokens: 10, outputTokens: 100, cachedReadTokens: 1000, cachedWriteTokens: 0 } })
+    t.beginTurn()
+    const r2 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 200, inputTokens: 15, outputTokens: 185, cachedReadTokens: 1500, cachedWriteTokens: 20 } })
+    expect([r1.inputTokens, r1.outputTokens, r1.cacheReadTokens]).toEqual([10, 100, 1000])
+    expect([r2.inputTokens, r2.outputTokens, r2.cacheReadTokens, r2.cacheWriteTokens]).toEqual([5, 85, 500, 20])
+    t.resetUsage()
+    t.beginTurn()
+    const r3 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 3, inputTokens: 1, outputTokens: 2 } })
+    expect([r3.inputTokens, r3.outputTokens]).toEqual([1, 2])
+  })
+
+  it('keeps the diff announced with an Edit call when the completion update carries no content', () => {
+    const { t, events } = make()
+    t.beginTurn()
+    t.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'e1', title: 'Edit file', kind: 'edit', status: 'pending', content: [{ type: 'diff', path: '/f.txt', oldText: 'a', newText: 'b' }] })
+    t.handleUpdate({ sessionUpdate: 'tool_call_update', toolCallId: 'e1', status: 'completed' })
+    const res = events.find((e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result')!
+    expect(res.result.content).toContain('--- /f.txt')
+    expect(res.result.content).toContain('+ b')
+  })
+
+  it('does not synthesize results for replayed tool calls in the next live turn', () => {
+    const { t, events } = make()
+    t.beginReplay()
+    t.handleUpdate({ sessionUpdate: 'tool_call', toolCallId: 'old', title: 'Bash', status: 'in_progress' })
+    t.endReplay()
+    t.beginTurn()
+    t.finishTurn({ stopReason: 'end_turn' })
+    expect(events.filter((e) => e.type === 'tool-result')).toEqual([])
+  })
+})
+
 describe('AcpTranslator (replay)', () => {
   it('rebuilds the conversation from a session/load replay without emitting live events', () => {
     const { t, events } = make()

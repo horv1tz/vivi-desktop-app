@@ -19,6 +19,8 @@
 
 When the ACP backend is selected, Vivi runs the agent as a separate local process and serves its own tools to it over
 HTTP on `127.0.0.1` at a random port. The endpoint accepts only requests carrying a bearer token generated for that
-process and is closed when the agent stops; nothing listens on external interfaces. A third-party ACP agent configured
-in Settings receives the same environment as Claude Code (proxy variables, `CLAUDE_CONFIG_DIR`, and the API key or
-OAuth token if one is configured), so only run agents you trust.
+process and is closed when the agent stops; nothing listens on external interfaces. For the bundled Claude adapter the
+token travels through the agent's environment (`VIVI_MCP_TOKEN`, expanded by Claude Code), not the command line.
+A third-party ACP agent configured in Settings receives the proxy variables but **not** Vivi's Claude credentials
+(API key / OAuth token); it does receive the MCP token that unlocks Vivi's computer-control tools, so only run agents
+you trust.

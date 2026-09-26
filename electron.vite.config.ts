@@ -15,6 +15,7 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.ts'),
           'voice-worker': resolve('src/voice-worker/index.ts'),
+          'acp-bootstrap': resolve('src/acp-bootstrap/index.ts'),
         },
       },
     },

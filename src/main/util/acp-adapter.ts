@@ -15,6 +15,12 @@ export function resolveAcpAdapterEntry(): string | null {
   return existsSync(p) ? p : null
 }
 
+/** Bootstrap script (built by electron-vite next to the main bundle) that launches the adapter. */
+export function resolveAcpBootstrap(): string | null {
+  const p = join(import.meta.dirname, 'acp-bootstrap.js')
+  return existsSync(p) ? p : null
+}
+
 export function acpAdapterVersion(): string {
   try {
     const pkg = JSON.parse(readFileSync(join(app.getAppPath(), 'node_modules', PKG, 'package.json'), 'utf8')) as { version?: string }

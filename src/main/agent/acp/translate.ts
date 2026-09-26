@@ -14,6 +14,15 @@ interface ToolState {
   startedAt: number
   block: UiToolUseBlock
   done: boolean
+  /** Latest non-empty content seen for the call (Edit/Write diffs arrive before the completion update). */
+  content?: ToolCallContent[]
+}
+
+interface UsageTotals {
+  inputTokens: number
+  outputTokens: number
+  cachedReadTokens: number
+  cachedWriteTokens: number
 }
 
 export interface TranslatorOptions {
@@ -81,6 +90,8 @@ export class AcpTranslator {
   private toolCalls = 0
   private turnStartedAt = 0
   private usage: { used: number; size: number } | null = null
+  /** PromptResponse.usage is cumulative for the session (claude-agent-acp); per-turn numbers are deltas. */
+  private lastUsage: UsageTotals | null = null
   private replay: UiMessage[] | null = null
   private replayUser: UiMessage | null = null
 
@@ -98,6 +109,7 @@ export class AcpTranslator {
     this.turnStartedAt = this.now()
     this.toolCalls = 0
     this.streaming = null
+    this.tools.clear()
   }
 
   /** Start collecting replayed history instead of emitting live events. */
@@ -105,6 +117,7 @@ export class AcpTranslator {
     this.replay = []
     this.replayUser = null
     this.streaming = null
+    this.tools.clear()
   }
 
   /** Finish replay and return the reconstructed conversation. */
@@ -113,7 +126,24 @@ export class AcpTranslator {
     if (this.streaming) this.replay?.push(this.finalizeStreaming())
     const out = this.replay ?? []
     this.replay = null
+    this.tools.clear()
     return out
+  }
+
+  /** Forget cumulative usage (new/loaded session). */
+  resetUsage(): void {
+    this.lastUsage = null
+  }
+
+  private turnUsage(usage: PromptResponse['usage'] | undefined): UsageTotals {
+    const cur: UsageTotals = { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, cachedReadTokens: usage?.cachedReadTokens ?? 0, cachedWriteTokens: usage?.cachedWriteTokens ?? 0 }
+    if (!usage) return cur
+    const prev = this.lastUsage
+    this.lastUsage = cur
+    if (!prev) return cur
+    const monotonic = cur.inputTokens >= prev.inputTokens && cur.outputTokens >= prev.outputTokens && cur.cachedReadTokens >= prev.cachedReadTokens && cur.cachedWriteTokens >= prev.cachedWriteTokens
+    if (!monotonic) return cur // the agent reports per-turn numbers (or reset its counters)
+    return { inputTokens: cur.inputTokens - prev.inputTokens, outputTokens: cur.outputTokens - prev.outputTokens, cachedReadTokens: cur.cachedReadTokens - prev.cachedReadTokens, cachedWriteTokens: cur.cachedWriteTokens - prev.cachedWriteTokens }
   }
 
   handle(notification: SessionNotification): void {
@@ -165,7 +195,7 @@ export class AcpTranslator {
     }
     this.tools.clear()
     const stopReason = response?.stopReason ?? null
-    const usage = response?.usage
+    const usage = this.turnUsage(response?.usage)
     const result: TurnResult = {
       turnId: opts.turnId ?? randomUUID(),
       subtype: stopReason === 'end_turn' ? 'success' : stopReason === 'max_turn_requests' ? 'error_max_turns' : stopReason ?? (opts.error ? 'error' : 'success'),
@@ -174,10 +204,10 @@ export class AcpTranslator {
       totalCostUsd: opts.totalCostUsd ?? 0,
       durationMs: Math.max(0, this.now() - this.turnStartedAt),
       numTurns: this.toolCalls + 1,
-      inputTokens: usage?.inputTokens ?? 0,
-      outputTokens: usage?.outputTokens ?? 0,
-      cacheReadTokens: usage?.cachedReadTokens ?? 0,
-      cacheWriteTokens: usage?.cachedWriteTokens ?? 0,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cachedReadTokens,
+      cacheWriteTokens: usage.cachedWriteTokens,
       contextWindow: this.usage?.size || undefined,
       resultText: message ? message.blocks.filter((b): b is Extract<UiBlock, { type: 'text' }> => b.type === 'text').map((b) => b.text).join('\n') : undefined,
       stopReason,
@@ -265,7 +295,7 @@ export class AcpTranslator {
     s.blocks.push(block)
     s.afterTool = true
     this.toolCalls++
-    this.tools.set(update.toolCallId, { messageId: s.id, startedAt: this.now(), block, done: false })
+    this.tools.set(update.toolCallId, { messageId: s.id, startedAt: this.now(), block, done: false, content: update.content?.length ? update.content : undefined })
     if (!this.replay) this.emit({ type: 'tool-use', messageId: s.id, block, parentToolUseId: null })
     if (update.status === 'completed' || update.status === 'failed') this.onToolCallUpdate({ ...update, sessionUpdate: 'tool_call_update' })
   }
@@ -284,11 +314,13 @@ export class AcpTranslator {
         changed = true
       }
       if (changed && !this.replay) this.emit({ type: 'tool-update', toolUseId: update.toolCallId, input: t.block.input, name: t.block.name })
+      if (update.content?.length) t.content = update.content
     }
     if (update.status !== 'completed' && update.status !== 'failed') return
     if (!t || t.done) return
     t.done = true
-    const result = toolResultOf(update)
+    // The completion update may carry no content (Edit/Write): fall back to the diff/content seen earlier.
+    const result = toolResultOf(update.content?.length ? update : { ...update, content: t.content })
     result.durationMs = Math.max(0, this.now() - t.startedAt)
     t.block.result = result
     if (!this.replay) this.emit({ type: 'tool-result', toolUseId: update.toolCallId, result })

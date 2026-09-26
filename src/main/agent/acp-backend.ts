@@ -32,7 +32,7 @@ import { PermissionBroker, type BrokerUi } from './permissions/broker'
 import { autoAllowedTools, makePolicy, type PolicyState } from './permissions/policy'
 import { AcpTranslator, toolNameOf } from './acp/translate'
 import { spawnAcpProcess, type AcpProcess } from './acp/process'
-import { ViviMcpHttpServer } from './acp/mcp-http'
+import { MCP_TOKEN_ENV, ViviMcpHttpServer } from './acp/mcp-http'
 import { splitArgs } from './acp/args'
 
 export interface AcpBackendDeps {
@@ -48,6 +48,8 @@ export interface AcpBackendDeps {
   claudeBinary?: string
   /** Entry script of the bundled claude-agent-acp adapter (null when missing). */
   adapterEntry: () => string | null
+  /** Bootstrap that runs the adapter under Electron-as-Node without leaking ELECTRON_RUN_AS_NODE to its children. */
+  adapterBootstrap: () => string | null
   /** Fresh MCP server with Vivi's tools, served to the agent over local HTTP. */
   createMcpServer: () => McpServer
   ui: BrokerUi
@@ -66,6 +68,8 @@ interface Connection {
   agentInfo: Implementation | null
   isClaudeAdapter: boolean
 }
+
+class AcpProcessExitedError extends Error {}
 
 const FALLBACK_MODELS = [
   { id: 'claude-opus-5', name: 'Claude Opus 5' },
@@ -101,6 +105,15 @@ export function mapAcpError(err: unknown): { code: AgentErrorCode; message: stri
   return { code: 'unknown', message }
 }
 
+/**
+ * The option that persists a plain allow rule ("Yes, and don't ask again …"). Other `allow_always`
+ * options carry different semantics (ExitPlanMode's "clear context and use auto mode") and must never
+ * be selected on behalf of a generic "always allow" click.
+ */
+export function findAlwaysAllowOption(options: PermissionOption[]): PermissionOption | undefined {
+  return options.find((o) => o.kind === 'allow_always' && (o.optionId === 'allow-with-updates' || (!o.optionId.startsWith('exit-plan') && /don.?t ask again/i.test(o.name))))
+}
+
 /** Pick the ACP permission option for a user decision. */
 export function selectPermissionOption(options: PermissionOption[], decision: 'allow' | 'allow-always' | 'deny'): PermissionOption | undefined {
   const pick = (...kinds: PermissionOptionKind[]): PermissionOption | undefined => {
@@ -110,24 +123,40 @@ export function selectPermissionOption(options: PermissionOption[], decision: 'a
     }
     return undefined
   }
-  if (decision === 'allow') return pick('allow_once', 'allow_always')
-  if (decision === 'allow-always') return pick('allow_always', 'allow_once')
-  return pick('reject_once', 'reject_always')
+  if (decision === 'deny') return pick('reject_once', 'reject_always')
+  const once = options.find((o) => o.optionId === 'allow-once') ?? pick('allow_once')
+  if (decision === 'allow-always') return findAlwaysAllowOption(options) ?? once
+  return once ?? findAlwaysAllowOption(options)
 }
 
-/** Rule persisted locally for "always allow" (ACP gives no rule content, so derive a conservative one). */
-export function alwaysAllowRuleFor(toolName: string, input: Record<string, unknown>): { toolName: string; ruleContent?: string } {
+/**
+ * Rule persisted locally for "always allow". ACP carries no rule content, so only rules that can be
+ * scoped safely are derived (shell command prefix, fetched host); anything else returns null and the
+ * grant is downgraded to "this session" instead of persisting a blanket tool allow.
+ */
+export function alwaysAllowRuleFor(toolName: string, input: Record<string, unknown>): { toolName: string; ruleContent: string } | null {
   if ((toolName === 'Bash' || toolName === 'PowerShell') && typeof input.command === 'string') {
     const first = input.command.trim().split(/\s+/)[0]
-    if (first && /^[\w./-]+$/.test(first)) return { toolName, ruleContent: `${first}:*` }
+    if (first && /^[\w./-]+$/.test(first) && !/^(sudo|su|doas|eval|source|exec|sh|bash|zsh|cmd|powershell|pwsh|xargs|env)$/i.test(first)) return { toolName, ruleContent: `${first}:*` }
+    return null
   }
-  return { toolName }
+  if (toolName === 'WebFetch' && typeof input.url === 'string') {
+    try {
+      const host = new URL(input.url).hostname
+      if (host) return { toolName, ruleContent: `domain:${host}` }
+    } catch {
+      /* not a URL */
+    }
+  }
+  return null
 }
 
 interface FormField {
   key: string
   multi: boolean
   labels: string[]
+  /** label → schema `const` value (differs from the label for MCP forms and CLI dialogs). */
+  values: Record<string, string | number | boolean>
   customKey?: string
 }
 
@@ -148,32 +177,44 @@ export function formToQuestions(params: CreateElicitationRequest): { questions: 
     const p = raw as { type?: string; title?: string | null; description?: string | null; oneOf?: EnumOpt[]; enum?: unknown[]; items?: { anyOf?: EnumOpt[]; enum?: unknown[] } }
     const multi = p.type === 'array'
     const enumOpts: EnumOpt[] = multi ? (p.items?.anyOf ?? (p.items?.enum ?? []).map((v) => ({ const: v, title: String(v) }))) : (p.oneOf ?? (p.enum ?? []).map((v) => ({ const: v, title: String(v) })))
-    const options = enumOpts.map((o) => ({ label: String(o.title ?? o.const ?? ''), description: o.description ?? undefined })).filter((o) => o.label)
-    questions.push({ question: p.description ?? params.message, header: p.title ?? undefined, multiSelect: multi, options })
+    const options = enumOpts.map((o) => ({ label: String(o.title ?? o.const ?? ''), description: o.description ?? undefined, value: o.const })).filter((o) => o.label)
+    questions.push({ question: p.description ?? params.message, header: p.title ?? undefined, multiSelect: multi, options: options.map((o) => ({ label: o.label, description: o.description })) })
     const customKey = `${key}_custom` in props ? `${key}_custom` : undefined
-    fields.push({ key, multi, labels: options.map((o) => o.label), customKey })
+    const values: Record<string, string | number | boolean> = {}
+    for (const o of options) values[o.label] = typeof o.value === 'string' || typeof o.value === 'number' || typeof o.value === 'boolean' ? o.value : o.label
+    fields.push({ key, multi, labels: options.map((o) => o.label), values, customKey })
   }
   return { questions, fields }
 }
 
 /** Fold dialog answers (label list joined by ", " plus optional free text) back into form content. */
-export function answersToFormContent(answers: Record<string, string>, questions: QuestionItem[], fields: FormField[]): Record<string, string | string[]> {
-  const content: Record<string, string | string[]> = {}
+export function answersToFormContent(answers: Record<string, string>, questions: QuestionItem[], fields: FormField[]): Record<string, string | number | boolean | string[]> {
+  const content: Record<string, string | number | boolean | string[]> = {}
   questions.forEach((q, i) => {
     const f = fields[i]!
     const raw = answers[q.question]
     if (raw === undefined || raw === '') return
-    const parts = raw.split(', ').map((s) => s.trim()).filter(Boolean)
-    const picked = parts.filter((p) => f.labels.includes(p))
-    const custom = parts.filter((p) => !f.labels.includes(p)).join(', ')
+    // The dialog joins picked labels (and free text) with ", "; labels may themselves contain ", ",
+    // so peel known labels off the front greedily (longest first) and treat the remainder as free text.
+    const byLength = [...f.labels].sort((a, b) => b.length - a.length)
+    const picked: string[] = []
+    let rest = raw
+    for (;;) {
+      const label = byLength.find((l) => rest === l || rest.startsWith(`${l}, `))
+      if (!label) break
+      picked.push(label)
+      rest = rest === label ? '' : rest.slice(label.length + 2)
+    }
+    const custom = rest.trim()
+    const pickedValues = picked.map((l) => f.values[l] ?? l)
     if (f.multi) {
-      if (picked.length) content[f.key] = picked
+      if (pickedValues.length) content[f.key] = pickedValues.map(String)
       if (custom) {
         if (f.customKey) content[f.customKey] = custom
-        else content[f.key] = [...picked, custom]
+        else content[f.key] = [...pickedValues.map(String), custom]
       }
     } else {
-      if (picked.length) content[f.key] = picked[0]!
+      if (pickedValues.length) content[f.key] = pickedValues[0]!
       if (custom) {
         if (f.customKey) content[f.customKey] = custom
         else if (!picked.length) content[f.key] = raw
@@ -194,13 +235,18 @@ export class AcpBackend implements AgentBackend {
   private listeners = new Set<(e: AgentUiEvent) => void>()
   private conn: Connection | null = null
   private connecting: Promise<Connection> | null = null
+  /** Bumped by teardown(); async start paths abandon their work when it changes under them. */
+  private generation = 0
+  private disposed = false
+  private pendingPrompts: { turnId: string; blocks: ContentBlock[] }[] = []
+  private pumping = false
+  private lastExit: { code: number | null; signal: NodeJS.Signals | null } | null = null
   private sessionId: string | null = null
   private sessionReady: Promise<UiMessage[]> | null = null
   private selectedSessionId: string | null = null
   private selectedTitle: string | null = null
   private _state: SessionState = 'idle'
   private readonly translator = new AcpTranslator({ emit: (e) => this.emit(e) })
-  private queue: Promise<void> = Promise.resolve()
   private turnAbort: AbortController | null = null
   private inFlight = false
   private modes: SessionModeState | null = null
@@ -303,12 +349,15 @@ export class AcpBackend implements AgentBackend {
   }
 
   async dispose(): Promise<void> {
+    this.disposed = true
     await this.teardown()
     this.emit({ type: 'state', state: 'closed' })
   }
 
   /** Stop the agent process and the MCP endpoint; keeps the selected session id for a lazy resume. */
   private async teardown(): Promise<void> {
+    this.generation++
+    this.pendingPrompts = []
     this.broker.cancelAll()
     this.turnAbort?.abort()
     const conn = this.conn
@@ -348,6 +397,7 @@ export class AcpBackend implements AgentBackend {
   }
 
   private async connect(): Promise<Connection> {
+    const generation = this.generation
     const settings = this.deps.getSettings()
     const custom = settings.agent.acpCommand.trim()
     const extraArgs = splitArgs(settings.agent.acpArgs)
@@ -357,12 +407,16 @@ export class AcpBackend implements AgentBackend {
     if (custom) {
       command = custom
       args = extraArgs
+      // A third-party agent gets proxy settings but not Vivi's Claude credentials.
+      for (const k of ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_AUTH_TOKEN']) delete env[k]
     } else {
       const entry = this.deps.adapterEntry()
       if (!entry) throw new Error('The bundled Claude ACP adapter (claude-agent-acp) is missing from this build')
+      const bootstrap = this.deps.adapterBootstrap()
       command = process.execPath
-      args = [entry, ...extraArgs]
+      args = bootstrap ? [bootstrap, entry, ...extraArgs] : [entry, ...extraArgs]
       env.ELECTRON_RUN_AS_NODE = '1'
+      env[MCP_TOKEN_ENV] = this.mcp.bearerToken
       if (this.deps.claudeBinary) env.CLAUDE_CODE_EXECUTABLE = this.deps.claudeBinary
       // The adapter offers OAuth over a terminal; Vivi handles login itself (Settings → Account).
       env.NO_BROWSER = '1'
@@ -403,6 +457,7 @@ export class AcpBackend implements AgentBackend {
         this.deps.initTimeoutMs ?? 30_000,
         'ACP initialize',
       )
+      if (generation !== this.generation || this.disposed) throw new Error('ACP agent start was cancelled')
       const conn: Connection = { process: proc, connection, capabilities: init.agentCapabilities ?? {}, agentInfo: init.agentInfo ?? null, isClaudeAdapter: !custom }
       this.conn = conn
       this.deps.log.info(`ACP agent ready: ${conn.agentInfo?.name ?? 'unknown'} ${conn.agentInfo?.version ?? ''} (protocol ${init.protocolVersion})`)
@@ -417,17 +472,20 @@ export class AcpBackend implements AgentBackend {
   private onProcessExit(proc: AcpProcess, info: { code: number | null; signal: NodeJS.Signals | null }): void {
     if (this.conn?.process !== proc) return // already replaced / stopped on purpose
     this.deps.log.error(`ACP agent exited (code ${info.code}, signal ${info.signal})`, this.stderrTail.slice(-20).join('\n'))
+    this.lastExit = info
     this.conn = null
     this.sessionId = null
     this.sessionReady = null
+    this.pendingPrompts = []
     this.broker.cancelAll()
-    if (this.inFlight) {
-      this.emit({ type: 'error', error: makeError('process_exited', `ACP agent exited (code ${info.code ?? 'null'})\n${this.stderrTail.slice(-20).join('\n')}`.trim()) })
-      this.translator.finishTurn(null, { error: true })
-      this.inFlight = false
-      this.setState('failed')
-    }
+    // An in-flight prompt observes the exit through runPrompt's race and reports it once.
+    if (!this.inFlight) this.setState('failed')
     void this.mcp.stop()
+  }
+
+  private exitError(): Error {
+    const info = this.lastExit
+    return new AcpProcessExitedError(`ACP agent exited (code ${info?.code ?? 'null'}${info?.signal ? `, signal ${info.signal}` : ''})\n${this.stderrTail.slice(-20).join('\n')}`.trim())
   }
 
   private claudeOptions(): Record<string, unknown> {
@@ -461,25 +519,28 @@ export class AcpBackend implements AgentBackend {
     return JSON.parse(JSON.stringify(options)) as Record<string, unknown>
   }
 
-  private async mcpServers(): Promise<AcpMcpServer[]> {
-    const endpoint = await this.mcp.start()
+  private async mcpServers(viaEnv: boolean): Promise<AcpMcpServer[]> {
+    const endpoint = await this.mcp.endpointFor(viaEnv)
     return [{ type: 'http', name: 'vivi', url: endpoint.url, headers: endpoint.headers }]
   }
 
   /** Creates or loads the selected session; resolves with the (replayed) history. */
   private ensureSession(): Promise<UiMessage[]> {
-    if (this.sessionId && this.conn?.process.isRunning && this.sessionReady) return this.sessionReady
-    this.sessionReady = this.openSession().catch((err) => {
-      this.sessionReady = null
+    if (this.sessionReady) return this.sessionReady
+    const ready = this.openSession().catch((err) => {
+      if (this.sessionReady === ready) this.sessionReady = null
       throw err
     })
-    return this.sessionReady
+    this.sessionReady = ready
+    return ready
   }
 
   private async openSession(): Promise<UiMessage[]> {
+    const generation = this.generation
     const conn = await this.ensureConnection()
     const cwd = this.deps.cwd()
-    const mcpServers = await this.mcpServers()
+    const mcpServers = await this.mcpServers(conn.isClaudeAdapter)
+    if (generation !== this.generation || this.disposed) throw new Error('ACP session start was cancelled')
     const meta = conn.isClaudeAdapter ? { claudeCode: { options: this.claudeOptions() } } : undefined
     this.setState('starting')
     let messages: UiMessage[] = []
@@ -506,6 +567,12 @@ export class AcpBackend implements AgentBackend {
       this.setState('idle')
       throw err
     }
+    if (generation !== this.generation || this.disposed) {
+      this.translator.reset()
+      this.sessionId = null
+      throw new Error('ACP session start was cancelled')
+    }
+    this.translator.resetUsage()
     this.history = messages
     await this.applyPermissionMode(conn)
     this.emit({ type: 'session', sessionId: this.sessionId!, state: 'idle', model: this.currentModel() ?? undefined, title: this.selectedTitle ?? undefined })
@@ -543,11 +610,27 @@ export class AcpBackend implements AgentBackend {
   }
 
   async send(args: SendArgs): Promise<{ messageId: string }> {
+    if (this.disposed) throw new Error('agent backend is disposed')
     this.voiceMode = !!args.fromVoice
     const { ui, blocks } = this.userMessage(args)
     this.emit({ type: 'user-message', message: ui })
-    this.queue = this.queue.then(() => this.runPrompt(ui.id, blocks)).catch((err) => this.deps.log.warn('prompt failed', err))
+    this.pendingPrompts.push({ turnId: ui.id, blocks })
+    void this.pump()
     return { messageId: ui.id }
+  }
+
+  /** Runs queued prompts one at a time; interrupt()/teardown() drop whatever is still queued. */
+  private async pump(): Promise<void> {
+    if (this.pumping) return
+    this.pumping = true
+    try {
+      while (this.pendingPrompts.length && !this.disposed) {
+        const next = this.pendingPrompts.shift()!
+        await this.runPrompt(next.turnId, next.blocks).catch((err) => this.deps.log.warn('prompt failed', err))
+      }
+    } finally {
+      this.pumping = false
+    }
   }
 
   private async runPrompt(turnId: string, blocks: ContentBlock[]): Promise<void> {
@@ -564,27 +647,40 @@ export class AcpBackend implements AgentBackend {
     }
     const sessionId = this.sessionId!
     this.inFlight = true
-    this.turnAbort = new AbortController()
+    const abort = new AbortController()
+    this.turnAbort = abort
     this.translator.beginTurn()
     this.setState('running')
+    let settled = false
+    // A dead agent never answers: race the request against the process exiting.
+    const exited = new Promise<never>((_, reject) => {
+      void conn.process.exited.then(() => {
+        if (!settled) reject(this.exitError())
+      })
+    })
     try {
-      const res = await conn.connection.prompt({ sessionId, prompt: blocks })
+      const res = await Promise.race([conn.connection.prompt({ sessionId, prompt: blocks }), exited])
+      settled = true
       this.translator.finishTurn(res, { turnId })
       if (res.stopReason === 'refusal') this.emit({ type: 'error', error: makeError('unknown', 'The model declined to continue this turn.') })
       if (res.stopReason === 'max_turn_requests') this.emit({ type: 'error', error: makeError('max_turns', 'Step limit reached') })
     } catch (err) {
-      const mapped = mapAcpError(err)
+      settled = true
+      const mapped = err instanceof AcpProcessExitedError ? { code: 'process_exited' as const, message: err.message } : mapAcpError(err)
       this.deps.log.error('ACP prompt failed', mapped.message)
       this.translator.finishTurn(null, { turnId, error: true })
       this.emit({ type: 'error', error: makeError(mapped.code, mapped.message) })
     } finally {
       this.inFlight = false
-      this.turnAbort = null
+      abort.abort() // closes any permission/question dialog still waiting on this turn
+      if (this.turnAbort === abort) this.turnAbort = null
       if (this.conn === conn) this.setState('idle')
+      else if (!this.disposed) this.setState('failed')
     }
   }
 
   async interrupt(): Promise<void> {
+    this.pendingPrompts = []
     this.broker.cancelAll()
     this.turnAbort?.abort()
     if (this.inFlight && this.conn && this.sessionId) {
@@ -605,7 +701,7 @@ export class AcpBackend implements AgentBackend {
     const decision = this.broker.decide(toolName, input)
     if (decision.verdict === 'allow') return select(selectPermissionOption(params.options, 'allow'))
     if (decision.verdict === 'deny') return select(selectPermissionOption(params.options, 'deny'))
-    const alwaysOffered = params.options.some((o) => o.kind === 'allow_always')
+    const alwaysOffered = findAlwaysAllowOption(params.options) !== undefined
     const prev = this._state
     this.setState('awaiting_permission')
     const answer = await this.broker.ask(
@@ -616,14 +712,17 @@ export class AcpBackend implements AgentBackend {
         category: decision.category,
         dangerous: decision.dangerous,
         dangerReasons: decision.dangerReasons,
-        canAlwaysAllow: decision.canAlwaysAllow && !decision.dangerous,
+        canAlwaysAllow: decision.canAlwaysAllow && !decision.dangerous && alwaysOffered,
         suggestionsCount: alwaysOffered ? 1 : 0,
       },
       this.turnAbort?.signal,
     )
     if (this._state === 'awaiting_permission') this.setState(prev === 'awaiting_permission' ? 'running' : prev)
-    this.broker.applyDecision(answer, decision.category, [alwaysAllowRuleFor(toolName, input)])
-    switch (answer) {
+    const rule = alwaysAllowRuleFor(toolName, input)
+    // No scoped rule to persist → remember the grant for this session only.
+    const effective = answer === 'allow-always' ? (alwaysOffered && rule ? 'allow-always' : 'allow-session') : answer
+    this.broker.applyDecision(effective, decision.category, rule ? [rule] : [])
+    switch (effective) {
       case 'allow':
       case 'allow-session':
         return select(selectPermissionOption(params.options, 'allow'))
