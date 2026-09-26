@@ -23,7 +23,6 @@ export interface BuildOptionsInput {
   stderr?: (line: string) => void
   abortController?: AbortController
   resume?: string
-  voiceMode?: boolean
   baseEnv?: NodeJS.ProcessEnv
   /** Isolate from ~/.claude when true (default); false = reuse the user's own Claude Code config (existing login mode). */
   isolateConfig?: boolean
@@ -65,7 +64,6 @@ export function buildOptions(input: BuildOptionsInput): Options {
     homeDir: input.homeDir,
     memoryFile: input.memoryFile,
     customInstructions: s.agent.customInstructions,
-    voiceMode: input.voiceMode,
   })
 
   const options: Options = {

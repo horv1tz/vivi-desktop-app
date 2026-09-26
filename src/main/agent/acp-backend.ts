@@ -26,7 +26,7 @@ import type { AgentErrorCode, AgentUiEvent, PermissionCategory, QuestionItem, Se
 import type { Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
 import { buildEnv, buildPermissionAllowRules } from './options'
-import { buildSystemPrompt, osVersionString } from './prompt'
+import { buildSystemPrompt, markVoiceText, osVersionString } from './prompt'
 import { historyToUi, makeError } from './reducer'
 import { PermissionBroker, type BrokerUi } from './permissions/broker'
 import { autoAllowedTools, makePolicy, type PolicyState } from './permissions/policy'
@@ -259,7 +259,6 @@ export class AcpBackend implements AgentBackend {
   private titles: Record<string, string> = {}
   private history: UiMessage[] = []
   private stderrTail: string[] = []
-  private voiceMode = false
   private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
   /** Cumulative session cost as last reported by the agent (ACP-01); undefined until it reports one. */
   private totalCost: number | undefined
@@ -518,7 +517,6 @@ export class AcpBackend implements AgentBackend {
       homeDir: this.deps.homeDir,
       memoryFile: this.deps.memoryFile(),
       customInstructions: s.agent.customInstructions,
-      voiceMode: this.voiceMode,
     })
     const options: Partial<SdkOptions> = {
       systemPrompt: { type: 'custom', prompt: [staticPart, SYSTEM_PROMPT_DYNAMIC_BOUNDARY, dynamicPart], snapshot: true },
@@ -623,7 +621,8 @@ export class AcpBackend implements AgentBackend {
     const blocks: ContentBlock[] = []
     const ui: UiBlock[] = []
     if (args.text.trim()) {
-      blocks.push({ type: 'text', text: args.text })
+      // The marker is sent to the agent only (AG-01); the UI keeps showing the user's own words.
+      blocks.push({ type: 'text', text: markVoiceText(args.text, args.fromVoice) })
       ui.push({ type: 'text', text: args.text })
     }
     for (const img of args.images ?? []) {
@@ -635,7 +634,6 @@ export class AcpBackend implements AgentBackend {
 
   async send(args: SendArgs): Promise<{ messageId: string }> {
     if (this.disposed) throw new Error('agent backend is disposed')
-    this.voiceMode = !!args.fromVoice
     const { ui, blocks } = this.userMessage(args)
     this.emit({ type: 'user-message', message: ui })
     this.pendingPrompts.push({ turnId: ui.id, blocks })

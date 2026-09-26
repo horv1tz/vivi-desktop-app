@@ -3,6 +3,7 @@ import type { Options, Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/c
 import type { AgentUiEvent, SessionState, UiBlock, UiMessage } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
 import { AsyncQueue } from './async-queue'
+import { markVoiceText } from './prompt'
 import { SessionReducer, makeError } from './reducer'
 
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options?: Options }) => Query
@@ -131,7 +132,8 @@ export class AgentSession {
     const blocks: UiBlock[] = []
     const content: ({ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'; data: string } })[] = []
     if (args.text.trim()) {
-      content.push({ type: 'text', text: args.text })
+      // The marker is sent to the agent only (AG-01); the UI keeps showing the user's own words.
+      content.push({ type: 'text', text: markVoiceText(args.text, args.fromVoice) })
       blocks.push({ type: 'text', text: args.text })
     }
     for (const img of args.images ?? []) {

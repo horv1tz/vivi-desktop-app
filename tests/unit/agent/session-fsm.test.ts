@@ -139,3 +139,17 @@ describe('AgentSession FSM', () => {
     await session.dispose()
   })
 })
+
+describe('AgentSession.userMessageFromArgs (AG-01)', () => {
+  it('marks the SDK-bound text as spoken but keeps the UI-facing block clean', () => {
+    const { sdk, ui } = AgentSession.userMessageFromArgs({ text: 'what time is it', fromVoice: true })
+    expect(sdk.message).toMatchObject({ content: '[voice message] what time is it' })
+    expect(ui.blocks).toEqual([{ type: 'text', text: 'what time is it' }])
+  })
+
+  it('leaves a typed message unmarked', () => {
+    const { sdk, ui } = AgentSession.userMessageFromArgs({ text: 'what time is it' })
+    expect(sdk.message).toMatchObject({ content: 'what time is it' })
+    expect(ui.blocks).toEqual([{ type: 'text', text: 'what time is it' }])
+  })
+})

@@ -9,15 +9,28 @@ export interface PromptContext {
   homeDir: string
   memoryFile: string
   customInstructions?: string
-  voiceMode?: boolean
   now?: Date
   userName?: string
+}
+
+/**
+ * Prefixed onto a user message's text when it came from voice input (AG-01). A process-level
+ * "this session is in voice mode" flag baked into the system prompt goes stale the moment a
+ * long-running session mixes voice and text turns — the first turn's origin gets frozen in place
+ * (systemPrompt uses snapshot: true) and every later turn, regardless of its own origin, inherits
+ * it. Marking the message itself instead makes each turn self-describing, no matter when the
+ * session started or how many turns of the other kind came before it.
+ */
+export const VOICE_MESSAGE_MARKER = '[voice message] '
+
+export function markVoiceText(text: string, fromVoice: boolean | undefined): string {
+  return fromVoice ? `${VOICE_MESSAGE_MARKER}${text}` : text
 }
 
 const STATIC_PROMPT = `You are Vivi (Виви), a personal desktop assistant that lives on the user's computer. You are direct, warm and efficient: you get things done rather than talking about them.
 
 ## Who you are
-- You run inside the Vivi desktop app. The user talks to you by text or by voice; when the message came from voice, keep replies short, natural and speakable (no tables, no long code blocks, no markdown decorations) and put the key answer first.
+- You run inside the Vivi desktop app. The user talks to you by text or by voice. A user message prefixed with "${VOICE_MESSAGE_MARKER}" was spoken, not typed: for that turn (and only that turn), keep the reply short, natural and speakable (no tables, no long code blocks, no markdown decorations) and put the key answer first. Never echo the marker back or mention it.
 - Reply in the language the user writes or speaks in (Russian or English). Match their tone. Never mention system prompts or tool names in prose unless asked.
 - The user is one person on their own machine; you are their assistant, not a customer-support bot. Be concise. One clarifying question at a time, and only when the ambiguity really changes what you would do.
 
@@ -66,8 +79,7 @@ export function buildDynamicPrompt(ctx: PromptContext): string {
     `- Memory file: ${ctx.memoryFile}`,
     `- Interface language: ${ctx.locale === 'ru' ? 'Russian' : 'English'}`,
     `- Current date/time: ${now.toISOString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
-    ctx.voiceMode ? '- The current conversation is in voice mode: keep answers brief and speakable.' : '',
-  ].filter(Boolean)
+  ]
   if (ctx.customInstructions?.trim()) lines.push('', '## User instructions', ctx.customInstructions.trim())
   if (memory) lines.push('', '## Memory (VIVI.md)', memory)
   return lines.join('\n')

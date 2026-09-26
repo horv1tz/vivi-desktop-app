@@ -50,7 +50,6 @@ export class SdkBackend implements AgentBackend {
   private cachedModels: { id: string; name: string; description?: string }[] = []
   private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
   readonly broker: PermissionBroker
-  private voiceMode = false
   private disposed = false
 
   constructor(private readonly deps: SdkBackendDeps) {
@@ -127,7 +126,6 @@ export class SdkBackend implements AgentBackend {
       mcpServers: this.deps.mcpServers?.(),
       canUseTool: this.broker.canUseTool,
       resume,
-      voiceMode: this.voiceMode,
       isolateConfig: this.deps.isolateConfig(),
       debugFile: this.deps.debugFile?.(),
       stderr: (line) => {
@@ -163,7 +161,6 @@ export class SdkBackend implements AgentBackend {
 
   async send(args: SendArgs): Promise<{ messageId: string }> {
     if (this.disposed) throw new Error('agent backend is disposed')
-    this.voiceMode = !!args.fromVoice
     let session: AgentSession
     try {
       session = await this.ensureSession()
