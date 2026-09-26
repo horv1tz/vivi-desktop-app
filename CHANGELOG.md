@@ -69,6 +69,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The local MCP HTTP endpoint used by ACP mode now validates `Origin`/`Host` (DNS-rebinding
   guard), caps request body size, bounds request/header timeouts, and reaps abandoned sessions
   after a TTL instead of only on full shutdown.
+- The dangerous-command detector no longer goes blind on commands nested inside a shell wrapper
+  (`bash -c "rm -rf /"`, `powershell -Command "Remove-Item -Recurse"`, `cmd /c "..."`): its own
+  "quoted strings are just data" heuristic used to blank out the wrapped payload along with truly
+  inert quoted text, letting the actually-executed command slip past every pattern undetected.
+  Also adds a `find … -delete` / `find … -exec rm` pattern that had no coverage at all.
 
 ## [0.1.1] - 2026-09-26
 
