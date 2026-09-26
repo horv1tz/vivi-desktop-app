@@ -234,6 +234,14 @@
     "delete": "Delete",
     "current": "current"
   },
+  "journal": {
+    "title": "What Vivi did",
+    "empty": "No actions recorded yet — tool calls will show up here as they happen.",
+    "running": "Running…",
+    "clear": "Clear",
+    "export": "Export",
+    "exported": "Saved to {{path}}"
+  },
   "overlay": {
     "listening": "Listening…",
     "thinking": "Thinking…",

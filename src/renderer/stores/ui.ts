@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 
-export type View = 'chat' | 'settings' | 'onboarding'
-export type SettingsSection = 'general' | 'account' | 'agent' | 'voice' | 'proxy' | 'permissions' | 'about'
+export type View = 'chat' | 'settings' | 'onboarding' | 'journal'
+export type SettingsSection =
+  'general' | 'account' | 'agent' | 'voice' | 'proxy' | 'permissions' | 'about'
 
 interface UiState {
   view: View

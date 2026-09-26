@@ -4,6 +4,7 @@ import type {
   Platform,
   AppInfo,
   AuthStatus,
+  JournalEntry,
   LoginFlowEvent,
   ModelDownloadProgress,
   OsPermissionStatus,
@@ -67,6 +68,9 @@ export interface InvokeMap {
   /** OBS-01: writes a diagnostics report (app info, redaction-free settings, OS permissions, log
    *  tail) to a user-chosen file. Returns the saved path, or null if the save dialog was cancelled. */
   'diagnostics:export': { args: []; result: string | null }
+  'journal:list': { args: []; result: JournalEntry[] }
+  'journal:clear': { args: []; result: void }
+  'journal:export': { args: []; result: string | null }
 
   'update:check': { args: []; result: void }
   'update:install': { args: []; result: void }

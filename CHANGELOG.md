@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and SHA-256 checksums uploaded alongside every release installer.
 - A screenshot format/quality setting (Settings > Agent): JPEG trades some fidelity for far
   smaller, cheaper, faster screenshots than the previous always-PNG default; applies live.
+- **Action journal** ("Activity" in the sidebar): every tool call the agent makes — file, command,
+  click, screenshot, and so on — is now recorded with its time, arguments, and result, survives a
+  restart, and can be cleared or exported to a file. Works the same for both the built-in Agent
+  SDK backend and ACP-hosted agents.
 
 ### Fixed
 

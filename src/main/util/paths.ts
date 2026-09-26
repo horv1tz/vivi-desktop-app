@@ -26,6 +26,10 @@ export const paths = {
   get crashesDir(): string {
     return app.getPath('crashDumps')
   },
+  /** AG-02: "what did Vivi do" action journal. */
+  get journalFile(): string {
+    return join(ensureDir(join(app.getPath('userData'), 'journal')), 'journal.json')
+  },
   get defaultWorkspace(): string {
     return join(homedir(), 'Vivi')
   },

@@ -9,6 +9,7 @@ import { TitleBar } from './features/layout/TitleBar'
 import { Sidebar } from './features/layout/Sidebar'
 import { ChatView } from './features/chat/ChatView'
 import { SettingsView } from './features/settings/SettingsView'
+import { JournalView } from './features/journal/JournalView'
 import { PermissionDialog } from './features/permissions/PermissionDialog'
 import { QuestionDialog } from './features/permissions/QuestionDialog'
 import { OnboardingView } from './features/onboarding/OnboardingView'
@@ -26,7 +27,9 @@ export function App() {
   useEffect(() => {
     void load()
     void hydrate()
-    invoke('app:getInfo').then(setInfo).catch(() => null)
+    invoke('app:getInfo')
+      .then(setInfo)
+      .catch(() => null)
   }, [load, hydrate])
 
   if (!loaded) return <div className="h-full bg-bg" />
@@ -49,8 +52,21 @@ export function App() {
         <Sidebar />
         <main className="relative min-w-0 flex-1">
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={view} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              {view === 'settings' ? <SettingsView /> : <ChatView mockAgent={info?.mockAgent ?? false} />}
+            <motion.div
+              key={view}
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {view === 'settings' ? (
+                <SettingsView />
+              ) : view === 'journal' ? (
+                <JournalView />
+              ) : (
+                <ChatView mockAgent={info?.mockAgent ?? false} />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>

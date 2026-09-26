@@ -1,7 +1,13 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import {
+  _electron as electron,
+  expect,
+  test,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test'
 import { mainWindow } from './helpers'
 
 let app: ElectronApplication
@@ -38,8 +44,19 @@ test('mock agent streams a reply with a tool card', async () => {
   await expect(page.getByText(/Стоимость|Cost/)).toBeVisible()
 })
 
+test('journal records the mock agent tool call', async () => {
+  await page.getByRole('button', { name: /Активность|Activity/ }).click()
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(/сделала Vivi|Vivi did/)
+  await expect(page.getByText('Bash')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText(/ls -la ~\/Vivi/)).toBeVisible()
+  await page.getByRole('button', { name: /Чат|Chat/ }).click()
+})
+
 test('settings view opens and switches sections', async () => {
-  await page.getByRole('button', { name: /Настройки|Settings/ }).first().click()
+  await page
+    .getByRole('button', { name: /Настройки|Settings/ })
+    .first()
+    .click()
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(/Общие|General/)
   await page.getByRole('button', { name: /О программе|About/ }).click()
   await expect(page.getByText(/Claude Agent SDK/)).toBeVisible()
@@ -58,13 +75,21 @@ test('overlay window exists and can be toggled via IPC', async () => {
 
 test('fresh profile starts with onboarding', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'vivi-e2e-fresh-'))
-  const fresh = await electron.launch({ args: ['.', '--no-sandbox', `--user-data-dir=${userData}`], env: { ...process.env, VIVI_MOCK_AGENT: '1' }, timeout: 60_000 })
+  const fresh = await electron.launch({
+    args: ['.', '--no-sandbox', `--user-data-dir=${userData}`],
+    env: { ...process.env, VIVI_MOCK_AGENT: '1' },
+    timeout: 60_000,
+  })
   try {
     const win = await mainWindow(fresh)
-    await expect(win.getByRole('heading', { level: 1 })).toHaveText(/Виви|Vivi/, { timeout: 15_000 })
+    await expect(win.getByRole('heading', { level: 1 })).toHaveText(/Виви|Vivi/, {
+      timeout: 15_000,
+    })
     await win.getByRole('button', { name: /Далее|Next/ }).click()
     await expect(win.getByRole('heading', { level: 2 })).toHaveText(/Claude/)
-    await expect(win.getByRole('button', { name: /Войти через Claude|Sign in with Claude/ })).toBeVisible()
+    await expect(
+      win.getByRole('button', { name: /Войти через Claude|Sign in with Claude/ }),
+    ).toBeVisible()
   } finally {
     await fresh.close()
   }

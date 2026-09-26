@@ -254,3 +254,15 @@ export interface OsPermissionStatus {
   /** CU-06: can Vivi drive other apps via Apple Events (osascript to System Events, window focus, etc.). */
   automation: 'granted' | 'denied' | 'unknown' | 'n/a'
 }
+
+/** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
+export interface JournalEntry {
+  id: string
+  toolUseId: string
+  name: string
+  /** JSON-stringified tool input, truncated if large. */
+  input: string
+  timestamp: number
+  parentToolUseId: string | null
+  result?: { content: string; isError: boolean; durationMs?: number }
+}

@@ -1,4 +1,5 @@
-import { app } from 'electron'
+import { app, dialog } from 'electron'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentUiEvent } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
@@ -7,6 +8,7 @@ import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
 import { AcpBackend } from './acp-backend'
+import { ActionJournal } from './journal'
 import { handle } from '../ipc/handlers'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
@@ -38,6 +40,7 @@ export interface ControllerDeps {
 export class AgentController {
   private backend: AgentBackend
   private unsubscribe: (() => void) | null = null
+  private journal = new ActionJournal(paths.journalFile)
 
   constructor(private readonly deps: ControllerDeps) {
     this.backend = this.createBackend()
@@ -128,6 +131,7 @@ export class AgentController {
   async start(): Promise<void> {
     this.unsubscribe?.()
     this.unsubscribe = this.backend.onEvent((e: AgentUiEvent) => {
+      this.journal.record(e)
       emit('agent:event', e)
       for (const l of this.eventListeners) l(e)
     })
@@ -177,6 +181,7 @@ export class AgentController {
       // renderer settles), but not its state/session events, which would fight the new backend's.
       const tap = old.onEvent((e) => {
         if (e.type === 'state' || e.type === 'session' || e.type === 'history') return
+        this.journal.record(e)
         emit('agent:event', e)
         for (const l of this.eventListeners) l(e)
       })
@@ -216,6 +221,20 @@ export class AgentController {
     handle('question:respond', (_e, requestId, answers) =>
       this.backend.broker?.answerQuestion(requestId, answers),
     )
+    handle('journal:list', () => this.journal.list())
+    handle('journal:clear', () => this.journal.clear())
+    handle('journal:export', async () => {
+      const win = getMainWindow()
+      const defaultPath = join(
+        app.getPath('desktop'),
+        `vivi-journal-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
+      )
+      const opts = { defaultPath, filters: [{ name: 'JSON', extensions: ['json'] }] }
+      const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+      if (res.canceled || !res.filePath) return null
+      writeFileSync(res.filePath, JSON.stringify(this.journal.list(), null, 2), 'utf8')
+      return res.filePath
+    })
     app.on('will-quit', () => void this.dispose())
   }
 }
