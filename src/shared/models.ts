@@ -1,7 +1,8 @@
 // ---------- Voice model registry (sherpa-onnx assets from the k2-fsa GitHub releases) ----------
 
 export type ModelKind = 'stt' | 'tts' | 'vad' | 'kws'
-export type SttEngine = 'online-transducer' | 'offline-transducer' | 'offline-whisper' | 'offline-nemo-ctc'
+export type SttEngine =
+  'online-transducer' | 'offline-transducer' | 'offline-whisper' | 'offline-nemo-ctc'
 
 export interface ModelFiles {
   /** Relative to the extracted model directory. */
@@ -22,6 +23,14 @@ export interface VoiceModel {
   sizeMb: number
   /** Download URL (tar.bz2 archive or a single .onnx file). */
   url: string
+  /**
+   * VO-08: SHA-256 of the raw downloaded bytes at `url` (the archive itself, before
+   * decompression, for tar.bz2 models), hex-encoded. A model without one skips verification
+   * (unchanged from previous behavior) rather than failing closed — most entries below don't have
+   * a pinned hash yet; add one whenever a model's checksum has actually been verified against the
+   * upstream release.
+   */
+  sha256?: string
   /** Directory name created after extraction (for archives). */
   dir: string
   engine?: SttEngine
@@ -43,6 +52,7 @@ export const VOICE_MODELS: VoiceModel[] = [
     language: 'multi',
     sizeMb: 2.3,
     url: `${ASR}/silero_vad_v5.onnx`,
+    sha256: '6b99cbfd39246b6706f98ec13c7c50c6b299181f2474fa05cbc8046acc274396',
     dir: 'silero_vad_v5',
     files: { model: 'silero_vad_v5.onnx', tokens: '' },
     recommended: true,
@@ -57,7 +67,12 @@ export const VOICE_MODELS: VoiceModel[] = [
     url: `${ASR}/sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16.tar.bz2`,
     dir: 'sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16',
     engine: 'online-transducer',
-    files: { encoder: 'encoder.int8.onnx', decoder: 'decoder.onnx', joiner: 'joiner.int8.onnx', tokens: 'tokens.txt' },
+    files: {
+      encoder: 'encoder.int8.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.int8.onnx',
+      tokens: 'tokens.txt',
+    },
     description: 'Fast streaming Russian recognition with live partial results.',
     recommended: true,
   },
@@ -70,7 +85,12 @@ export const VOICE_MODELS: VoiceModel[] = [
     url: `${ASR}/sherpa-onnx-zipformer-ru-int8-2025-04-20.tar.bz2`,
     dir: 'sherpa-onnx-zipformer-ru-int8-2025-04-20',
     engine: 'offline-transducer',
-    files: { encoder: 'encoder.int8.onnx', decoder: 'decoder.onnx', joiner: 'joiner.int8.onnx', tokens: 'tokens.txt' },
+    files: {
+      encoder: 'encoder.int8.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.int8.onnx',
+      tokens: 'tokens.txt',
+    },
     description: 'Decodes each utterance after you stop speaking; more accurate.',
   },
   {
@@ -95,7 +115,12 @@ export const VOICE_MODELS: VoiceModel[] = [
     url: `${ASR}/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2`,
     dir: 'sherpa-onnx-streaming-zipformer-en-2023-06-26',
     engine: 'online-transducer',
-    files: { encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx', decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx', joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx', tokens: 'tokens.txt' },
+    files: {
+      encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx',
+      joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      tokens: 'tokens.txt',
+    },
     description: 'Streaming English recognition with partial results.',
     recommended: true,
   },
@@ -109,7 +134,11 @@ export const VOICE_MODELS: VoiceModel[] = [
     url: `${ASR}/sherpa-onnx-whisper-base.tar.bz2`,
     dir: 'sherpa-onnx-whisper-base',
     engine: 'offline-whisper',
-    files: { encoder: 'base-encoder.int8.onnx', decoder: 'base-decoder.int8.onnx', tokens: 'base-tokens.txt' },
+    files: {
+      encoder: 'base-encoder.int8.onnx',
+      decoder: 'base-decoder.int8.onnx',
+      tokens: 'base-tokens.txt',
+    },
     description: 'Auto-detects the language; good for mixed RU/EN.',
   },
   {
@@ -121,7 +150,11 @@ export const VOICE_MODELS: VoiceModel[] = [
     url: `${ASR}/sherpa-onnx-whisper-turbo.tar.bz2`,
     dir: 'sherpa-onnx-whisper-turbo',
     engine: 'offline-whisper',
-    files: { encoder: 'turbo-encoder.int8.onnx', decoder: 'turbo-decoder.int8.onnx', tokens: 'turbo-tokens.txt' },
+    files: {
+      encoder: 'turbo-encoder.int8.onnx',
+      decoder: 'turbo-decoder.int8.onnx',
+      tokens: 'turbo-tokens.txt',
+    },
     description: 'Highest quality multilingual model; needs a fast CPU.',
   },
   // ---- TTS ----
@@ -196,7 +229,12 @@ export const VOICE_MODELS: VoiceModel[] = [
     sizeMb: 18,
     url: `${KWS}/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2`,
     dir: 'sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01',
-    files: { encoder: 'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx', decoder: 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx', joiner: 'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx', tokens: 'tokens.txt' },
+    files: {
+      encoder: 'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
+      decoder: 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx',
+      joiner: 'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
+      tokens: 'tokens.txt',
+    },
     description: 'Detects “Vivi” / “hey Vivi” with a tiny always-on model.',
     recommended: true,
   },
@@ -218,7 +256,12 @@ export function defaultTtsVoice(language: 'ru' | 'en' | 'auto'): string {
 }
 
 /** Models required for the given voice settings (all must be installed before voice starts). */
-export function requiredModels(opts: { sttModel: string; ttsVoice: string; wakeWordEnabled: boolean; wakeWordStrategy: 'kws' | 'transcript' }): string[] {
+export function requiredModels(opts: {
+  sttModel: string
+  ttsVoice: string
+  wakeWordEnabled: boolean
+  wakeWordStrategy: 'kws' | 'transcript'
+}): string[] {
   const ids = ['vad-silero-v5', opts.sttModel, opts.ttsVoice]
   if (opts.wakeWordEnabled && opts.wakeWordStrategy === 'kws') ids.push('kws-zipformer-en')
   return [...new Set(ids)].filter((id) => modelById(id))

@@ -509,7 +509,7 @@ gantt
 - **Объём:** «стоп», «громче/тише», «повтори», «отмена» обрабатываются на устройстве; рутины (SCH-01) озвучивают результат; тихие часы.
 - **Оценка:** M · **P2** · **0.4**
 
-#### VO-08 · Model management v2
+#### VO-08 · Model management v2 · ⚠️ Partially done (sha256 verification mechanism shipped, with one real pinned hash as a verified example; resumable downloads, mirrors, auto-select-by-language, and unused-model cleanup are still open)
 - **Объём:** sha256 моделей, докачка, зеркала (не только GitHub), выбор модели по языку автоматически, удаление неиспользуемых, шаг онбординга «скажи Виви», прогресс с оценкой времени.
 - **Подход:** `voice/models.ts`, `shared/models.ts` (поля `sha256`, `mirrors`), `OnboardingView`.
 - **Оценка:** M · **P1** · **0.2**
@@ -964,7 +964,7 @@ SemVer; до 1.0 минорные версии могут менять наст�
 | VO-05 | Голосовые разрешения и вопросы | VO | P1 | M | 0.2 | 📋 |
 | VO-06 | Стриминговый TTS и нормализация | VO | P1 | M | 0.2 | 📋 |
 | VO-07 | Локальные команды и проактивные уведомления | VO | P2 | M | 0.4 | 📋 |
-| VO-08 | Model management v2 | VO | P1 | M | 0.2 | 📋 |
+| VO-08 | Model management v2 | VO | P1 | M | 0.2 | 🔶 |
 | VO-09 | Своя wake-word модель | VO | P2 | L | 0.5 | 📋 |
 | VO-10 | GPU и новые модели | VO | P3 | L | 0.5 | 💡 |
 | VO-11 | Верификация говорящего | VO | P3 | M | 0.5 | 💡 |
