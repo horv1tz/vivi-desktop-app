@@ -38,6 +38,13 @@ test('voice worker loads models and arms the pipeline', async () => {
         }),
     )
     expect(chunks).toBeGreaterThan(0)
+
+    // VO-02: once every chunk has reached the renderer (or been reported as failed and filled with
+    // silence — see VoiceOrchestrator's 'tts-error' handling) and playback finishes, the pipeline
+    // must come back to 'armed' on its own rather than getting stuck in 'speaking'/'thinking'.
+    await expect
+      .poll(async () => page.evaluate(() => (window as unknown as { vivi: { invoke: (c: string) => Promise<string> } }).vivi.invoke('voice:getState')), { timeout: 30_000, intervals: [500] })
+      .toBe('armed')
   } finally {
     await app.close()
   }

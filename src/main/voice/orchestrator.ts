@@ -19,6 +19,29 @@ import { sherpaLibDir } from './native-paths'
 
 const log = logger('voice')
 
+/**
+ * VO-02 watchdog defaults: generous ceilings so a normal (if slow) reply never trips them, but the
+ * user is never left staring at a silently "stuck" orb forever if the agent or TTS playback hangs.
+ */
+const DEFAULT_THINKING_TIMEOUT_MS = 90_000
+const DEFAULT_SPEAKING_TIMEOUT_MS = 60_000
+
+/**
+ * A few ms of silence sent in place of a chunk whose synthesis failed (VO-02). The renderer's
+ * playback queue is strictly ordered by seq and waits for every one of them before it will fire
+ * "done" — without this filler, a single failed chunk leaves a permanent gap and the whole reply
+ * (and the 'speaking' state) hangs forever instead of just skipping the bad sentence.
+ */
+const FILLER_SAMPLE_RATE = 16000
+const FILLER_SAMPLES = 160 // 10ms of silence — inaudible, just enough to keep the queue moving
+
+export interface VoiceOrchestratorTimeouts {
+  /** Max time to wait for the agent's reply before forcing 'armed' + an 'error' state. */
+  thinkingMs?: number
+  /** Max time to wait for a TTS turn to finish playing before forcing 'armed' + an 'error' state. */
+  speakingMs?: number
+}
+
 export interface OrchestratorDeps {
   getSettings: () => Settings
   modelsDir: string
@@ -48,9 +71,15 @@ export class VoiceOrchestrator {
   private unsubscribeAgent: (() => void) | null = null
   private cloud: OpenAIVoiceProvider | null = null
   private starting: Promise<void> | null = null
+  private readonly thinkingTimeoutMs: number
+  private readonly speakingTimeoutMs: number
+  private thinkingWatchdog: ReturnType<typeof setTimeout> | null = null
+  private speakingWatchdog: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: OrchestratorDeps) {
+  constructor(private readonly deps: OrchestratorDeps, timeouts?: VoiceOrchestratorTimeouts) {
     this.models = new ModelManager(deps.modelsDir, (p) => emit('voice:modelProgress', p))
+    this.thinkingTimeoutMs = timeouts?.thinkingMs ?? DEFAULT_THINKING_TIMEOUT_MS
+    this.speakingTimeoutMs = timeouts?.speakingMs ?? DEFAULT_SPEAKING_TIMEOUT_MS
   }
 
   /** Subscribe to agent events; called once the agent controller exists (they reference each other). */
@@ -65,7 +94,63 @@ export class VoiceOrchestrator {
 
   private setState(state: VoiceState, detail?: string): void {
     this.state = state
+    // VO-02: (re)arm or clear the stuck-state watchdogs on every transition, so a legitimate
+    // change of state (progress, or moving on to something else) always resets the clock.
+    if (state === 'thinking') this.armThinkingWatchdog()
+    else this.clearThinkingWatchdog()
+    if (state === 'speaking') this.armSpeakingWatchdog()
+    else this.clearSpeakingWatchdog()
     emit('voice:state', { state, detail })
+  }
+
+  private clearThinkingWatchdog(): void {
+    if (this.thinkingWatchdog) {
+      clearTimeout(this.thinkingWatchdog)
+      this.thinkingWatchdog = null
+    }
+  }
+
+  private clearSpeakingWatchdog(): void {
+    if (this.speakingWatchdog) {
+      clearTimeout(this.speakingWatchdog)
+      this.speakingWatchdog = null
+    }
+  }
+
+  private armThinkingWatchdog(): void {
+    this.clearThinkingWatchdog()
+    this.thinkingWatchdog = setTimeout(() => {
+      this.thinkingWatchdog = null
+      if (this.state !== 'thinking') return
+      log.warn(`voice: 'thinking' watchdog fired after ${this.thinkingTimeoutMs}ms, forcing re-arm`)
+      this.currentVoiceTurn = false
+      this.setState('error', 'response timed out')
+      this.setState(this.workerReady ? 'armed' : 'off')
+    }, this.thinkingTimeoutMs)
+  }
+
+  private armSpeakingWatchdog(): void {
+    this.clearSpeakingWatchdog()
+    this.speakingWatchdog = setTimeout(() => {
+      this.speakingWatchdog = null
+      if (this.state !== 'speaking') return
+      log.warn(`voice: 'speaking' watchdog fired after ${this.speakingTimeoutMs}ms, forcing re-arm`)
+      const gen = this.speakGeneration
+      this.worker?.send({ type: 'tts-cancel', generation: gen })
+      emit('voice:stopPlayback', { generation: gen })
+      this.speakGeneration++
+      this.pendingSeq = 0
+      this.speaking = false
+      this.worker?.send({ type: 'set-speaking', speaking: false })
+      this.setState('error', 'playback timed out')
+      this.setState(this.workerReady ? 'armed' : 'off')
+    }, this.speakingTimeoutMs)
+  }
+
+  /** A short, silent stand-in for a chunk whose TTS synthesis failed (VO-02): keeps the
+   *  renderer's strictly-ordered playback queue moving instead of stalling on the missing seq. */
+  private emitSilentFiller(generation: number, seq: number): void {
+    emit('voice:audio', { generation, seq, sampleRate: FILLER_SAMPLE_RATE, pcm: new Float32Array(FILLER_SAMPLES).buffer, last: false })
   }
 
   /** Models that still need downloading for the current settings. */
@@ -239,6 +324,10 @@ export class VoiceOrchestrator {
         break
       case 'tts-error':
         log.warn(`tts error seq ${msg.seq}: ${msg.error}`)
+        // VO-02: the renderer's playback queue is strictly ordered by seq, so a chunk that failed
+        // to synthesize must still be "filled in" or every chunk after it (and the final 'done'
+        // marker) would wait forever for a seq that will never arrive.
+        if (msg.generation === this.speakGeneration) this.emitSilentFiller(msg.generation, msg.seq)
         break
       case 'error':
         log.error('worker error', msg.message)
@@ -313,6 +402,9 @@ export class VoiceOrchestrator {
       emit('voice:audio', { generation, seq, sampleRate: 0, pcm: bytes, last: false, mimeType } as never)
     } catch (err) {
       log.warn('cloud tts failed', err)
+      // Same reasoning as the local-worker 'tts-error' case above: fill the gap so the ordered
+      // playback queue (and therefore the 'speaking' state) doesn't hang on this seq forever.
+      if (generation === this.speakGeneration) this.emitSilentFiller(generation, seq)
     }
   }
 
@@ -366,6 +458,8 @@ export class VoiceOrchestrator {
   }
 
   async dispose(): Promise<void> {
+    this.clearThinkingWatchdog()
+    this.clearSpeakingWatchdog()
     this.unsubscribeAgent?.()
     await this.worker?.stop()
     this.worker = null

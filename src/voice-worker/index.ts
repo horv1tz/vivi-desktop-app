@@ -17,10 +17,36 @@ function send(msg: WorkerToMain): void {
 let engines: BuiltEngines | null = null
 let pipeline: VoicePipeline | null = null
 let audioPort: MessagePortMain | null = null
-let ttsQueue: { generation: number; seq: number; text: string }[] = []
+let ttsQueue: TtsJob[] = []
 let ttsBusy = false
 let cancelledGeneration = -1
 let speed = 1.0
+
+export interface TtsJob {
+  generation: number
+  seq: number
+  text: string
+}
+
+export interface TtsSynthesizer {
+  synthesize(text: string, speed: number): Promise<{ samples: Float32Array; sampleRate: number }>
+}
+
+/**
+ * Synthesizes one queued TTS chunk. Never throws (VO-02): a failed chunk resolves to a
+ * 'tts-error' message instead of rejecting, so the caller's queue loop can move straight on to
+ * the next chunk rather than a single bad sentence stalling — or killing — the whole reply.
+ */
+export async function synthesizeTtsJob(job: TtsJob, tts: TtsSynthesizer | null, speed: number, onError: (err: unknown) => void): Promise<WorkerToMain> {
+  if (!tts) return { type: 'tts-error', generation: job.generation, seq: job.seq, error: 'TTS model not loaded' }
+  try {
+    const { samples, sampleRate } = await tts.synthesize(job.text, speed)
+    return { type: 'tts-audio', generation: job.generation, seq: job.seq, sampleRate, pcm: Float32Array.from(samples).buffer }
+  } catch (err) {
+    onError(err)
+    return { type: 'tts-error', generation: job.generation, seq: job.seq, error: (err as Error).message }
+  }
+}
 
 function int16ToFloat(buf: ArrayBuffer): Float32Array {
   const src = new Int16Array(buf)
@@ -47,18 +73,11 @@ async function runTtsQueue(): Promise<void> {
     while (ttsQueue.length) {
       const job = ttsQueue.shift()!
       if (job.generation <= cancelledGeneration) continue
-      if (!engines?.tts) {
-        send({ type: 'tts-error', generation: job.generation, seq: job.seq, error: 'TTS model not loaded' })
-        continue
-      }
-      try {
-        const { samples, sampleRate } = await engines.tts.synthesize(job.text, speed)
-        if (job.generation <= cancelledGeneration) continue
-        const copy = Float32Array.from(samples)
-        send({ type: 'tts-audio', generation: job.generation, seq: job.seq, sampleRate, pcm: copy.buffer })
-      } catch (err) {
-        send({ type: 'tts-error', generation: job.generation, seq: job.seq, error: (err as Error).message })
-      }
+      // A single chunk failing to synthesize must not stop the rest of the queue (VO-02): log it
+      // and keep going — synthesizeTtsJob() always resolves, it never throws.
+      const msg = await synthesizeTtsJob(job, engines?.tts ?? null, speed, (err) => log.error(`tts synth failed (gen ${job.generation} seq ${job.seq})`, err))
+      if (job.generation <= cancelledGeneration) continue
+      send(msg)
     }
   } finally {
     ttsBusy = false
@@ -153,7 +172,9 @@ process.on('uncaughtException', (err) => {
 })
 process.on('unhandledRejection', (reason) => log.error('unhandledRejection', reason))
 process.on('exit', (code) => log.info(`worker exiting with code ${code}`))
-// Keep the event loop alive: message ports alone may not hold the utility process open.
-setInterval(() => undefined, 60_000)
+// Keep the event loop alive: message ports alone may not hold the utility process open. Skipped
+// under Vitest (which sets process.env.VITEST) so unit tests can import this module's exported
+// helpers (e.g. synthesizeTtsJob) without leaking a timer into the test process.
+if (!process.env.VITEST) setInterval(() => undefined, 60_000)
 
 send({ type: 'ready' })
