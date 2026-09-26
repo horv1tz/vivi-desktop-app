@@ -14,7 +14,7 @@ import { settings } from '../settings/store'
 import { paths } from '../util/paths'
 import { resolveClaudeBinary } from '../util/claude-bin'
 import { resolveAcpAdapterEntry, resolveAcpBootstrap } from '../util/acp-adapter'
-import { getMainWindow, showMainWindow } from '../app/windows'
+import { getMainWindow, showMainWindow, withOwnWindowsHidden } from '../app/windows'
 import { createViviMcpServer } from './tools'
 import type { InputDriver } from './tools/input-driver'
 import type { BrokerUi } from './permissions/broker'
@@ -64,6 +64,7 @@ export class AgentController {
       inputDriver: this.deps.inputDriver,
       beforeInputAction: this.deps.beforeInputAction,
       appRegistryEnabled: () => settings().get().features.appRegistry,
+      withOwnWindowsHidden,
       log,
     })
   }

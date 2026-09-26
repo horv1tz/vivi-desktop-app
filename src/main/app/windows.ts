@@ -33,6 +33,24 @@ export function getOverlayWindow(): BrowserWindow | null {
   return overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow : null
 }
 
+/**
+ * CU-05: a screenshot the agent takes to see the user's screen is a full-display capture — it has
+ * no way to selectively omit one window's already-composited pixels — so without this, Vivi's own
+ * chat window or overlay orb (if visible) would show up inside its own "here's what I see"
+ * screenshot, confusing the model and potentially leaking chat content back into itself. Toggles
+ * OS-level content protection on Vivi's own windows only for the duration of `fn`, so a
+ * screen-share the user is running in another app still sees Vivi normally the rest of the time.
+ */
+export async function withOwnWindowsHidden<T>(fn: () => Promise<T>): Promise<T> {
+  const windows = [getMainWindow(), getOverlayWindow()].filter((w): w is BrowserWindow => w !== null)
+  for (const w of windows) w.setContentProtection(true)
+  try {
+    return await fn()
+  } finally {
+    for (const w of windows) if (!w.isDestroyed()) w.setContentProtection(false)
+  }
+}
+
 export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow {
   const existing = getMainWindow()
   if (existing) return existing

@@ -17,6 +17,8 @@ export interface ViviToolDeps {
   /** Called before every mouse/keyboard action; throws to abort (fail-safe corner, kill switch). */
   beforeInputAction?: () => Promise<void>
   appRegistryEnabled: () => boolean
+  /** CU-05: hides Vivi's own windows from screen capture for the duration of the callback. */
+  withOwnWindowsHidden: <T>(fn: () => Promise<T>) => Promise<T>
   log: { info: (...a: unknown[]) => void; warn: (...a: unknown[]) => void; error: (...a: unknown[]) => void }
 }
 
@@ -32,7 +34,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
     async ({ display, region }) => {
       try {
-        const shot = await captureScreen({ display, region })
+        const shot = await deps.withOwnWindowsHidden(() => captureScreen({ display, region }))
         const caption = `Screenshot of display #${shot.displayIndex} (id ${shot.displayId}): image ${shot.width}x${shot.height}px covering logical ${shot.logicalWidth}x${shot.logicalHeight} at origin (${shot.displayBounds.x + (region?.x ?? 0)}, ${shot.displayBounds.y + (region?.y ?? 0)}). To click a point seen at image pixel (px, py) use x = ${shot.displayBounds.x + (region?.x ?? 0)} + px * ${shot.scale.toFixed(4)}, y = ${shot.displayBounds.y + (region?.y ?? 0)} + py * ${shot.scale.toFixed(4)}. Cursor at (${screen.getCursorScreenPoint().x}, ${screen.getCursorScreenPoint().y}).`
         return image(shot.base64, shot.mimeType, caption)
       } catch (err) {
