@@ -18,6 +18,7 @@ import { VoiceOrchestrator } from './voice/orchestrator'
 import { InputGuard, resolveInputDriver } from './agent/tools/drivers'
 import { applyAutostart } from './app/autostart'
 import { getMainWindow, isOverlayVisible } from './app/windows'
+import { registerUpdater } from './app/updater'
 
 const log = logger('main')
 
@@ -106,6 +107,8 @@ async function bootstrap(): Promise<void> {
   syncConfigDirEnv()
   voice.attachAgent()
   voice.registerIpc()
+  const updater = registerUpdater({ getSettings: () => store.get(), onStatus: (status) => emit('update:status', status) })
+  updater.registerIpc()
   registerCoreHandlers({ mockAgent, backend: () => agent.kind })
   agent.registerIpc()
   registerAuthHandlers(auth)
@@ -126,9 +129,16 @@ async function bootstrap(): Promise<void> {
   }
   createTray(trayActions)
   let agentFingerprint = agentSettingsFingerprint(store.get())
+  let hotkeyFingerprint = hotkeySettingsFingerprint(store.get())
   store.onChanged((next) => {
     refreshTrayMenu(trayActions)
-    registerShortcuts(shortcutActions)
+    // Re-registering global shortcuts briefly drops them; only do it when a hotkey actually changed,
+    // not on every unrelated settings write (theme, agent text fields, …).
+    const hfp = hotkeySettingsFingerprint(next)
+    if (hfp !== hotkeyFingerprint) {
+      hotkeyFingerprint = hfp
+      registerShortcuts(shortcutActions)
+    }
     nativeTheme.themeSource = next.appearance.theme
     const fp = agentSettingsFingerprint(next)
     if (fp !== agentFingerprint) {
@@ -172,6 +182,7 @@ async function bootstrap(): Promise<void> {
 
   await agent.start()
   log.info(`ready (mock agent: ${mockAgent})`)
+  updater.checkOnStartup()
 
   applyAutostart(store.get().appearance.launchAtLogin, store.get().appearance.startMinimized)
   let voiceFingerprint = JSON.stringify(store.get().voice)
@@ -196,6 +207,10 @@ async function bootstrap(): Promise<void> {
 /** Settings whose change requires respawning the Claude Code process. */
 function agentSettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
   return JSON.stringify({ agent: s.agent, proxy: s.proxy, auth: s.auth, permissions: { ...s.permissions, alwaysAllowRules: undefined }, lang: s.appearance.language, debug: s.features.debugSdk })
+}
+
+function hotkeySettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
+  return `${s.appearance.overlayHotkey}\u0000${s.appearance.killSwitchHotkey}`
 }
 
 process.on('uncaughtException', (err) => {

@@ -7,6 +7,11 @@
 <p align="center">Личный AI-ассистент для Windows, Linux и macOS на моделях Claude.<br/>
 Текст и голос, файлы и терминал, интернет, управление программами — через Claude Agent SDK.</p>
 
+<p align="center">
+  <a href="https://github.com/horv1tz/vivi-desktop-app/actions/workflows/ci.yml"><img src="https://github.com/horv1tz/vivi-desktop-app/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/horv1tz/vivi-desktop-app/releases"><img src="https://img.shields.io/github/v/release/horv1tz/vivi-desktop-app" alt="Release" /></a>
+</p>
+
 <p align="center"><a href="#english">English below</a></p>
 
 ---

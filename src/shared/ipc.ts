@@ -13,6 +13,7 @@ import type {
   SessionState,
   SessionSummary,
   UiMessage,
+  UpdateStatus,
   VoiceState,
   VoiceStateEvent,
   VoiceTranscriptEvent,
@@ -60,6 +61,9 @@ export interface InvokeMap {
   'app:requestOsPermission': { args: ['microphone' | 'screen' | 'accessibility']; result: boolean }
   'app:openLogs': { args: []; result: void }
   'app:relaunch': { args: []; result: void }
+
+  'update:check': { args: []; result: void }
+  'update:install': { args: []; result: void }
 
   'settings:get': { args: []; result: Settings }
   'settings:update': { args: [DeepPartial<Settings>]; result: Settings }
@@ -132,6 +136,7 @@ export interface EventMap {
   'voice:level': number
   'overlay:visibility': boolean
   'app:notification': { title: string; body: string; level?: 'info' | 'warn' | 'error' }
+  'update:status': UpdateStatus
 }
 
 export type InvokeChannel = keyof InvokeMap

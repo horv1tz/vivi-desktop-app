@@ -192,6 +192,15 @@ export interface LoginFlowEvent {
   message?: string
 }
 
+/** Progress/status of an app update check, download or install (see src/main/app/updater.ts). */
+export type UpdateStatus =
+  | { type: 'checking' }
+  | { type: 'available'; version: string }
+  | { type: 'not-available' }
+  | { type: 'downloading'; percent: number }
+  | { type: 'downloaded'; version: string }
+  | { type: 'error'; message: string }
+
 export type Platform = 'aix' | 'android' | 'darwin' | 'freebsd' | 'haiku' | 'linux' | 'openbsd' | 'sunos' | 'win32' | 'cygwin' | 'netbsd'
 
 export interface AppInfo {
