@@ -106,6 +106,8 @@ export type AgentUiEvent =
   | { type: 'assistant-message'; message: UiMessage }
   | { type: 'tool-use'; messageId: string; block: UiToolUseBlock; parentToolUseId: string | null }
   | { type: 'tool-result'; toolUseId: string; result: UiToolResult }
+  /** Late-arriving tool input/name (ACP streams the call before its arguments are complete). */
+  | { type: 'tool-update'; toolUseId: string; input?: unknown; name?: string }
   | { type: 'result'; result: TurnResult }
   | { type: 'error'; error: AgentError }
   | { type: 'rate-limit'; info: RateLimitInfo }
@@ -203,6 +205,9 @@ export interface AppInfo {
   claudeBinary: string | null
   sdkVersion: string
   mockAgent: boolean
+  /** Active agent backend. */
+  backend: 'mock' | 'sdk' | 'acp'
+  acpAdapterVersion: string
 }
 
 export interface OsPermissionStatus {

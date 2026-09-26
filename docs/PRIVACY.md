@@ -14,3 +14,11 @@
   never message contents unless SDK debug logging is enabled.
 - **Claude subscription sign-in.** Signing in with a Claude.ai subscription is intended for personal
   use with your own subscription only. It is not a way to distribute the app; use an API key otherwise.
+
+## ACP mode
+
+When the ACP backend is selected, Vivi runs the agent as a separate local process and serves its own tools to it over
+HTTP on `127.0.0.1` at a random port. The endpoint accepts only requests carrying a bearer token generated for that
+process and is closed when the agent stops; nothing listens on external interfaces. A third-party ACP agent configured
+in Settings receives the same environment as Claude Code (proxy variables, `CLAUDE_CONFIG_DIR`, and the API key or
+OAuth token if one is configured), so only run agents you trust.

@@ -15,6 +15,7 @@
 
 - **Команды текстом и голосом.** Push-to-talk по хоткею (`Ctrl/Cmd+Shift+Space`) открывает overlay-палитру; wake-word «Виви» слушает постоянно (офлайн). Ответы озвучиваются по предложениям, можно перебивать голосом (barge-in).
 - **Настоящий агент, а не чат.** Внутри — [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) (Claude Code как библиотека): Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch, подзадачи, сессии, память.
+- **Два способа подключения к Claude.** По умолчанию — Agent SDK внутри приложения. Альтернатива — **ACP (Agent Client Protocol)**: Vivi запускает Claude Code как отдельный ACP-агент через официальный адаптер [`claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp) (тот же протокол, что в Zed и JetBrains) и общается с ним по JSON-RPC. В этом режиме можно подключить и любой другой ACP-агент (команда + аргументы в настройках); инструменты Vivi при этом передаются агенту по локальному MCP-серверу.
 - **Управление компьютером.** Встроенный MCP-сервер `vivi`: скриншоты, мышь и клавиатура, окна, запуск приложений/файлов/URL, буфер обмена, уведомления, громкость/блокировка/сон, `remember` (память в `~/Vivi/memory/VIVI.md`).
 - **Разрешения по категориям.** Чтение без вопросов, правки/команды/управление — с подтверждением; опасные команды (`rm -rf`, `sudo`, `shutdown`, force-push) всегда требуют подтверждения. Kill-switch `Ctrl/Cmd+Shift+Esc`, fail-safe «мышь в угол экрана».
 - **Вход через Claude.** Подписка Claude (вход через встроенный Claude Code), долгоживущий токен `claude setup-token` или API-ключ Anthropic. Секреты — в системном хранилище (Keychain/DPAPI/Secret Service).
@@ -58,7 +59,7 @@ node scripts/verify-dist.mjs
 ## Настройки
 
 - **Аккаунт** — способ входа, статус подписки, выход.
-- **Агент** — модель, effort, режим разрешений (`default`/`acceptEdits`/`auto`/`bypassPermissions`), рабочая папка, дополнительные каталоги, лимиты шагов и стоимости, свои инструкции.
+- **Агент** — способ подключения (Agent SDK или ACP + команда стороннего ACP-агента), модель, effort, режим разрешений (`default`/`acceptEdits`/`auto`/`bypassPermissions`), рабочая папка, дополнительные каталоги, лимиты шагов и стоимости, свои инструкции.
 - **Голос** — язык, модели, голос, устройства, wake-word, облачные провайдеры.
 - **Прокси** — режим, схема, логин/пароль, bypass, CA-сертификат, проверка соединения.
 - **Разрешения** — категории и список «всегда разрешено».
@@ -95,6 +96,12 @@ VIVI_MODELS_DIR=<папка с моделями> LD_LIBRARY_PATH=$PWD/node_modul
 (push-to-talk hotkey or the offline wake word “Vivi”), answers out loud, searches the web, works
 with files and the terminal, and controls applications through a built-in MCP tool server
 (screenshots, mouse/keyboard, windows, app launching, clipboard, notifications, system actions).
+
+Claude can be driven either by the in-process Agent SDK (default) or over **ACP (Agent Client
+Protocol)**: Vivi spawns Claude Code as a separate ACP agent through the official
+[`claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp) adapter
+(the protocol Zed and JetBrains use), and any other ACP agent can be plugged in from Settings → Agent;
+Vivi's own tools reach the agent over a local MCP endpoint.
 
 Sign in with a Claude subscription (personal use with your own subscription only — see the note
 above), a `claude setup-token` token, or an Anthropic API key. HTTP/HTTPS/SOCKS5 proxies with

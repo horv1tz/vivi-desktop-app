@@ -23,7 +23,9 @@ export function AboutSection() {
     <>
       <Section title="Vivi">
         {row(t('settings.about.version'), info ? `${info.version} (${info.platform}/${info.arch}${info.isPackaged ? '' : ', dev'})` : null)}
+        {row(t('settings.about.backend'), info ? t(`settings.about.backends.${info.backend}`) : null)}
         {row(t('settings.about.sdk'), info?.sdkVersion)}
+        {row(t('settings.about.acp'), info?.acpAdapterVersion)}
         {row(t('settings.about.binary'), info?.claudeBinary ?? 'auto')}
         {row(t('settings.about.userData'), info?.userDataPath)}
         <div className="flex gap-2">

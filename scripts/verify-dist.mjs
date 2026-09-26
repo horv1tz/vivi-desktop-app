@@ -15,15 +15,19 @@ let failed = false
 for (const dir of candidates) {
   const base = join(distDir, dir)
   const resources = dir.endsWith('.app') ? join(base, 'Contents', 'Resources') : join(base, 'resources')
-  const bin = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  // Infer the target platform from the output folder so cross-builds (dist/win-unpacked on Linux) are checked too.
+  const targetIsWin = dir.startsWith('win') || process.platform === 'win32'
+  const bin = targetIsWin ? 'claude.exe' : 'claude'
   const binPath = join(resources, 'claude-bin', bin)
+  const canRun = targetIsWin === (process.platform === 'win32')
   console.log(`\n== ${base}`)
   if (!existsSync(binPath)) {
     console.error(`  ✗ missing ${binPath}`)
     failed = true
   } else {
     const size = statSync(binPath).size
-    try {
+    if (!canRun) console.log(`  ✓ claude-bin present (${(size / 1e6).toFixed(1)} MB; cross-build, not executed)`)
+    else try {
       const v = execFileSync(binPath, ['--version'], { encoding: 'utf8', timeout: 60_000, env: { ...process.env, CLAUDE_CONFIG_DIR: join(process.cwd(), 'dist', '.verify-config') } }).trim()
       console.log(`  ✓ claude-bin ok (${(size / 1e6).toFixed(1)} MB): ${v}`)
     } catch (err) {

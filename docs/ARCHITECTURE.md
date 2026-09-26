@@ -45,6 +45,26 @@ Permission rules the user marks "always allow" are stored in Vivi's settings and
 CLI on every spawn as inline `settings.permissions.allow` (the process runs with
 `settingSources: []`, isolated from the user's own Claude Code configuration).
 
+## Agent backends
+
+`AgentController` owns one `AgentBackend` (`mock` for tests, `sdk`, `acp`) chosen by `settings.agent.backend`;
+changing the setting swaps the backend at runtime. Both real backends share the permission engine
+(`permissions/policy.ts` → `PermissionBroker` → renderer dialogs), the system prompt, the `vivi` tool set and
+the same Claude Code session files (`CLAUDE_CONFIG_DIR/projects/<cwd>`).
+
+| | `sdk` (default) | `acp` |
+|---|---|---|
+| Transport | `@anthropic-ai/claude-agent-sdk` `query()` in the main process (streaming input) | JSON-RPC ndjson over stdio to an ACP agent process (`@agentclientprotocol/sdk` `ClientSideConnection`) |
+| Agent | native `claude` binary spawned by the SDK | bundled `claude-agent-acp` adapter run with `process.execPath` + `ELECTRON_RUN_AS_NODE=1` (imports ESM from `app.asar`), or any user-supplied ACP agent command |
+| Vivi tools | in-process MCP server (`createSdkMcpServer`) | the same server instances served over Streamable HTTP on `127.0.0.1:<random>` with a per-process bearer token, passed as an `http` MCP server in `session/new` |
+| Permissions | `canUseTool` callback | `session/request_permission` → policy → dialog → ACP option (`allow_once` / `allow_always` / `reject_once`); AskUserQuestion arrives as a form elicitation (`createElicitation`) |
+| Claude options | `Options` directly | forwarded in `_meta.claudeCode.options` (system prompt, `settingSources: []`, allow rules, allowedTools, model/effort/limits) |
+| History | `getSessionMessages` | same files for the Claude adapter (lazy `session/load` on first send); `session/load` replay for other agents |
+
+`acp/translate.ts` folds `session/update` notifications (`agent_message_chunk`, `agent_thought_chunk`, `tool_call`,
+`tool_call_update`, `usage_update`, …) into the same `AgentUiEvent` stream the reducer produces for the SDK, so the
+renderer is backend-agnostic.
+
 ## Voice pipeline
 
 ```

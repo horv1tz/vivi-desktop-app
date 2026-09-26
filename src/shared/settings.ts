@@ -4,6 +4,8 @@ import { z } from 'zod'
 
 export const EffortSchema = z.enum(['default', 'low', 'medium', 'high', 'xhigh', 'max'])
 export const PermissionModeSchema = z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions'])
+/** How Vivi talks to Claude: in-process Agent SDK, or an external agent over the Agent Client Protocol. */
+export const AgentBackendSchema = z.enum(['sdk', 'acp'])
 
 export const AgentSettingsSchema = z.object({
   /** Model id or alias; empty string = Claude Code default model. */
@@ -20,6 +22,11 @@ export const AgentSettingsSchema = z.object({
   continueLastSession: z.boolean().default(true),
   /** Extra instructions appended to Vivi's system prompt. */
   customInstructions: z.string().default(''),
+  backend: AgentBackendSchema.default('sdk'),
+  /** ACP agent executable; empty = the bundled Claude ACP adapter (claude-agent-acp). */
+  acpCommand: z.string().default(''),
+  /** Extra command-line arguments for the ACP agent (shell-like quoting). */
+  acpArgs: z.string().default(''),
 })
 
 export const PermissionRuleSchema = z.object({
@@ -111,6 +118,7 @@ export type AuthMode = z.infer<typeof AuthModeSchema>
 export type FeatureFlags = z.infer<typeof FeatureFlagsSchema>
 export type Effort = z.infer<typeof EffortSchema>
 export type PermissionMode = z.infer<typeof PermissionModeSchema>
+export type AgentBackendKind = z.infer<typeof AgentBackendSchema>
 
 export type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T
 

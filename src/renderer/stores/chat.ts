@@ -119,6 +119,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ messages })
         break
       }
+      case 'tool-update': {
+        const loc = findToolBlock(s.messages, e.toolUseId)
+        if (!loc) break
+        const messages = s.messages.slice()
+        const msg = { ...messages[loc.msgIdx]! }
+        const blocks = msg.blocks.slice()
+        const block = blocks[loc.blockIdx]
+        if (block?.type === 'tool_use') blocks[loc.blockIdx] = { ...block, input: e.input ?? block.input, name: e.name ?? block.name }
+        msg.blocks = blocks
+        messages[loc.msgIdx] = msg
+        set({ messages })
+        break
+      }
       case 'assistant-message':
         set({ messages: upsertMessage(s.messages, { ...e.message, streaming: false }) })
         break

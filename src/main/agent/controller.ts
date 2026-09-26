@@ -1,18 +1,22 @@
 import { app } from 'electron'
+import { join } from 'node:path'
 import type { AgentUiEvent } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
 import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
+import { AcpBackend } from './acp-backend'
 import { handle } from '../ipc/handlers'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
 import { settings } from '../settings/store'
 import { paths } from '../util/paths'
 import { resolveClaudeBinary } from '../util/claude-bin'
+import { resolveAcpAdapterEntry } from '../util/acp-adapter'
 import { getMainWindow, showMainWindow } from '../app/windows'
 import { createViviMcpServer } from './tools'
 import type { InputDriver } from './tools/input-driver'
+import type { BrokerUi } from './permissions/broker'
 
 const log = logger('agent')
 
@@ -27,7 +31,8 @@ export interface ControllerDeps {
 }
 
 /**
- * Owns the active AgentBackend, forwards its events to renderers and exposes the agent IPC surface.
+ * Owns the active AgentBackend (mock / Agent SDK / ACP), forwards its events to renderers and
+ * exposes the agent IPC surface. The backend kind follows settings.agent.backend.
  */
 export class AgentController {
   private backend: AgentBackend
@@ -37,15 +42,52 @@ export class AgentController {
     this.backend = this.createBackend()
   }
 
+  get kind(): AgentBackend['kind'] {
+    return this.backend.kind
+  }
+
   get sdk(): SdkBackend | null {
     return this.backend instanceof SdkBackend ? this.backend : null
   }
 
+  private desiredKind(): AgentBackend['kind'] {
+    if (this.deps.mock) return 'mock'
+    return settings().get().agent.backend === 'acp' ? 'acp' : 'sdk'
+  }
+
+  private viviTools() {
+    return createViviMcpServer({
+      memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+      speak: this.deps.speak,
+      stopSpeaking: this.deps.stopSpeaking,
+      inputDriver: this.deps.inputDriver,
+      beforeInputAction: this.deps.beforeInputAction,
+      appRegistryEnabled: () => settings().get().features.appRegistry,
+      log,
+    })
+  }
+
+  private brokerUi(): BrokerUi {
+    return {
+      requestPermission: (req) => {
+        emit('permission:request', req)
+        if (!getMainWindow()?.isVisible()) showMainWindow()
+      },
+      resolvePermission: (requestId) => emit('permission:resolved', { requestId }),
+      requestQuestion: (req) => {
+        emit('question:request', req)
+        if (!getMainWindow()?.isVisible()) showMainWindow()
+      },
+      resolveQuestion: (requestId) => emit('question:resolved', { requestId }),
+    }
+  }
+
   private createBackend(): AgentBackend {
-    if (this.deps.mock) return new MockBackend()
-    return new SdkBackend({
+    const kind = this.desiredKind()
+    if (kind === 'mock') return new MockBackend()
+    const common = {
       getSettings: () => settings().get(),
-      updateSettings: (patch) => {
+      updateSettings: (patch: { permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] } }) => {
         settings().update(patch)
         emit('settings:changed', settings().get())
       },
@@ -57,35 +99,30 @@ export class AgentController {
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
       debugFile: () => (settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined),
-      mcpServers: () => ({
-        vivi: createViviMcpServer({
-          memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
-          speak: this.deps.speak,
-          stopSpeaking: this.deps.stopSpeaking,
-          inputDriver: this.deps.inputDriver,
-          beforeInputAction: this.deps.beforeInputAction,
-          appRegistryEnabled: () => settings().get().features.appRegistry,
-          log,
-        }),
-      }),
-      ui: {
-        requestPermission: (req) => {
-          emit('permission:request', req)
-          if (!getMainWindow()?.isVisible()) showMainWindow()
-        },
-        resolvePermission: (requestId) => emit('permission:resolved', { requestId }),
-        requestQuestion: (req) => {
-          emit('question:request', req)
-          if (!getMainWindow()?.isVisible()) showMainWindow()
-        },
-        resolveQuestion: (requestId) => emit('question:resolved', { requestId }),
-      },
+      ui: this.brokerUi(),
+    }
+    if (kind === 'acp') {
+      return new AcpBackend({
+        ...common,
+        adapterEntry: resolveAcpAdapterEntry,
+        createMcpServer: () => this.viviTools().instance,
+        appVersion: app.getVersion(),
+        titlesFile: join(paths.userData, 'acp-session-titles.json'),
+        log,
+      })
+    }
+    return new SdkBackend({
+      ...common,
+      mcpServers: () => ({ vivi: this.viviTools() }),
     })
   }
 
   async start(): Promise<void> {
     this.unsubscribe?.()
-    this.unsubscribe = this.backend.onEvent((e: AgentUiEvent) => emit('agent:event', e))
+    this.unsubscribe = this.backend.onEvent((e: AgentUiEvent) => {
+      emit('agent:event', e)
+      for (const l of this.eventListeners) l(e)
+    })
     await this.backend.start()
   }
 
@@ -93,8 +130,12 @@ export class AgentController {
     return this.backend.send(args)
   }
 
+  private eventListeners = new Set<(e: AgentUiEvent) => void>()
+
+  /** Subscribe through the controller so listeners (voice) survive a backend swap. */
   onEvent(listener: (e: AgentUiEvent) => void): () => void {
-    return this.backend.onEvent(listener)
+    this.eventListeners.add(listener)
+    return () => this.eventListeners.delete(listener)
   }
 
   async killSwitch(): Promise<void> {
@@ -102,9 +143,18 @@ export class AgentController {
     await this.backend.interrupt()
   }
 
-  /** Restart the CLI process so changed auth/proxy/model settings apply. */
+  /** Restart the agent process so changed auth/proxy/model settings apply; swaps the backend kind if it changed. */
   async restart(): Promise<void> {
-    await this.sdk?.restart()
+    const desired = this.desiredKind()
+    if (desired !== this.backend.kind) {
+      log.info(`switching agent backend ${this.backend.kind} → ${desired}`)
+      this.unsubscribe?.()
+      await this.backend.dispose().catch((err) => log.warn('backend dispose failed', err))
+      this.backend = this.createBackend()
+      await this.start()
+      return
+    }
+    await this.backend.restart()
   }
 
   async dispose(): Promise<void> {
@@ -122,8 +172,8 @@ export class AgentController {
     handle('agent:renameSession', (_e, id, title) => this.backend.renameSession(id, title))
     handle('agent:deleteSession', (_e, id) => this.backend.deleteSession(id))
     handle('agent:listModels', () => this.backend.listModels())
-    handle('permission:respond', (_e, requestId, decision) => this.sdk?.broker.respond(requestId, decision))
-    handle('question:respond', (_e, requestId, answers) => this.sdk?.broker.answerQuestion(requestId, answers))
+    handle('permission:respond', (_e, requestId, decision) => this.backend.broker?.respond(requestId, decision))
+    handle('question:respond', (_e, requestId, answers) => this.backend.broker?.answerQuestion(requestId, answers))
     app.on('will-quit', () => void this.dispose())
   }
 }

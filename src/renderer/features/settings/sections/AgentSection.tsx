@@ -20,6 +20,25 @@ export function AgentSection() {
 
   return (
     <>
+      <Section title={t('settings.agent.backend')} description={t('settings.agent.backendHint')}>
+        <Field label={t('settings.agent.backend')} inline>
+          <Select value={s.backend} onChange={(e) => set({ backend: e.target.value as typeof s.backend })}>
+            <option value="sdk">{t('settings.agent.backends.sdk')}</option>
+            <option value="acp">{t('settings.agent.backends.acp')}</option>
+          </Select>
+        </Field>
+        {s.backend === 'acp' ? (
+          <>
+            <Field label={t('settings.agent.acpCommand')} hint={t('settings.agent.acpCommandHint')}>
+              <Input key={s.acpCommand} defaultValue={s.acpCommand} placeholder={t('settings.agent.acpCommandPlaceholder')} onBlur={(e) => e.target.value.trim() !== s.acpCommand && set({ acpCommand: e.target.value.trim() })} />
+            </Field>
+            <Field label={t('settings.agent.acpArgs')} hint={t('settings.agent.acpArgsHint')}>
+              <Input key={s.acpArgs} defaultValue={s.acpArgs} placeholder="--model claude-sonnet-5" onBlur={(e) => e.target.value !== s.acpArgs && set({ acpArgs: e.target.value })} />
+            </Field>
+            <p className="text-xs text-muted">{t('settings.agent.acpNote')}</p>
+          </>
+        ) : null}
+      </Section>
       <Section title={t('settings.agent.model')}>
         <Field label={t('settings.agent.model')} inline>
           <Select value={s.model} onChange={(e) => set({ model: e.target.value })}>

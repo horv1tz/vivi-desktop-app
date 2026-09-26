@@ -76,6 +76,13 @@ async function bootstrap(): Promise<void> {
     },
     isOverlayVisible: () => isOverlayVisible(),
   })
+  const inheritedConfigDir = process.env.CLAUDE_CONFIG_DIR
+  /** The SDK's session helpers (listSessions, getSessionMessages) resolve the config dir from this process' env. */
+  const syncConfigDirEnv = (): void => {
+    if (auth.isolateConfig()) process.env.CLAUDE_CONFIG_DIR = paths.claudeConfigDir
+    else if (inheritedConfigDir) process.env.CLAUDE_CONFIG_DIR = inheritedConfigDir
+    else delete process.env.CLAUDE_CONFIG_DIR
+  }
   const auth: AuthManager = new AuthManager({
     claudeBinary: () => resolveClaudeCliPath(),
     claudeConfigDir: paths.claudeConfigDir,
@@ -96,9 +103,10 @@ async function bootstrap(): Promise<void> {
       if (driver) await inputGuard.check(driver)
     },
   })
+  syncConfigDirEnv()
   voice.attachAgent()
   voice.registerIpc()
-  registerCoreHandlers({ mockAgent })
+  registerCoreHandlers({ mockAgent, backend: () => agent.kind })
   agent.registerIpc()
   registerAuthHandlers(auth)
 
@@ -126,6 +134,7 @@ async function bootstrap(): Promise<void> {
     if (fp !== agentFingerprint) {
       agentFingerprint = fp
       log.info('agent-affecting settings changed; restarting agent process')
+      syncConfigDirEnv()
       void proxy.apply().then(() => agent.restart())
     }
   })

@@ -154,7 +154,19 @@
       "maxBudget": "Cost limit per turn, $ (0 — unlimited)",
       "continueLast": "Continue last session on launch",
       "customInstructions": "Custom instructions for Vivi",
-      "customInstructionsHint": "For example: “be concise”, “my main project is …”"
+      "customInstructionsHint": "For example: “be concise”, “my main project is …”",
+      "backend": "How Vivi talks to Claude",
+      "backendHint": "The Agent SDK runs inside Vivi. ACP (Agent Client Protocol) runs Claude Code as a separate ACP agent — the same protocol Zed, JetBrains and other editors use; any other ACP agent can be plugged in too.",
+      "backends": {
+        "sdk": "Claude Agent SDK (built-in)",
+        "acp": "ACP — Agent Client Protocol"
+      },
+      "acpCommand": "ACP agent command",
+      "acpCommandHint": "Empty — the bundled Claude adapter (claude-agent-acp). Point it at another ACP agent instead, e.g. gemini or codex-acp.",
+      "acpCommandPlaceholder": "bundled claude-agent-acp",
+      "acpArgs": "Command-line arguments",
+      "acpArgsHint": "Extra arguments for the agent (quotes are supported).",
+      "acpNote": "Over ACP, Vivi hands the agent its own tools (screen, mouse, keyboard, windows, clipboard) through a local MCP server; authentication and proxy settings are shared with the built-in mode."
     },
     "about": {
       "version": "Version",
@@ -163,7 +175,14 @@
       "logs": "Open logs folder",
       "userData": "App data",
       "notice": "Vivi is a personal assistant for your own use. Signing in with a Claude subscription is meant only for personal use with your own subscription and is not a way to distribute the product; for anything else use an API key.",
-      "reset": "Reset settings"
+      "reset": "Reset settings",
+      "backend": "Claude connection",
+      "backends": {
+        "mock": "Mock (testing)",
+        "sdk": "Claude Agent SDK",
+        "acp": "ACP (claude-agent-acp)"
+      },
+      "acp": "claude-agent-acp adapter"
     },
     "save": "Save",
     "saved": "Saved",

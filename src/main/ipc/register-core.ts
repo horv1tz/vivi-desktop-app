@@ -3,6 +3,7 @@ import type { AppInfo, OsPermissionStatus } from '@shared/events'
 import { settings } from '../settings/store'
 import { paths } from '../util/paths'
 import { describeClaudeBinary } from '../util/claude-bin'
+import { acpAdapterVersion } from '../util/acp-adapter'
 import { getMainWindow, hideOverlay, showMainWindow, toggleOverlay } from '../app/windows'
 import { getOsPermissions, requestOsPermission } from '../app/os-permissions'
 import { handle } from './handlers'
@@ -10,7 +11,7 @@ import { emit } from './emitters'
 
 export const SDK_VERSION = '0.3.283'
 
-export function registerCoreHandlers(opts: { mockAgent: boolean }): void {
+export function registerCoreHandlers(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): void {
   handle('app:getInfo', (): AppInfo => {
     const s = settings().get()
     return {
@@ -24,6 +25,8 @@ export function registerCoreHandlers(opts: { mockAgent: boolean }): void {
       claudeBinary: describeClaudeBinary(),
       sdkVersion: SDK_VERSION,
       mockAgent: opts.mockAgent,
+      backend: opts.backend(),
+      acpAdapterVersion: acpAdapterVersion(),
     }
   })
   handle('app:getOsPermissions', (): OsPermissionStatus => getOsPermissions())

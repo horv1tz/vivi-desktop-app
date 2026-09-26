@@ -129,6 +129,11 @@ export class MockBackend implements AgentBackend {
     this.setState('closed')
   }
 
+  async restart(): Promise<void> {
+    this.aborted = true
+    this.setState('idle')
+  }
+
   async newSession(): Promise<void> {
     if (this.history.length > 0) {
       this.sessions.unshift({ sessionId: this.sessionId, title: this.history[0]?.blocks[0]?.type === 'text' ? this.history[0].blocks[0].text.slice(0, 60) : 'Session', lastModified: Date.now() })
