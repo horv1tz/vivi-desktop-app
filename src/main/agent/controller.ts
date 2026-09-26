@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import type { AgentUiEvent } from '@shared/events'
+import type { SendArgs } from '@shared/ipc'
 import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
@@ -86,6 +87,14 @@ export class AgentController {
     this.unsubscribe?.()
     this.unsubscribe = this.backend.onEvent((e: AgentUiEvent) => emit('agent:event', e))
     await this.backend.start()
+  }
+
+  send(args: SendArgs): Promise<{ messageId: string }> {
+    return this.backend.send(args)
+  }
+
+  onEvent(listener: (e: AgentUiEvent) => void): () => void {
+    return this.backend.onEvent(listener)
   }
 
   async killSwitch(): Promise<void> {

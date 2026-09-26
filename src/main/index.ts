@@ -14,6 +14,9 @@ import { registerAuthHandlers } from './auth/register'
 import { resolveClaudeCliPath } from './util/claude-bin'
 import { emit } from './ipc/emitters'
 import { ProxyManager } from './proxy/manager'
+import { VoiceOrchestrator } from './voice/orchestrator'
+import { InputGuard, resolveInputDriver } from './agent/tools/drivers'
+import { getMainWindow, isOverlayVisible } from './app/windows'
 
 const log = logger('main')
 
@@ -29,6 +32,13 @@ if (!app.requestSingleInstanceLock()) {
 async function bootstrap(): Promise<void> {
   await app.whenReady()
   initLogging()
+  if (process.env.VIVI_TRACE_QUIT === '1') {
+    const origQuit = app.quit.bind(app)
+    app.quit = () => {
+      log.warn('app.quit called', new Error().stack)
+      origQuit()
+    }
+  }
   electronApp.setAppUserModelId('dev.horv1tz.vivi')
   app.setName('Vivi')
 
@@ -40,8 +50,22 @@ async function bootstrap(): Promise<void> {
   await proxy.apply()
   proxy.registerIpc()
 
-  // eslint-disable-next-line prefer-const -- assigned after auth, which references it lazily
+  const inputGuard = new InputGuard()
+  // eslint-disable-next-line prefer-const -- assigned after auth/voice, which reference it lazily
   let agent: AgentController
+  const voice = new VoiceOrchestrator({
+    getSettings: () => store.get(),
+    modelsDir: paths.modelsDir,
+    sendToAgent: (args) => agent.send(args),
+    interruptAgent: () => agent.killSwitch(),
+    onAgentEvent: (listener) => agent.onEvent(listener),
+    getDispatcher: () => proxy.dispatcher(),
+    deliverAudioPort: (port) => {
+      const win = getMainWindow()
+      if (win) win.webContents.postMessage('voice:port', null, [port])
+    },
+    isOverlayVisible: () => isOverlayVisible(),
+  })
   const auth: AuthManager = new AuthManager({
     claudeBinary: () => resolveClaudeCliPath(),
     claudeConfigDir: paths.claudeConfigDir,
@@ -54,10 +78,16 @@ async function bootstrap(): Promise<void> {
     mock: mockAgent,
     getExtraEnv: async () => ({ ...proxy.envForAgent(), ...(await auth.envForAgent()) }),
     isolateConfig: () => auth.isolateConfig(),
-    speak: async () => undefined,
-    stopSpeaking: async () => undefined,
-    inputDriver: async () => null,
+    speak: (text) => voice.speak(text),
+    stopSpeaking: () => voice.stopSpeaking(),
+    inputDriver: () => resolveInputDriver(),
+    beforeInputAction: async () => {
+      const driver = await resolveInputDriver()
+      if (driver) await inputGuard.check(driver)
+    },
   })
+  voice.attachAgent()
+  voice.registerIpc()
   registerCoreHandlers({ mockAgent })
   agent.registerIpc()
   registerAuthHandlers(auth)
@@ -92,7 +122,10 @@ async function bootstrap(): Promise<void> {
   const shortcutActions = {
     onOverlay: () => toggleOverlay(),
     onKillSwitch: () => {
+      inputGuard.trip()
+      setTimeout(() => inputGuard.reset(), 5000)
       void agent.killSwitch()
+      void voice.stopSpeaking()
       if (Notification.isSupported()) new Notification({ title: 'Vivi', body: t('notify.killSwitch') }).show()
     },
   }
@@ -106,6 +139,7 @@ async function bootstrap(): Promise<void> {
     destroyTray()
     void agent.dispose()
     void proxy.dispose()
+    void voice.dispose()
   })
   app.on('window-all-closed', () => {
     // Keep running in the tray on every platform; quitting is explicit.
@@ -113,6 +147,18 @@ async function bootstrap(): Promise<void> {
 
   await agent.start()
   log.info(`ready (mock agent: ${mockAgent})`)
+
+  let voiceFingerprint = JSON.stringify(store.get().voice)
+  store.onChanged((next) => {
+    const fp = JSON.stringify(next.voice)
+    if (fp !== voiceFingerprint) {
+      voiceFingerprint = fp
+      void voice.restart().catch((err) => log.warn('voice restart failed', err))
+    }
+  })
+  if (store.get().voice.enabled && store.get().onboardingCompleted) {
+    voice.start().catch((err) => log.warn('voice start failed', err))
+  }
 }
 
 /** Settings whose change requires respawning the Claude Code process. */

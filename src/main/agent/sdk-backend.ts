@@ -48,7 +48,7 @@ export class SdkBackend implements AgentBackend {
   private totalCost = 0
   private starting: Promise<AgentSession> | null = null
   private cachedModels: { id: string; name: string; description?: string }[] = []
-  private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>() }
+  private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
   readonly broker: PermissionBroker
   private voiceMode = false
 
@@ -63,6 +63,7 @@ export class SdkBackend implements AgentBackend {
         deps.updateSettings({ permissions: { alwaysAllowRules: next } })
       },
       onSessionAllow: (category) => this.policyState.sessionGrants.add(category),
+      onTurnAllow: (category) => this.policyState.turnGrants.add(category),
     })
   }
 
@@ -73,7 +74,7 @@ export class SdkBackend implements AgentBackend {
 
   private emit(e: AgentUiEvent): void {
     if (e.type === 'result') this.totalCost = e.result.totalCostUsd
-    if (e.type === 'result') this.policyState.sessionGrants.clear()
+    if (e.type === 'result') this.policyState.turnGrants.clear()
     if (e.type === 'session') this.selectedSessionId = e.sessionId
     for (const l of this.listeners) l(e)
   }
@@ -190,6 +191,7 @@ export class SdkBackend implements AgentBackend {
     this.selectedTitle = null
     this.totalCost = 0
     this.policyState.sessionGrants.clear()
+    this.policyState.turnGrants.clear()
     this.emit({ type: 'session', sessionId: '', state: 'idle', title: undefined })
     this.emit({ type: 'history', messages: [] })
   }

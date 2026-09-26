@@ -24,6 +24,8 @@ export interface BrokerDeps {
   policy: (toolName: string, input: Record<string, unknown>) => PolicyDecision
   onAlwaysAllow?: (rules: { toolName: string; ruleContent?: string }[]) => void
   onSessionAllow?: (category: PermissionCategory) => void
+  /** A plain allow on computer-control tools covers the rest of the turn. */
+  onTurnAllow?: (category: PermissionCategory) => void
   timeoutMs?: number
 }
 
@@ -73,6 +75,7 @@ export class PermissionBroker {
 
     switch (answer) {
       case 'allow':
+        if (decision.category === 'input') this.deps.onTurnAllow?.('input')
         return { behavior: 'allow', updatedInput: input, decisionClassification: 'user_temporary' }
       case 'allow-session':
         this.deps.onSessionAllow?.(decision.category)

@@ -31,8 +31,10 @@ export function autoAllowedTools(settings: PermissionSettings): string[] {
 }
 
 export interface PolicyState {
-  /** Categories granted for the current turn/session via "allow for this session". */
+  /** Categories granted for the live session via "allow for this session". */
   sessionGrants: Set<PermissionCategory>
+  /** Categories granted for the current turn (a plain "allow" on computer-control tools). */
+  turnGrants: Set<PermissionCategory>
 }
 
 export function makePolicy(getSettings: () => PermissionSettings, state: PolicyState) {
@@ -46,7 +48,7 @@ export function makePolicy(getSettings: () => PermissionSettings, state: PolicyS
     if (category === 'edit' && !settings.askForEdits) return { ...base, verdict: 'allow' }
     if (category === 'exec' && !settings.askForExec) return { ...base, verdict: 'allow' }
     if (category === 'system' && !settings.askForSystem) return { ...base, verdict: 'allow' }
-    if (category === 'input' && (!settings.askForInput || state.sessionGrants.has('input'))) return { ...base, verdict: 'allow' }
+    if (category === 'input' && (!settings.askForInput || state.sessionGrants.has('input') || state.turnGrants.has('input'))) return { ...base, verdict: 'allow' }
     if (state.sessionGrants.has(category)) return { ...base, verdict: 'allow' }
     return base
   }

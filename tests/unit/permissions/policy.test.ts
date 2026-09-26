@@ -21,7 +21,7 @@ describe('policy', () => {
 
   it('asks for exec, allows after session grant, always asks for dangerous', () => {
     const s = defaultSettings().permissions
-    const state = { sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>() }
+    const state = { sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(), turnGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>() }
     const policy = makePolicy(() => s, state)
     expect(policy('Bash', { command: 'ls' }).verdict).toBe('ask')
     state.sessionGrants.add('exec')

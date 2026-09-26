@@ -314,5 +314,59 @@
     "caCertHint": "Needed when the proxy re-signs TLS certificates (corporate MITM).",
     "testTitle": "Connection test",
     "ok": "api.anthropic.com is reachable"
+  },
+  "voice": {
+    "status": "Status",
+    "states": {
+      "off": "Off",
+      "armed": "Listening for the wake word",
+      "listening": "Listening…",
+      "transcribing": "Transcribing…",
+      "thinking": "Thinking…",
+      "speaking": "Speaking…",
+      "error": "Error"
+    },
+    "testMic": "Test microphone",
+    "testTts": "Speak",
+    "testTtsPlaceholder": "Text to test the voice",
+    "testTtsDefault": "Hi! I'm Vivi. The voice works.",
+    "enabled": "Voice input and output",
+    "language": "Speech language",
+    "auto": "Auto-detect (Whisper)",
+    "speakReplies": "Speak replies aloud",
+    "silence": "End-of-phrase pause, ms",
+    "silenceHint": "How much silence ends a command",
+    "inputDevice": "Microphone",
+    "outputDevice": "Speakers",
+    "defaultDevice": "System default",
+    "wakeWord": "Wake word “Vivi”",
+    "wakeWordHint": "Always-on listening runs offline. The quick-command hotkey always works.",
+    "wakeWordEnabled": "React to “Vivi”",
+    "wakeWordStrategy": "Detection method",
+    "strategies": {
+      "kws": "Keyword spotter (lightweight)",
+      "transcript": "Transcript matching (more accurate, more CPU)"
+    },
+    "sensitivity": "Sensitivity",
+    "models": "Models",
+    "modelsHint": "Models are downloaded from GitHub (k2-fsa/sherpa-onnx) through the configured proxy and stored locally.",
+    "sttModel": "Speech recognition",
+    "ttsVoice": "Voice",
+    "downloadRequired": "Download required models ({{count}}, ~{{size}} MB)",
+    "download": "Download",
+    "installed": "Installed",
+    "extracting": "Extracting…",
+    "kinds": {
+      "vad": "Voice activity detection",
+      "stt": "Speech recognition",
+      "tts": "Speech synthesis",
+      "kws": "Wake word"
+    },
+    "cloud": "Cloud voice services",
+    "cloudHint": "Optional: OpenAI for recognition and synthesis (needs a key, traffic goes through the proxy).",
+    "cloudEnabled": "Allow cloud providers",
+    "sttProvider": "Recognition provider",
+    "ttsProvider": "Synthesis provider",
+    "local": "Local (offline)"
   }
 }

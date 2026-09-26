@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, typecheck, unit and e2e (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install system libraries for Electron
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb libnss3 libgtk-3-0 libgbm1 libasound2t64 libatk-bridge2.0-0 libxss1 libxtst6
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Electron smoke tests (xvfb)
+        run: xvfb-run -a --server-args="-screen 0 1280x800x24" npx playwright test tests/e2e/smoke.spec.ts
+      - name: Package (dir) and verify Claude binary + native modules
+        run: |
+          npx electron-builder --linux dir --publish never
+          node scripts/verify-dist.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results
+          if-no-files-found: ignore

@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest'
+import { VoicePipeline, type SttEngine, type VadEngine, type WakeEngine } from '../../../src/voice-worker/pipeline'
+
+class FakeVad implements VadEngine {
+  speech = false
+  segments: Float32Array[] = []
+  feed(): boolean {
+    return this.speech
+  }
+  popSegments(): Float32Array[] {
+    return this.segments.splice(0)
+  }
+  flush(): void {}
+  reset(): void {
+    this.speech = false
+    this.segments = []
+  }
+}
+
+class FakeWake implements WakeEngine {
+  fire = false
+  feed(): boolean {
+    const f = this.fire
+    this.fire = false
+    return f
+  }
+  reset(): void {}
+}
+
+class FakeStt implements SttEngine {
+  streaming = true
+  partials = 0
+  finalized: (Float32Array | null)[] = []
+  feed(): string | null {
+    this.partials++
+    return this.partials % 5 === 0 ? `partial ${this.partials}` : null
+  }
+  async finalize(segment: Float32Array | null): Promise<string> {
+    this.finalized.push(segment)
+    return segment && segment.length ? 'hello world' : ''
+  }
+  reset(): void {}
+}
+
+function setup(opts: Partial<ConstructorParameters<typeof VoicePipeline>[1]> = {}) {
+  let now = 0
+  const vad = new FakeVad()
+  const wake = new FakeWake()
+  const stt = new FakeStt()
+  const events: string[] = []
+  const finals: string[] = []
+  const pipeline = new VoicePipeline(
+    { wake, vad, stt },
+    { sampleRate: 16000, silenceMs: 800, noSpeechTimeoutMs: 6000, maxUtteranceMs: 30_000, preRollMs: 1500, wakeWordEnabled: true, bargeInMs: 300, bargeInGraceMs: 400, now: () => now, ...opts },
+    {
+      onState: (s) => events.push(`state:${s}`),
+      onWake: () => events.push('wake'),
+      onPartial: (t) => events.push(`partial:${t}`),
+      onFinal: (t) => finals.push(t),
+      onTimeout: () => events.push('timeout'),
+      onLevel: () => undefined,
+      onBargeIn: () => events.push('barge-in'),
+      onError: (m) => events.push(`error:${m}`),
+    },
+  )
+  const frame = new Float32Array(320)
+  const tick = (ms = 20): void => {
+    now += ms
+    pipeline.feed(frame)
+  }
+  const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+  return { pipeline, vad, wake, stt, events, finals, tick, flush, now: () => now }
+}
+
+describe('VoicePipeline', () => {
+  it('wakes on keyword, captures speech and finalizes on the VAD segment', async () => {
+    const t = setup()
+    t.pipeline.arm()
+    expect(t.pipeline.current).toBe('armed')
+    t.wake.fire = true
+    t.tick()
+    expect(t.events).toContain('wake')
+    expect(t.pipeline.current).toBe('listening')
+    t.vad.speech = true
+    for (let i = 0; i < 10; i++) t.tick()
+    expect(t.events.some((e) => e.startsWith('partial:'))).toBe(true)
+    t.vad.speech = false
+    t.vad.segments = [new Float32Array(16000)]
+    t.tick()
+    await t.flush()
+    expect(t.finals).toEqual(['hello world'])
+    expect(t.pipeline.current).toBe('armed')
+  })
+
+  it('times out when nobody speaks after wake', async () => {
+    const t = setup()
+    t.pipeline.arm()
+    t.pipeline.startListening({ withPreRoll: false })
+    for (let i = 0; i < 400; i++) t.tick(20)
+    await t.flush()
+    expect(t.events).toContain('timeout')
+    expect(t.pipeline.current).toBe('armed')
+    expect(t.finals).toEqual([])
+  })
+
+  it('push-to-talk includes pre-roll and finalizes on release', async () => {
+    const t = setup()
+    t.pipeline.arm()
+    for (let i = 0; i < 50; i++) t.tick()
+    t.pipeline.startListening({ withPreRoll: true })
+    t.vad.speech = true
+    for (let i = 0; i < 20; i++) t.tick()
+    t.pipeline.stopListening()
+    await t.flush()
+    expect(t.finals).toEqual(['hello world'])
+    const captured = t.stt.finalized[0]!
+    // 50 frames of pre-roll (capped at 1.5 s = 75 frames) + 20 frames of speech
+    expect(captured.length).toBe((50 + 20) * 320)
+  })
+
+  it('finalizes after trailing silence without a VAD segment (safety net)', async () => {
+    const t = setup()
+    t.pipeline.arm()
+    t.pipeline.startListening({ withPreRoll: false })
+    t.vad.speech = true
+    for (let i = 0; i < 10; i++) t.tick()
+    t.vad.speech = false
+    for (let i = 0; i < 80; i++) t.tick()
+    await t.flush()
+    expect(t.finals).toEqual(['hello world'])
+  })
+
+  it('detects barge-in while speaking and starts listening with pre-roll', () => {
+    const t = setup()
+    t.pipeline.arm()
+    t.pipeline.setSpeaking(true)
+    t.vad.speech = true
+    for (let i = 0; i < 20; i++) t.tick() // grace period 400 ms
+    for (let i = 0; i < 16; i++) t.tick() // 320 ms of speech
+    expect(t.events).toContain('barge-in')
+    expect(t.pipeline.current).toBe('listening')
+  })
+
+  it('ignores audio when off and cancel returns to armed', () => {
+    const t = setup()
+    t.tick()
+    expect(t.events).toEqual([])
+    t.pipeline.arm()
+    t.pipeline.startListening({ withPreRoll: false })
+    t.pipeline.cancel()
+    expect(t.pipeline.current).toBe('armed')
+  })
+})

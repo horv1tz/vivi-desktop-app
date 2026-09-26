@@ -12,6 +12,7 @@ import { SettingsView } from './features/settings/SettingsView'
 import { PermissionDialog } from './features/permissions/PermissionDialog'
 import { QuestionDialog } from './features/permissions/QuestionDialog'
 import { OnboardingView } from './features/onboarding/OnboardingView'
+import { useVoiceBridge } from './features/voice/useVoiceBridge'
 
 export function App() {
   const loaded = useSettingsStore((s) => s.loaded)
@@ -20,6 +21,7 @@ export function App() {
   const view = useUiStore((s) => s.view)
   const onboardingCompleted = useSettingsStore((s) => s.settings.onboardingCompleted)
   const [info, setInfo] = useState<AppInfo | null>(null)
+  useVoiceBridge(true)
 
   useEffect(() => {
     void load()
