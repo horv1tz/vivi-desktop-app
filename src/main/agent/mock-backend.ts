@@ -134,6 +134,10 @@ export class MockBackend implements AgentBackend {
     this.setState('idle')
   }
 
+  async applyLiveModelAndMode(): Promise<boolean> {
+    return true // no real model/permission-mode concept to apply
+  }
+
   async newSession(): Promise<void> {
     if (this.history.length > 0) {
       this.sessions.unshift({ sessionId: this.sessionId, title: this.history[0]?.blocks[0]?.type === 'text' ? this.history[0].blocks[0].text.slice(0, 60) : 'Session', lastModified: Date.now() })

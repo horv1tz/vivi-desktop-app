@@ -1,5 +1,6 @@
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
 import type { AgentUiEvent, SessionSummary, UiMessage } from '@shared/events'
+import type { Settings } from '@shared/settings'
 import type { PermissionBroker } from './permissions/broker'
 
 /**
@@ -13,6 +14,15 @@ export interface AgentBackend {
   start(): Promise<void>
   /** Tear down the live agent process so changed auth/proxy/model settings apply on next send. */
   restart(): Promise<void>
+  /**
+   * AG-05: applies a model or permission-mode change to an already-running agent without
+   * interrupting an in-flight turn or restarting the process. Returns false when there is a live
+   * session but it could not be updated in place (e.g. a bypassPermissions transition, which needs
+   * a fresh process) — the caller should fall back to `restart()`. Returns true when there was
+   * nothing live to update (the next turn naturally starts with current settings) or the update
+   * applied successfully.
+   */
+  applyLiveModelAndMode(previous: Settings, next: Settings): Promise<boolean>
   send(args: SendArgs): Promise<{ messageId: string }>
   interrupt(): Promise<void>
   dispose(): Promise<void>

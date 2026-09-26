@@ -130,6 +130,7 @@ async function bootstrap(): Promise<void> {
   createTray(trayActions)
   let agentFingerprint = agentSettingsFingerprint(store.get())
   let hotkeyFingerprint = hotkeySettingsFingerprint(store.get())
+  let previousAgentSettings = store.get()
   store.onChanged((next) => {
     refreshTrayMenu(trayActions)
     // Re-registering global shortcuts briefly drops them; only do it when a hotkey actually changed,
@@ -140,6 +141,17 @@ async function bootstrap(): Promise<void> {
       registerShortcuts(shortcutActions)
     }
     nativeTheme.themeSource = next.appearance.theme
+    // AG-05: model/permission-mode changes apply live to a running agent instead of restarting.
+    const previous = previousAgentSettings
+    previousAgentSettings = next
+    if (previous.agent.model !== next.agent.model || previous.agent.permissionMode !== next.agent.permissionMode) {
+      void agent.applyLiveModelAndMode(previous, next).then((applied) => {
+        if (!applied) {
+          log.info('model/permission-mode change could not apply live; restarting agent process')
+          void agent.restart()
+        }
+      })
+    }
     const fp = agentSettingsFingerprint(next)
     if (fp !== agentFingerprint) {
       agentFingerprint = fp
@@ -205,8 +217,14 @@ async function bootstrap(): Promise<void> {
 }
 
 /** Settings whose change requires respawning the Claude Code process. */
+/**
+ * Settings whose change requires respawning the Claude Code process. `agent.model` and
+ * `agent.permissionMode` are deliberately excluded (AG-05): they're applied live to a running
+ * agent via `applyLiveModelAndMode` instead of restarting and interrupting an in-flight turn.
+ */
 function agentSettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
-  return JSON.stringify({ agent: s.agent, proxy: s.proxy, auth: s.auth, permissions: { ...s.permissions, alwaysAllowRules: undefined }, lang: s.appearance.language, debug: s.features.debugSdk })
+  const agent = { ...s.agent, model: undefined, permissionMode: undefined }
+  return JSON.stringify({ agent, proxy: s.proxy, auth: s.auth, permissions: { ...s.permissions, alwaysAllowRules: undefined }, lang: s.appearance.language, debug: s.features.debugSdk })
 }
 
 function hotkeySettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {

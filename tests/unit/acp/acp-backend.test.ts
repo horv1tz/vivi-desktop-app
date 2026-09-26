@@ -156,4 +156,46 @@ describe('AcpBackend against a real ACP agent process', () => {
     expect(backend.getState().state).toBe('awaiting_permission')
     await backend.dispose()
   }, 40_000)
+
+  it('applies a permission-mode change to a running session live, without restarting (AG-05)', async () => {
+    const { backend, events, permissionRequests, settings } = makeBackend()
+    // Establish a live session/connection first: start() alone (continueLastSession: false) never connects.
+    await backend.send({ text: 'first' })
+    await until(() => permissionRequests.length === 1)
+    backend.broker.respond(permissionRequests[0]!.requestId, 'allow')
+    await until(() => events.some((e) => e.type === 'result'))
+    const before = JSON.parse(JSON.stringify(settings))
+    settings.agent.permissionMode = 'default'
+    await expect(backend.applyLiveModelAndMode(before, settings)).resolves.toBe(true)
+    await backend.send({ text: 'second' })
+    await until(() => permissionRequests.length === 2)
+    backend.broker.respond(permissionRequests[1]!.requestId, 'allow')
+    await until(() => events.filter((e) => e.type === 'result').length === 2)
+    expect(textOf(events)).toContain('in mode default')
+    await backend.dispose()
+  }, 40_000)
+
+  it('applies a model change to a running session live, without restarting (AG-05)', async () => {
+    const { backend, events, permissionRequests, settings } = makeBackend()
+    await backend.send({ text: 'first' })
+    await until(() => permissionRequests.length === 1)
+    backend.broker.respond(permissionRequests[0]!.requestId, 'allow')
+    await until(() => events.some((e) => e.type === 'result'))
+    const before = JSON.parse(JSON.stringify(settings))
+    settings.agent.model = 'fake-2'
+    await expect(backend.applyLiveModelAndMode(before, settings)).resolves.toBe(true)
+    await backend.send({ text: 'second' })
+    await until(() => permissionRequests.length === 2)
+    backend.broker.respond(permissionRequests[1]!.requestId, 'allow')
+    await until(() => events.filter((e) => e.type === 'result').length === 2)
+    expect(textOf(events)).toContain('model fake-2')
+    await backend.dispose()
+  }, 40_000)
+
+  it('reports no live session to update when the process is not running yet', async () => {
+    const { backend, settings } = makeBackend()
+    const before = JSON.parse(JSON.stringify(settings))
+    settings.agent.model = 'fake-2'
+    await expect(backend.applyLiveModelAndMode(before, settings)).resolves.toBe(true)
+  })
 })

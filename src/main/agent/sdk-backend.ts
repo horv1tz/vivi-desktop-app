@@ -254,4 +254,21 @@ export class SdkBackend implements AgentBackend {
     await this.stopSession()
     this.emit({ type: 'state', state: 'idle' })
   }
+
+  /** AG-05: live model/permission-mode switch via the SDK's own control requests, no restart. */
+  async applyLiveModelAndMode(previous: Settings, next: Settings): Promise<boolean> {
+    if (!this.session?.isAlive) return true // no live process; the next send() builds fresh options
+    // allowDangerouslySkipPermissions is a process-start-only Option; setPermissionMode alone can't
+    // be trusted to add or remove that shortcut on an already-running process, so treat any
+    // transition into or out of bypassPermissions as requiring a real restart.
+    if (previous.agent.permissionMode === 'bypassPermissions' || next.agent.permissionMode === 'bypassPermissions') return false
+    try {
+      if (previous.agent.model !== next.agent.model) await this.session.setModel(next.agent.model || undefined)
+      if (previous.agent.permissionMode !== next.agent.permissionMode) await this.session.setPermissionMode(next.agent.permissionMode)
+      return true
+    } catch (err) {
+      log.warn('live model/permission-mode update failed, falling back to restart', err)
+      return false
+    }
+  }
 }

@@ -27,7 +27,7 @@ const agent = {
   },
   async newSession(params) {
     const sessionId = `sess-${sessions.size + 1}`
-    sessions.set(sessionId, { cwd: params.cwd, mcpServers: params.mcpServers ?? [], cancelled: false, mode: 'default' })
+    sessions.set(sessionId, { cwd: params.cwd, mcpServers: params.mcpServers ?? [], cancelled: false, mode: 'default', model: 'fake-1' })
     return {
       sessionId,
       modes: { currentModeId: 'default', availableModes: [{ id: 'default', name: 'Default' }, { id: 'acceptEdits', name: 'Accept edits' }] },
@@ -41,6 +41,11 @@ const agent = {
     const s = sessions.get(params.sessionId)
     if (s) s.mode = params.modeId
     return {}
+  },
+  async setSessionConfigOption(params) {
+    const s = sessions.get(params.sessionId)
+    if (s && params.configId === 'model') s.model = params.value
+    return { configOptions: [{ id: 'model', name: 'Model', type: 'select', currentValue: s?.model ?? 'fake-1', options: [{ value: 'fake-1', name: 'Fake 1' }, { value: 'fake-2', name: 'Fake 2' }] }] }
   },
   async authenticate() {
     return {}
@@ -74,7 +79,7 @@ const agent = {
     const chosen = perm.outcome.outcome === 'selected' ? perm.outcome.optionId : 'cancelled'
     const ok = chosen === 'allow-once' || chosen === 'allow-with-updates'
     await update({ sessionUpdate: 'tool_call_update', toolCallId: 'tc-1', status: ok ? 'completed' : 'failed', content: [{ type: 'content', content: { type: 'text', text: `permission:${chosen}` } }] })
-    await update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `done (${chosen}) in mode ${s.mode} with ${s.mcpServers.length} MCP server(s)` } })
+    await update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `done (${chosen}) in mode ${s.mode} with ${s.mcpServers.length} MCP server(s), model ${s.model}` } })
     return { stopReason: s.cancelled ? 'cancelled' : 'end_turn', usage: { totalTokens: 3, inputTokens: 1, outputTokens: 2 } }
   },
 }

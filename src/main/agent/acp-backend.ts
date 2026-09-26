@@ -356,6 +356,28 @@ export class AcpBackend implements AgentBackend {
     this.emit({ type: 'state', state: 'idle' })
   }
 
+  /**
+   * AG-05: live model/permission-mode switch via ACP's own session methods, no restart. ACP mode
+   * never actually grants bypassPermissions (see MODE_FOR_PERMISSION above), so unlike the SDK
+   * backend there is no process-start-only flag to worry about here.
+   */
+  async applyLiveModelAndMode(previous: Settings, next: Settings): Promise<boolean> {
+    const conn = this.conn
+    if (!conn?.process.isRunning || !this.sessionId) return true // no live session; the next one builds fresh options
+    if (previous.agent.permissionMode !== next.agent.permissionMode) await this.applyPermissionMode(conn)
+    if (previous.agent.model === next.agent.model || !next.agent.model) return true
+    const opt = this.configOptions?.find((o) => o.id === 'model')
+    if (!opt || opt.type !== 'select') return false
+    try {
+      const res = await conn.connection.setSessionConfigOption({ sessionId: this.sessionId, configId: 'model', value: next.agent.model })
+      this.configOptions = res.configOptions
+      return true
+    } catch (err) {
+      this.deps.log.warn('could not set ACP session model live', err)
+      return false
+    }
+  }
+
   async dispose(): Promise<void> {
     this.disposed = true
     await this.teardown()

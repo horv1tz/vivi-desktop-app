@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { join } from 'node:path'
 import type { AgentUiEvent } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
+import type { Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
@@ -142,6 +143,11 @@ export class AgentController {
   async killSwitch(): Promise<void> {
     log.warn('kill switch triggered')
     await this.backend.interrupt()
+  }
+
+  /** AG-05: passthrough to the live backend; see AgentBackend.applyLiveModelAndMode. */
+  applyLiveModelAndMode(previous: Settings, next: Settings): Promise<boolean> {
+    return this.backend.applyLiveModelAndMode(previous, next)
   }
 
   private restarting: Promise<void> = Promise.resolve()
