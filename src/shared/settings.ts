@@ -36,6 +36,9 @@ export const PermissionRuleSchema = z.object({
 
 export const PermissionSettingsSchema = z.object({
   autoAllowReadOnly: z.boolean().default(true),
+  /** Screenshots and clipboard reads can surface passwords/PII; gated separately from autoAllowReadOnly. */
+  autoAllowScreenshot: z.boolean().default(true),
+  autoAllowClipboardRead: z.boolean().default(true),
   askForEdits: z.boolean().default(true),
   askForExec: z.boolean().default(true),
   askForInput: z.boolean().default(true),

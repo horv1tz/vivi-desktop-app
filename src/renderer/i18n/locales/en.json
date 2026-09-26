@@ -144,7 +144,7 @@
         "auto": "Auto (classifier decides)",
         "bypassPermissions": "No permissions (dangerous)"
       },
-      "bypassWarning": "In this mode Vivi performs any action without confirmation. Use only if you fully trust the tasks.",
+      "bypassWarning": "In this mode Vivi performs most actions without confirmation, but clearly dangerous commands (deletion, formatting, shutdown, etc.) still require confirmation. Use only if you fully trust the tasks.",
       "workspace": "Workspace folder",
       "workspaceHint": "Vivi keeps memory, notes and outputs here. Empty — ~/Vivi.",
       "additionalDirs": "Additional folders with access",
@@ -182,7 +182,19 @@
         "sdk": "Claude Agent SDK",
         "acp": "ACP (claude-agent-acp)"
       },
-      "acp": "claude-agent-acp adapter"
+      "acp": "claude-agent-acp adapter",
+      "update": {
+        "enable": "Automatically check for updates",
+        "check": "Check for updates",
+        "checking": "Checking for updates…",
+        "available": "Update available: v{{version}}",
+        "upToDate": "You're up to date",
+        "downloading": "Downloading update… {{percent}}%",
+        "downloaded": "Update v{{version}} downloaded",
+        "restart": "Restart to install",
+        "error": "Update check failed: {{message}}",
+        "disabledHint": "Enable auto-update in settings to check for updates"
+      }
     },
     "save": "Save",
     "saved": "Saved",
@@ -199,7 +211,11 @@
       "dangerNote": "Dangerous commands (deleting folders, sudo, shutdown, force push) always require confirmation regardless of these switches.",
       "rules": "Always allowed",
       "rulesHint": "Rules added with the “Always allow” button. Remove a rule to be asked again.",
-      "noRules": "No rules yet"
+      "noRules": "No rules yet",
+      "autoAllowScreenshot": "Allow screenshots without confirmation",
+      "autoAllowScreenshotHint": "The screen may show personal information. Turn this off to have Vivi ask before every screenshot.",
+      "autoAllowClipboardRead": "Allow reading the clipboard without confirmation",
+      "autoAllowClipboardReadHint": "The clipboard may hold passwords or tokens. Turn this off to have Vivi ask before every read."
     }
   },
   "sessions": {

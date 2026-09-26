@@ -50,7 +50,10 @@ describe('buildOptions', () => {
     expect(opts.effort).toBe('high')
     expect(opts.maxBudgetUsd).toBe(2)
     expect(opts.includePartialMessages).toBe(true)
-    expect(opts.additionalDirectories).toContain('/home/u')
+    // homeDir is deliberately NOT auto-added (SEC-02): acceptEdits/auto skip the edit-category ask
+    // entirely, so an always-accessible $HOME would let edits land anywhere under it unconfirmed.
+    expect(opts.additionalDirectories).not.toContain('/home/u')
+    expect(opts.additionalDirectories).toEqual([])
     const sp = opts.systemPrompt as { type: string; prompt: string[] }
     expect(sp.type).toBe('custom')
     expect(sp.prompt).toHaveLength(3)

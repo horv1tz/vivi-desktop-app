@@ -1,6 +1,7 @@
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY, type CanUseTool, type McpServerConfig, type Options } from '@anthropic-ai/claude-agent-sdk'
 import type { Settings } from '@shared/settings'
 import { buildSystemPrompt, osVersionString } from './prompt'
+import { dangerConfirmationHook } from './permissions/danger-hook'
 
 export interface BuildOptionsInput {
   settings: Settings
@@ -69,7 +70,10 @@ export function buildOptions(input: BuildOptionsInput): Options {
 
   const options: Options = {
     cwd: input.cwd,
-    additionalDirectories: [input.homeDir, ...s.agent.additionalDirectories].filter((d, i, a) => a.indexOf(d) === i),
+    // Deliberately NOT auto-including homeDir: with acceptEdits/auto skipping the edit-category ask
+    // entirely, an always-accessible $HOME would let edits land anywhere under it unconfirmed. Users
+    // opt in to extra folders explicitly (Settings → Agent → additional directories).
+    additionalDirectories: [...new Set(s.agent.additionalDirectories)],
     env: buildEnv(input),
     systemPrompt: { type: 'custom', prompt: [staticPart, SYSTEM_PROMPT_DYNAMIC_BOUNDARY, dynamicPart], snapshot: true },
     tools: { type: 'preset', preset: 'claude_code' },
@@ -89,7 +93,10 @@ export function buildOptions(input: BuildOptionsInput): Options {
     mcpServers: input.mcpServers,
     strictMcpConfig: true,
     canUseTool: input.canUseTool,
-    hooks: input.hooks,
+    hooks: {
+      ...input.hooks,
+      PreToolUse: [...(input.hooks?.PreToolUse ?? []), { hooks: [dangerConfirmationHook] }],
+    },
     stderr: input.stderr,
     abortController: input.abortController,
     pathToClaudeCodeExecutable: input.claudeBinary,

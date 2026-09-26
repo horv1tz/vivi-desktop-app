@@ -68,7 +68,7 @@ export function AgentSection() {
       </Section>
       <Section title={t('settings.agent.workspace')} description={t('settings.agent.workspaceHint')}>
         <div className="flex gap-2">
-          <Input value={s.workspaceDir} placeholder="~/Vivi" onChange={(e) => set({ workspaceDir: e.target.value })} />
+          <Input key={s.workspaceDir} defaultValue={s.workspaceDir} placeholder="~/Vivi" onBlur={(e) => e.target.value !== s.workspaceDir && set({ workspaceDir: e.target.value })} />
           <Button onClick={async () => { const dir = await invoke('settings:pickDirectory', s.workspaceDir || undefined); if (dir) set({ workspaceDir: dir }) }}><FolderOpen size={16} /> {t('settings.agent.choose')}</Button>
         </div>
         <Field label={t('settings.agent.additionalDirs')}>
@@ -87,10 +87,10 @@ export function AgentSection() {
       </Section>
       <Section title={t('settings.sections.agent')}>
         <Field label={t('settings.agent.maxTurns')} inline>
-          <Input type="number" className="w-28" min={1} max={500} value={s.maxTurns} onChange={(e) => set({ maxTurns: Math.max(1, Number(e.target.value) || 1) })} />
+          <Input type="number" className="w-28" min={1} max={500} key={s.maxTurns} defaultValue={s.maxTurns} onBlur={(e) => { const v = Math.max(1, Number(e.target.value) || 1); if (v !== s.maxTurns) set({ maxTurns: v }) }} />
         </Field>
         <Field label={t('settings.agent.maxBudget')} inline>
-          <Input type="number" className="w-28" min={0} step={0.5} value={s.maxBudgetUsd} onChange={(e) => set({ maxBudgetUsd: Math.max(0, Number(e.target.value) || 0) })} />
+          <Input type="number" className="w-28" min={0} step={0.5} key={s.maxBudgetUsd} defaultValue={s.maxBudgetUsd} onBlur={(e) => { const v = Math.max(0, Number(e.target.value) || 0); if (v !== s.maxBudgetUsd) set({ maxBudgetUsd: v }) }} />
         </Field>
         <Field label={t('settings.agent.continueLast')} inline>
           <Switch checked={s.continueLastSession} onCheckedChange={(v) => set({ continueLastSession: v })} />

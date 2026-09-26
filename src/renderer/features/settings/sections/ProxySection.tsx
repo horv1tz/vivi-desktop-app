@@ -46,15 +46,15 @@ export function ProxySection() {
                 </Select>
               </Field>
               <Field label={t('proxy.host')}>
-                <Input value={s.host} placeholder="proxy.example.com" onChange={(e) => set({ host: e.target.value.trim() })} />
+                <Input key={s.host} defaultValue={s.host} placeholder="proxy.example.com" onBlur={(e) => { const v = e.target.value.trim(); if (v !== s.host) set({ host: v }) }} />
               </Field>
               <Field label={t('proxy.port')}>
-                <Input type="number" min={1} max={65535} value={s.port || ''} onChange={(e) => set({ port: Number(e.target.value) || 0 })} />
+                <Input type="number" min={1} max={65535} key={s.port} defaultValue={s.port || ''} onBlur={(e) => { const v = Number(e.target.value) || 0; if (v !== s.port) set({ port: v }) }} />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label={t('proxy.username')}>
-                <Input value={s.username} autoComplete="off" onChange={(e) => set({ username: e.target.value })} />
+                <Input key={s.username} defaultValue={s.username} autoComplete="off" onBlur={(e) => e.target.value !== s.username && set({ username: e.target.value })} />
               </Field>
               <Field label={t('proxy.password')} hint={s.hasPassword ? t('proxy.passwordSaved') : undefined}>
                 <div className="flex gap-2">
@@ -64,14 +64,14 @@ export function ProxySection() {
               </Field>
             </div>
             <Field label={t('proxy.bypass')} hint={t('proxy.bypassHint')}>
-              <Input value={s.bypass} onChange={(e) => set({ bypass: e.target.value })} />
+              <Input key={s.bypass} defaultValue={s.bypass} onBlur={(e) => e.target.value !== s.bypass && set({ bypass: e.target.value })} />
             </Field>
             {s.scheme === 'socks5' || s.username ? <p className="text-xs text-faint">{t('proxy.bridgeNote')}</p> : null}
           </>
         ) : null}
         <Field label={t('proxy.caCert')} hint={t('proxy.caCertHint')}>
           <div className="flex gap-2">
-            <Input value={s.caCertPath} placeholder="/path/to/ca.pem" onChange={(e) => set({ caCertPath: e.target.value })} />
+            <Input key={s.caCertPath} defaultValue={s.caCertPath} placeholder="/path/to/ca.pem" onBlur={(e) => e.target.value !== s.caCertPath && set({ caCertPath: e.target.value })} />
             <Button onClick={async () => { const f = await invoke('settings:pickFile', undefined); if (f) set({ caCertPath: f }) }}><FolderOpen size={16} /></Button>
           </div>
         </Field>

@@ -28,8 +28,14 @@ export function run(cmd: string, args: string[], opts: { timeoutMs?: number; inp
   })
 }
 
-export function powershell(script: string, timeoutMs = 20_000): Promise<{ code: number; stdout: string; stderr: string }> {
-  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeoutMs })
+/**
+ * `env` carries values the script reads as `$env:NAME` instead of having them interpolated into the
+ * script text. PowerShell double-quoted strings evaluate `$(...)` subexpressions regardless of how
+ * the substituted text was quote-escaped, so any externally-influenced string (a window title, an app
+ * name, typed key names, …) MUST travel as an environment variable, never as literal script text.
+ */
+export function powershell(script: string, timeoutMs = 20_000, env?: Record<string, string>): Promise<{ code: number; stdout: string; stderr: string }> {
+  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeoutMs, env: env ? { ...process.env, ...env } : undefined })
 }
 
 export function truncate(s: string, max = 20_000): string {

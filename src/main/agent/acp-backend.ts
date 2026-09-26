@@ -77,11 +77,15 @@ const FALLBACK_MODELS = [
   { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
 ]
 
+// 'bypassPermissions' deliberately never reaches a remote agent: unlike the in-process SDK backend
+// (options.ts's dangerConfirmationHook), Vivi cannot inject a hook into an external ACP process, so
+// full bypass there would remove the danger gate with no way to restore it. 'auto' is the ceiling —
+// the adapter's own safety-check prompts still fire at that mode (see applyPermissionMode below).
 const MODE_FOR_PERMISSION: Record<Settings['agent']['permissionMode'], string[]> = {
   default: ['default'],
   acceptEdits: ['acceptEdits'],
   auto: ['auto', 'acceptEdits'],
-  bypassPermissions: ['bypassPermissions', 'auto', 'acceptEdits'],
+  bypassPermissions: ['auto', 'acceptEdits'],
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
@@ -518,7 +522,8 @@ export class AcpBackend implements AgentBackend {
       settingSources: [],
       settings: { permissions: { allow: buildPermissionAllowRules(s.permissions.alwaysAllowRules) } },
       allowedTools: autoAllowedTools(s.permissions),
-      additionalDirectories: [this.deps.homeDir, ...s.agent.additionalDirectories].filter((d, i, a) => a.indexOf(d) === i),
+      // See options.ts (SDK backend) for why homeDir is not auto-included here either.
+      additionalDirectories: [...new Set(s.agent.additionalDirectories)],
       maxTurns: s.agent.maxTurns,
       maxBudgetUsd: s.agent.maxBudgetUsd > 0 ? s.agent.maxBudgetUsd : undefined,
       model: s.agent.model || undefined,
@@ -526,7 +531,8 @@ export class AcpBackend implements AgentBackend {
       effort: s.agent.effort === 'default' ? undefined : s.agent.effort,
       persistSession: true,
       strictMcpConfig: true,
-      allowDangerouslySkipPermissions: s.agent.permissionMode === 'bypassPermissions' ? undefined : false,
+      // Always false: see the MODE_FOR_PERMISSION comment above — ACP mode never grants real bypass.
+      allowDangerouslySkipPermissions: false,
       debugFile: this.deps.debugFile?.(),
     }
     return JSON.parse(JSON.stringify(options)) as Record<string, unknown>

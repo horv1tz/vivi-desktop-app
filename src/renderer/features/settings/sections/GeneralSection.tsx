@@ -37,10 +37,10 @@ export function GeneralSection() {
       </Section>
       <Section title={t('settings.general.overlayHotkey')} description={t('settings.general.hotkeyHint')}>
         <Field label={t('settings.general.overlayHotkey')}>
-          <Input value={s.overlayHotkey} onChange={(e) => set({ overlayHotkey: e.target.value })} />
+          <Input key={s.overlayHotkey} defaultValue={s.overlayHotkey} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.overlayHotkey) set({ overlayHotkey: v }) }} />
         </Field>
         <Field label={t('settings.general.killSwitchHotkey')}>
-          <Input value={s.killSwitchHotkey} onChange={(e) => set({ killSwitchHotkey: e.target.value })} />
+          <Input key={s.killSwitchHotkey} defaultValue={s.killSwitchHotkey} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.killSwitchHotkey) set({ killSwitchHotkey: v }) }} />
         </Field>
       </Section>
     </>

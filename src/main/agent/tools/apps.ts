@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { spawn } from 'node:child_process'
 import { shell } from 'electron'
 import { powershell, run } from './util'
 
@@ -39,8 +40,8 @@ export async function launchApp(name: string): Promise<string> {
     const apps = await listInstalledApps().catch(() => [] as InstalledApp[])
     const match = apps.find((a) => a.name.toLowerCase() === name.toLowerCase()) ?? apps.find((a) => a.name.toLowerCase().includes(name.toLowerCase()))
     const r = match?.id
-      ? await powershell(`Start-Process "shell:AppsFolder\\${match.id}"`)
-      : await powershell(`Start-Process -FilePath ${JSON.stringify(name)}`)
+      ? await powershell('Start-Process "shell:AppsFolder\\$env:VIVI_APP_ID"', 20_000, { VIVI_APP_ID: match.id })
+      : await powershell('Start-Process -FilePath $env:VIVI_APP_NAME', 20_000, { VIVI_APP_NAME: name })
     if (r.code !== 0) throw new Error(r.stderr.trim() || `could not start "${name}"`)
     return `launched ${match?.name ?? name}`
   }
@@ -50,8 +51,26 @@ export async function launchApp(name: string): Promise<string> {
     const r = await run('gtk-launch', [match.id])
     if (r.code === 0) return `launched ${match.name}`
   }
-  const direct = await run('sh', ['-c', `command -v ${JSON.stringify(name)} >/dev/null 2>&1 && (nohup ${JSON.stringify(name)} >/dev/null 2>&1 &)`])
-  if (direct.code === 0) return `launched ${name}`
+  // No shell: `spawn` resolves `name` on PATH itself and never re-interprets shell metacharacters,
+  // unlike the previous `sh -c` form (which let a name like "$(rm -rf ~)" execute as a command).
+  const launched = await new Promise<boolean>((resolve) => {
+    let settled = false
+    const child = spawn(name, [], { detached: true, stdio: 'ignore' })
+    child.once('error', () => {
+      if (!settled) {
+        settled = true
+        resolve(false)
+      }
+    })
+    child.once('spawn', () => {
+      child.unref()
+      if (!settled) {
+        settled = true
+        resolve(true)
+      }
+    })
+  })
+  if (launched) return `launched ${name}`
   throw new Error(`could not find application "${name}"`)
 }
 

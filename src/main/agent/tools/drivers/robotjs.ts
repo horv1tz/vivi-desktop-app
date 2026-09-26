@@ -28,12 +28,18 @@ const KEY_MAP: Record<string, string> = { escape: 'escape', pageup: 'pageup', pa
 
 /**
  * Mouse/keyboard driver on top of robotjs (N-API prebuilds). Coordinates are logical screen
- * pixels; on Windows robotjs works in physical pixels so we scale by the display's scale factor.
+ * pixels. On Windows, whether robotjs's own coordinate space matches Electron's per-monitor-DPI
+ * logical space (no scaling needed — true when the robotjs build declares Per-Monitor-V2 DPI
+ * awareness) or lags behind it (needs each display's scaleFactor applied) isn't knowable from the
+ * package alone, and gets it wrong on secondary monitors with a different scale than the primary if
+ * assumed. `calibrate()` samples the real cursor through both APIs once, at whatever position it
+ * already is, and picks whichever mode actually matches — instead of guessing.
  */
 export class RobotJsDriver implements InputDriver {
   readonly name = 'robotjs'
   private robot: RobotJs | null = null
   private loadError: string | null = null
+  private scaleMode: 'none' | 'perDisplayScale' | null = null
 
   private async load(): Promise<RobotJs> {
     if (this.robot) return this.robot
@@ -59,15 +65,43 @@ export class RobotJsDriver implements InputDriver {
     }
   }
 
-  private toPhysical(x: number, y: number): { x: number; y: number } {
-    if (process.platform !== 'win32') return { x: Math.round(x), y: Math.round(y) }
+  /**
+   * Runs once on Windows: compares robotjs's own idea of the current cursor position against
+   * Electron's (both read the SAME physical cursor, no movement involved) to detect whether robotjs
+   * already reports Electron-logical coordinates (mode 'none') or needs the per-display scale factor
+   * applied (mode 'perDisplayScale', the previous unconditional behavior — still the fallback when
+   * the two disagree in some other way, since it is at least correct for a single, unscaled display).
+   * NOTE: this only calibrates against the display the cursor is CURRENTLY on; a multi-monitor setup
+   * with genuinely mixed DPI still has residual origin error on other displays (see docs/ROADMAP.md
+   * epic CU-04) — this fixes the overwhelmingly common single-display and uniform-DPI cases exactly,
+   * and no longer guesses blindly for the rest.
+   */
+  private async calibrateScaleMode(r: RobotJs): Promise<'none' | 'perDisplayScale'> {
+    if (this.scaleMode) return this.scaleMode
+    if (process.platform !== 'win32') {
+      this.scaleMode = 'none'
+      return this.scaleMode
+    }
+    try {
+      const robotPos = r.getMousePos()
+      const electronPos = screen.getCursorScreenPoint()
+      const matches = Math.abs(robotPos.x - electronPos.x) <= 1 && Math.abs(robotPos.y - electronPos.y) <= 1
+      this.scaleMode = matches ? 'none' : 'perDisplayScale'
+    } catch {
+      this.scaleMode = 'perDisplayScale'
+    }
+    return this.scaleMode
+  }
+
+  private toPhysical(x: number, y: number, mode: 'none' | 'perDisplayScale'): { x: number; y: number } {
+    if (mode === 'none') return { x: Math.round(x), y: Math.round(y) }
     const display = screen.getDisplayNearestPoint({ x, y })
     const f = display.scaleFactor || 1
     return { x: Math.round(x * f), y: Math.round(y * f) }
   }
 
-  private toLogical(x: number, y: number): { x: number; y: number } {
-    if (process.platform !== 'win32') return { x, y }
+  private toLogical(x: number, y: number, mode: 'none' | 'perDisplayScale'): { x: number; y: number } {
+    if (mode === 'none') return { x, y }
     const display = screen.getDisplayNearestPoint({ x, y })
     const f = display.scaleFactor || 1
     return { x: Math.round(x / f), y: Math.round(y / f) }
@@ -75,13 +109,15 @@ export class RobotJsDriver implements InputDriver {
 
   async getMousePos(): Promise<{ x: number; y: number }> {
     const r = await this.load()
+    const mode = await this.calibrateScaleMode(r)
     const p = r.getMousePos()
-    return this.toLogical(p.x, p.y)
+    return this.toLogical(p.x, p.y, mode)
   }
 
   async moveMouse(x: number, y: number, smooth = true): Promise<void> {
     const r = await this.load()
-    const p = this.toPhysical(x, y)
+    const mode = await this.calibrateScaleMode(r)
+    const p = this.toPhysical(x, y, mode)
     if (smooth) r.moveMouseSmooth(p.x, p.y, 3)
     else r.moveMouse(p.x, p.y)
     await sleep(40)
@@ -109,7 +145,8 @@ export class RobotJsDriver implements InputDriver {
     await this.moveMouse(from.x, from.y, false)
     r.mouseToggle('down', button)
     await sleep(80)
-    const p = this.toPhysical(to.x, to.y)
+    const mode = await this.calibrateScaleMode(r)
+    const p = this.toPhysical(to.x, to.y, mode)
     r.dragMouse(p.x, p.y)
     await sleep(80)
     r.mouseToggle('up', button)

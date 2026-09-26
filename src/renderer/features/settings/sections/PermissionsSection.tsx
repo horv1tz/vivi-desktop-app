@@ -16,6 +16,12 @@ export function PermissionsSection() {
         <Field label={t('settings.permissionsUi.autoAllowReadOnly')} hint={t('settings.permissionsUi.readOnlyHint')} inline>
           <Switch checked={s.autoAllowReadOnly} onCheckedChange={(v) => set({ autoAllowReadOnly: v })} />
         </Field>
+        <Field label={t('settings.permissionsUi.autoAllowScreenshot')} hint={t('settings.permissionsUi.autoAllowScreenshotHint')} inline>
+          <Switch checked={s.autoAllowScreenshot} onCheckedChange={(v) => set({ autoAllowScreenshot: v })} />
+        </Field>
+        <Field label={t('settings.permissionsUi.autoAllowClipboardRead')} hint={t('settings.permissionsUi.autoAllowClipboardReadHint')} inline>
+          <Switch checked={s.autoAllowClipboardRead} onCheckedChange={(v) => set({ autoAllowClipboardRead: v })} />
+        </Field>
         <Field label={t('settings.permissionsUi.askForEdits')} inline>
           <Switch checked={s.askForEdits} onCheckedChange={(v) => set({ askForEdits: v })} />
         </Field>
