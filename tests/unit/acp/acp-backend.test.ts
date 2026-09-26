@@ -9,7 +9,12 @@ import type { AgentUiEvent, PermissionRequest } from '@shared/events'
 
 // Drives AcpBackend against tests/unit/acp/fixtures/fake-agent.mjs (a real ACP agent process over stdio).
 const FIXTURE = resolve('tests/unit/acp/fixtures/fake-agent.mjs')
-const silent = { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined }
+const silent = {
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+  debug: () => undefined,
+}
 
 function makeBackend(mode = 'normal') {
   const dir = mkdtempSync(join(tmpdir(), 'vivi-acp-unit-'))
@@ -22,14 +27,19 @@ function makeBackend(mode = 'normal') {
   settings.agent.permissionMode = 'acceptEdits'
   const events: AgentUiEvent[] = []
   const permissionRequests: PermissionRequest[] = []
-  const updates: { permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] } }[] = []
+  const updates: {
+    permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
+  }[] = []
   const backend = new AcpBackend({
     getSettings: () => settings,
     updateSettings: (patch) => {
       updates.push(patch)
       settings.permissions.alwaysAllowRules = patch.permissions.alwaysAllowRules
     },
-    getExtraEnv: async () => ({ FAKE_AGENT_MODE: mode, ANTHROPIC_API_KEY: 'should-not-reach-third-party-agents' }),
+    getExtraEnv: async () => ({
+      FAKE_AGENT_MODE: mode,
+      ANTHROPIC_API_KEY: 'should-not-reach-third-party-agents',
+    }),
     isolateConfig: () => true,
     cwd: () => dir,
     homeDir: dir,
@@ -38,7 +48,12 @@ function makeBackend(mode = 'normal') {
     adapterEntry: () => null,
     adapterBootstrap: () => null,
     createMcpServer: () => new McpServer({ name: 'vivi', version: '0.0.0' }),
-    ui: { requestPermission: (r) => permissionRequests.push(r), resolvePermission: () => undefined, requestQuestion: () => undefined, resolveQuestion: () => undefined },
+    ui: {
+      requestPermission: (r) => permissionRequests.push(r),
+      resolvePermission: () => undefined,
+      requestQuestion: () => undefined,
+      resolveQuestion: () => undefined,
+    },
     appVersion: '0.0.0-test',
     titlesFile: join(dir, 'titles.json'),
     log: silent,
@@ -58,7 +73,10 @@ async function until(pred: () => boolean, ms = 20_000): Promise<void> {
 
 const textOf = (events: AgentUiEvent[]): string =>
   events
-    .filter((e): e is Extract<AgentUiEvent, { type: 'assistant-message' }> => e.type === 'assistant-message')
+    .filter(
+      (e): e is Extract<AgentUiEvent, { type: 'assistant-message' }> =>
+        e.type === 'assistant-message',
+    )
     .flatMap((e) => e.message.blocks)
     .map((b) => (b.type === 'text' ? b.text : ''))
     .join('')
@@ -70,14 +88,23 @@ describe('AcpBackend against a real ACP agent process', () => {
     await backend.send({ text: 'hello' })
     await until(() => permissionRequests.length === 1)
     const req = permissionRequests[0]!
-    expect(req).toMatchObject({ toolName: 'Bash', category: 'exec', canAlwaysAllow: true, input: { command: 'git status' } })
+    expect(req).toMatchObject({
+      toolName: 'Bash',
+      category: 'exec',
+      canAlwaysAllow: true,
+      input: { command: 'git status' },
+    })
     expect(backend.getState().state).toBe('awaiting_permission')
     backend.broker.respond(req.requestId, 'allow')
     await until(() => events.some((e) => e.type === 'result'))
-    const toolResult = events.find((e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result')!
+    const toolResult = events.find(
+      (e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result',
+    )!
     expect(toolResult.result).toMatchObject({ content: 'permission:allow-once', isError: false })
     expect(textOf(events)).toContain('done (allow-once) in mode acceptEdits with 1 MCP server(s)')
-    const result = events.find((e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result')!
+    const result = events.find(
+      (e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result',
+    )!
     expect(result.result).toMatchObject({ subtype: 'success', inputTokens: 1, outputTokens: 2 })
     expect(backend.getState()).toMatchObject({ state: 'idle', model: 'fake-1' })
     expect(await backend.listModels()).toEqual([
@@ -95,8 +122,14 @@ describe('AcpBackend against a real ACP agent process', () => {
     await until(() => permissionRequests.length === 1)
     backend.broker.respond(permissionRequests[0]!.requestId, 'allow-always')
     await until(() => events.some((e) => e.type === 'result'))
-    expect(events.find((e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result')!.result.content).toBe('permission:allow-with-updates')
-    expect(updates.at(-1)?.permissions.alwaysAllowRules).toEqual([{ toolName: 'Bash', ruleContent: 'git:*' }])
+    expect(
+      events.find(
+        (e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result',
+      )!.result.content,
+    ).toBe('permission:allow-with-updates')
+    expect(updates.at(-1)?.permissions.alwaysAllowRules).toEqual([
+      { toolName: 'Bash', ruleContent: 'git:*' },
+    ])
     // The rule now auto-allows the same call without a dialog.
     events.length = 0
     await backend.send({ text: 'hello again' })
@@ -112,7 +145,11 @@ describe('AcpBackend against a real ACP agent process', () => {
     await until(() => permissionRequests.length === 1)
     backend.broker.respond(permissionRequests[0]!.requestId, 'deny')
     await until(() => events.some((e) => e.type === 'result'))
-    expect(events.find((e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result')!.result).toMatchObject({ content: 'permission:reject', isError: true })
+    expect(
+      events.find(
+        (e): e is Extract<AgentUiEvent, { type: 'tool-result' }> => e.type === 'tool-result',
+      )!.result,
+    ).toMatchObject({ content: 'permission:reject', isError: true })
     await backend.dispose()
   }, 40_000)
 
@@ -122,7 +159,10 @@ describe('AcpBackend against a real ACP agent process', () => {
     await until(() => events.some((e) => e.type === 'text-delta'))
     await backend.interrupt()
     await until(() => events.some((e) => e.type === 'result'))
-    expect(events.find((e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result')!.result.subtype).toBe('cancelled')
+    expect(
+      events.find((e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result')!
+        .result.subtype,
+    ).toBe('cancelled')
     expect(events.filter((e) => e.type === 'error')).toEqual([])
     expect(backend.getState().state).toBe('idle')
     await backend.dispose()
@@ -133,7 +173,9 @@ describe('AcpBackend against a real ACP agent process', () => {
     await backend.send({ text: 'hello' })
     await until(() => events.some((e) => e.type === 'error'))
     await until(() => events.some((e) => e.type === 'result'))
-    const errors = events.filter((e): e is Extract<AgentUiEvent, { type: 'error' }> => e.type === 'error')
+    const errors = events.filter(
+      (e): e is Extract<AgentUiEvent, { type: 'error' }> => e.type === 'error',
+    )
     expect(errors).toHaveLength(1)
     expect(errors[0]!.error.code).toBe('process_exited')
     expect(backend.getState().state).toBe('failed')
@@ -146,13 +188,17 @@ describe('AcpBackend against a real ACP agent process', () => {
     await until(() => events.some((e) => e.type === 'text-delta'))
     await backend.restart()
     await until(() => events.some((e) => e.type === 'result'))
-    expect(events.find((e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result')!.result.subtype).toBe('cancelled')
+    expect(
+      events.find((e): e is Extract<AgentUiEvent, { type: 'result' }> => e.type === 'result')!
+        .result.subtype,
+    ).toBe('cancelled')
     expect(events.filter((e) => e.type === 'error')).toEqual([])
     events.length = 0
-    const { permissionRequests } = { permissionRequests: [] as PermissionRequest[] }
-    void permissionRequests
     await backend.send({ text: 'after restart' })
-    await until(() => events.some((e) => e.type === 'text-delta'))
+    // Wait for the actual state we assert on, not an earlier proxy event (the text-delta chunk
+    // and the state transition are two separate async messages from the fake agent process, and
+    // waiting on the wrong one raced occasionally).
+    await until(() => backend.getState().state === 'awaiting_permission')
     expect(backend.getState().state).toBe('awaiting_permission')
     await backend.dispose()
   }, 40_000)
