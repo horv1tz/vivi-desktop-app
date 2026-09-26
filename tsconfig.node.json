@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2023"],
+    "types": ["node", "electron-vite/node"],
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.node.tsbuildinfo"
+  },
+  "include": [
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "src/shared/**/*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/voice-worker/**/*",
+    "scripts/**/*.ts",
+    "tests/unit/**/*",
+    "tests/e2e/**/*"
+  ]
+}

@@ -1,0 +1,91 @@
+appId: dev.horv1tz.vivi
+productName: Vivi
+copyright: Copyright © 2026 horv1tz
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+directories:
+  buildResources: resources
+  output: dist
+
+# Application sources. Production node_modules are added automatically by electron-builder;
+# the huge per-platform Claude Code binary packages are excluded from the asar and copied
+# to resources/claude-bin by scripts/after-pack.cjs instead (spawn cannot run from asar).
+files:
+  - out/**/*
+  - package.json
+  - "!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**"
+  - "!**/*.map"
+  - "!**/node_modules/**/{test,tests,__tests__,docs,example,examples}/**"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/sherpa-onnx-*/**"
+  - "**/node_modules/robotjs/**"
+  - "**/node_modules/get-windows/**"
+
+# Every native dependency ships N-API prebuilds; never rebuild against Electron headers.
+npmRebuild: false
+nodeGypRebuild: false
+
+afterPack: scripts/after-pack.cjs
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  icon: resources/icon.png
+  synopsis: Personal AI desktop assistant powered by Claude
+  desktop:
+    entry:
+      StartupWMClass: vivi
+
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libasound2
+
+win:
+  target:
+    - nsis
+  icon: resources/icon.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+  icon: resources/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  notarize: false
+  extendInfo:
+    NSMicrophoneUsageDescription: Vivi listens to your voice commands.
+    NSAppleEventsUsageDescription: Vivi controls other applications on your behalf when you ask it to.
+    NSScreenCaptureUsageDescription: Vivi takes screenshots to see the screen when you ask it to control applications.
+    LSUIElement: false
+
+dmg:
+  sign: false
+
+publish:
+  provider: github
+  owner: horv1tz
+  repo: vivi-desktop-app
