@@ -27,6 +27,10 @@ export const AgentSettingsSchema = z.object({
   acpCommand: z.string().default(''),
   /** Extra command-line arguments for the ACP agent (shell-like quoting). */
   acpArgs: z.string().default(''),
+  /** AG-10: png is lossless (best for reading small text) but much larger/slower than jpeg. */
+  screenshotFormat: z.enum(['png', 'jpeg']).default('png'),
+  /** Only used when screenshotFormat is 'jpeg'. */
+  screenshotQuality: z.number().int().min(10).max(100).default(80),
 })
 
 export const PermissionRuleSchema = z.object({
@@ -85,7 +89,13 @@ export const AppearanceSettingsSchema = z.object({
   reduceMotion: z.boolean().default(false),
 })
 
-export const AuthModeSchema = z.enum(['none', 'claude-login', 'oauth-token', 'api-key', 'existing-claude'])
+export const AuthModeSchema = z.enum([
+  'none',
+  'claude-login',
+  'oauth-token',
+  'api-key',
+  'existing-claude',
+])
 
 export const AuthSettingsSchema = z.object({
   mode: AuthModeSchema.default('none'),

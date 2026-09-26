@@ -166,7 +166,14 @@
       "acpCommandPlaceholder": "bundled claude-agent-acp",
       "acpArgs": "Command-line arguments",
       "acpArgsHint": "Extra arguments for the agent (quotes are supported).",
-      "acpNote": "Over ACP, Vivi hands the agent its own tools (screen, mouse, keyboard, windows, clipboard) through a local MCP server; authentication and proxy settings are shared with the built-in mode."
+      "acpNote": "Over ACP, Vivi hands the agent its own tools (screen, mouse, keyboard, windows, clipboard) through a local MCP server; authentication and proxy settings are shared with the built-in mode.",
+      "screenshotFormat": "Screenshot format",
+      "screenshotFormatHint": "PNG is lossless and best for reading small text; JPEG is much smaller and faster, at some cost to fidelity.",
+      "screenshotFormats": {
+        "png": "PNG (lossless, larger)",
+        "jpeg": "JPEG (smaller, faster)"
+      },
+      "screenshotQuality": "JPEG quality (10–100)"
     },
     "about": {
       "version": "Version",

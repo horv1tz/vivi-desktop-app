@@ -65,6 +65,8 @@ export class AgentController {
       beforeInputAction: this.deps.beforeInputAction,
       appRegistryEnabled: () => settings().get().features.appRegistry,
       withOwnWindowsHidden,
+      screenshotFormat: () => settings().get().agent.screenshotFormat,
+      screenshotQuality: () => settings().get().agent.screenshotQuality,
       log,
     })
   }
@@ -89,7 +91,9 @@ export class AgentController {
     if (kind === 'mock') return new MockBackend()
     const common = {
       getSettings: () => settings().get(),
-      updateSettings: (patch: { permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] } }) => {
+      updateSettings: (patch: {
+        permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
+      }) => {
         settings().update(patch)
         emit('settings:changed', settings().get())
       },
@@ -100,7 +104,8 @@ export class AgentController {
       memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
-      debugFile: () => (settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined),
+      debugFile: () =>
+        settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined,
       ui: this.brokerUi(),
     }
     if (kind === 'acp') {
@@ -156,7 +161,9 @@ export class AgentController {
   /** Restart the agent process so changed auth/proxy/model settings apply; swaps the backend kind if it changed. */
   restart(): Promise<void> {
     // Serialized: overlapping restarts (auth change + settings change) must not race each other.
-    this.restarting = this.restarting.then(() => this.doRestart()).catch((err) => log.warn('agent restart failed', err))
+    this.restarting = this.restarting
+      .then(() => this.doRestart())
+      .catch((err) => log.warn('agent restart failed', err))
     return this.restarting
   }
 
@@ -203,8 +210,12 @@ export class AgentController {
     handle('agent:renameSession', (_e, id, title) => this.backend.renameSession(id, title))
     handle('agent:deleteSession', (_e, id) => this.backend.deleteSession(id))
     handle('agent:listModels', () => this.backend.listModels())
-    handle('permission:respond', (_e, requestId, decision) => this.backend.broker?.respond(requestId, decision))
-    handle('question:respond', (_e, requestId, answers) => this.backend.broker?.answerQuestion(requestId, answers))
+    handle('permission:respond', (_e, requestId, decision) =>
+      this.backend.broker?.respond(requestId, decision),
+    )
+    handle('question:respond', (_e, requestId, answers) =>
+      this.backend.broker?.answerQuestion(requestId, answers),
+    )
     app.on('will-quit', () => void this.dispose())
   }
 }

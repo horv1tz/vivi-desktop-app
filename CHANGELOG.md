@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.nvmrc`, and CI/release badges on the README.
 - Dependabot (npm + GitHub Actions), a CodeQL workflow, an informational `npm audit` step in CI,
   and SHA-256 checksums uploaded alongside every release installer.
+- A screenshot format/quality setting (Settings > Agent): JPEG trades some fidelity for far
+  smaller, cheaper, faster screenshots than the previous always-PNG default; applies live.
 
 ### Fixed
 

@@ -1,6 +1,10 @@
 import { clipboard, Notification, screen } from 'electron'
 import { z } from 'zod'
-import { createSdkMcpServer, tool, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk'
+import {
+  createSdkMcpServer,
+  tool,
+  type McpSdkServerConfigWithInstance,
+} from '@anthropic-ai/claude-agent-sdk'
 import { captureScreen, listDisplays } from './screen'
 import { listInstalledApps, openTarget } from './apps'
 import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from './system'
@@ -19,22 +23,52 @@ export interface ViviToolDeps {
   appRegistryEnabled: () => boolean
   /** CU-05: hides Vivi's own windows from screen capture for the duration of the callback. */
   withOwnWindowsHidden: <T>(fn: () => Promise<T>) => Promise<T>
-  log: { info: (...a: unknown[]) => void; warn: (...a: unknown[]) => void; error: (...a: unknown[]) => void }
+  /** AG-10: screenshot encoding; jpeg trades some fidelity (small text can blur) for far fewer tokens/latency. */
+  screenshotFormat: () => 'png' | 'jpeg'
+  screenshotQuality: () => number
+  log: {
+    info: (...a: unknown[]) => void
+    warn: (...a: unknown[]) => void
+    error: (...a: unknown[]) => void
+  }
 }
 
-const KEY_HELP = 'Key names: letters/digits, enter, tab, escape, backspace, delete, space, up/down/left/right, home, end, pageup, pagedown, f1-f12, and modifiers ctrl, alt, shift, cmd/command/win/super. Combine with "+", e.g. "ctrl+c", "cmd+shift+4", "alt+tab".'
+const KEY_HELP =
+  'Key names: letters/digits, enter, tab, escape, backspace, delete, space, up/down/left/right, home, end, pageup, pagedown, f1-f12, and modifiers ctrl, alt, shift, cmd/command/win/super. Combine with "+", e.g. "ctrl+c", "cmd+shift+4", "alt+tab".'
 
 export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithInstance {
   const screenshot = tool(
     'screenshot',
-    'Capture the screen so you can see it. Returns a PNG (downscaled) plus its pixel size and the logical size of the display; the mouse/keyboard tools use logical coordinates of that display. Optional: display index (0 = primary) or a region {x,y,width,height} in logical coordinates.',
+    'Capture the screen so you can see it. Returns a downscaled image (PNG or JPEG, per settings) plus its pixel size and the logical size of the display; the mouse/keyboard tools use logical coordinates of that display. Optional: display index (0 = primary) or a region {x,y,width,height} in logical coordinates.',
     {
-      display: z.number().int().min(0).optional().describe('Display index from system_info/screenshot output; defaults to the display under the cursor'),
-      region: z.object({ x: z.number(), y: z.number(), width: z.number().positive(), height: z.number().positive() }).optional().describe('Crop to this logical-coordinate region of the display'),
+      display: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+          'Display index from system_info/screenshot output; defaults to the display under the cursor',
+        ),
+      region: z
+        .object({
+          x: z.number(),
+          y: z.number(),
+          width: z.number().positive(),
+          height: z.number().positive(),
+        })
+        .optional()
+        .describe('Crop to this logical-coordinate region of the display'),
     },
     async ({ display, region }) => {
       try {
-        const shot = await deps.withOwnWindowsHidden(() => captureScreen({ display, region }))
+        const shot = await deps.withOwnWindowsHidden(() =>
+          captureScreen({
+            display,
+            region,
+            quality: deps.screenshotFormat(),
+            jpegQuality: deps.screenshotQuality(),
+          }),
+        )
         const caption = `Screenshot of display #${shot.displayIndex} (id ${shot.displayId}): image ${shot.width}x${shot.height}px covering logical ${shot.logicalWidth}x${shot.logicalHeight} at origin (${shot.displayBounds.x + (region?.x ?? 0)}, ${shot.displayBounds.y + (region?.y ?? 0)}). To click a point seen at image pixel (px, py) use x = ${shot.displayBounds.x + (region?.x ?? 0)} + px * ${shot.scale.toFixed(4)}, y = ${shot.displayBounds.y + (region?.y ?? 0)} + py * ${shot.scale.toFixed(4)}. Cursor at (${screen.getCursorScreenPoint().x}, ${screen.getCursorScreenPoint().y}).`
         return image(shot.base64, shot.mimeType, caption)
       } catch (err) {
@@ -48,7 +82,18 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     'mouse',
     'Control the mouse in logical screen coordinates (see screenshot). Actions: move, click, double_click, right_click, middle_click, down, up, drag (from x,y to x2,y2), scroll (dx,dy in lines; positive dy scrolls down), position.',
     {
-      action: z.enum(['move', 'click', 'double_click', 'right_click', 'middle_click', 'down', 'up', 'drag', 'scroll', 'position']),
+      action: z.enum([
+        'move',
+        'click',
+        'double_click',
+        'right_click',
+        'middle_click',
+        'down',
+        'up',
+        'drag',
+        'scroll',
+        'position',
+      ]),
       x: z.number().optional(),
       y: z.number().optional(),
       x2: z.number().optional().describe('drag end x'),
@@ -58,7 +103,10 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
     async ({ action, x, y, x2, y2, dx, dy }) => {
       const driver = await deps.inputDriver()
-      if (!driver) return error('mouse control is not available on this system (no input driver). On Linux Wayland use X11 or install xdotool/ydotool.')
+      if (!driver)
+        return error(
+          'mouse control is not available on this system (no input driver). On Linux Wayland use X11 or install xdotool/ydotool.',
+        )
       try {
         await deps.beforeInputAction?.()
         switch (action) {
@@ -74,8 +122,15 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
           case 'double_click':
           case 'right_click':
           case 'middle_click':
-            await driver.click(x, y, action === 'right_click' ? 'right' : action === 'middle_click' ? 'middle' : 'left', action === 'double_click')
-            return text(`${action} at ${x !== undefined && y !== undefined ? `(${x}, ${y})` : 'current position'}`)
+            await driver.click(
+              x,
+              y,
+              action === 'right_click' ? 'right' : action === 'middle_click' ? 'middle' : 'left',
+              action === 'double_click',
+            )
+            return text(
+              `${action} at ${x !== undefined && y !== undefined ? `(${x}, ${y})` : 'current position'}`,
+            )
           case 'down':
             await driver.mouseDown('left')
             return text('mouse button down')
@@ -83,7 +138,8 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
             await driver.mouseUp('left')
             return text('mouse button up')
           case 'drag':
-            if (x === undefined || y === undefined || x2 === undefined || y2 === undefined) return error('x, y, x2, y2 are required for drag')
+            if (x === undefined || y === undefined || x2 === undefined || y2 === undefined)
+              return error('x, y, x2, y2 are required for drag')
             await driver.drag({ x, y }, { x: x2, y: y2 }, 'left')
             return text(`dragged from (${x}, ${y}) to (${x2}, ${y2})`)
           case 'scroll':
@@ -105,12 +161,16 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     {
       action: z.enum(['type', 'press', 'hotkey']),
       text: z.string().optional().describe('Text to type (for action=type)'),
-      keys: z.string().optional().describe('Key combo like "ctrl+shift+t" (for action=press/hotkey)'),
+      keys: z
+        .string()
+        .optional()
+        .describe('Key combo like "ctrl+shift+t" (for action=press/hotkey)'),
       pressEnter: z.boolean().optional().describe('After typing, press Enter'),
     },
     async ({ action, text: t, keys, pressEnter }) => {
       const driver = await deps.inputDriver()
-      if (!driver) return error('keyboard control is not available on this system (no input driver).')
+      if (!driver)
+        return error('keyboard control is not available on this system (no input driver).')
       try {
         await deps.beforeInputAction?.()
         if (action === 'type') {
@@ -120,7 +180,11 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
           return text(`typed ${t.length} chars${pressEnter ? ' + Enter' : ''}`)
         }
         if (!keys) return error('keys is required')
-        const combo = keys.toLowerCase().split('+').map((k) => k.trim()).filter(Boolean)
+        const combo = keys
+          .toLowerCase()
+          .split('+')
+          .map((k) => k.trim())
+          .filter(Boolean)
         await driver.pressKeys(combo)
         return text(`pressed ${combo.join('+')}`)
       } catch (err) {
@@ -138,7 +202,14 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       try {
         const windows = await listWindows()
         if (!windows.length) return text('no windows found')
-        return text(windows.map((w) => `${w.active ? '* ' : '  '}#${w.id} [${w.app}${w.pid ? ` pid ${w.pid}` : ''}] "${w.title}" @ ${w.bounds.x},${w.bounds.y} ${w.bounds.width}x${w.bounds.height}`).join('\n'))
+        return text(
+          windows
+            .map(
+              (w) =>
+                `${w.active ? '* ' : '  '}#${w.id} [${w.app}${w.pid ? ` pid ${w.pid}` : ''}] "${w.title}" @ ${w.bounds.x},${w.bounds.y} ${w.bounds.width}x${w.bounds.height}`,
+            )
+            .join('\n'),
+        )
       } catch (err) {
         return error((err as Error).message)
       }
@@ -161,7 +232,10 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       if (!driver) return error('window control is not available on this system.')
       try {
         await deps.beforeInputAction?.()
-        const ok = action === 'focus' ? await driver.focusWindow({ id, title, app, pid }) : await (driver.minimizeWindow?.({ id, title, app, pid }) ?? Promise.resolve(false))
+        const ok =
+          action === 'focus'
+            ? await driver.focusWindow({ id, title, app, pid })
+            : await (driver.minimizeWindow?.({ id, title, app, pid }) ?? Promise.resolve(false))
         return ok ? text(`${action}: ok`) : error(`${action}: window not found`)
       } catch (err) {
         return error(`${action} failed: ${(err as Error).message}`)
@@ -200,23 +274,34 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     { annotations: { readOnlyHint: true } },
   )
 
-  const clipboardRead = tool('clipboard_read', 'Read the current text from the system clipboard.', {}, async () => {
-    try {
-      const t = await clipboard.readText()
-      return text(t ? truncate(t, 50_000) : '(clipboard is empty or not text)')
-    } catch (err) {
-      return error((err as Error).message)
-    }
-  }, { annotations: { readOnlyHint: true } })
+  const clipboardRead = tool(
+    'clipboard_read',
+    'Read the current text from the system clipboard.',
+    {},
+    async () => {
+      try {
+        const t = await clipboard.readText()
+        return text(t ? truncate(t, 50_000) : '(clipboard is empty or not text)')
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
 
-  const clipboardWrite = tool('clipboard_write', 'Put text on the system clipboard.', { text: z.string() }, async ({ text: t }) => {
-    try {
-      await clipboard.writeText(t)
-      return text(`copied ${t.length} chars to clipboard`)
-    } catch (err) {
-      return error((err as Error).message)
-    }
-  })
+  const clipboardWrite = tool(
+    'clipboard_write',
+    'Put text on the system clipboard.',
+    { text: z.string() },
+    async ({ text: t }) => {
+      try {
+        await clipboard.writeText(t)
+        return text(`copied ${t.length} chars to clipboard`)
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+  )
 
   const notify = tool(
     'notify',
@@ -260,7 +345,13 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
   )
 
-  const systemInfoTool = tool('system_info', 'Return OS, hardware, display layout and cursor position (read-only).', {}, async () => text(JSON.stringify({ ...systemInfo(), displays: listDisplays() }, null, 2)), { annotations: { readOnlyHint: true } })
+  const systemInfoTool = tool(
+    'system_info',
+    'Return OS, hardware, display layout and cursor position (read-only).',
+    {},
+    async () => text(JSON.stringify({ ...systemInfo(), displays: listDisplays() }, null, 2)),
+    { annotations: { readOnlyHint: true } },
+  )
 
   const speak = tool(
     'speak',
@@ -276,15 +367,23 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
   )
 
-  const stopSpeaking = tool('stop_speaking', 'Stop any ongoing text-to-speech playback.', {}, async () => {
-    await deps.stopSpeaking()
-    return text('stopped')
-  })
+  const stopSpeaking = tool(
+    'stop_speaking',
+    'Stop any ongoing text-to-speech playback.',
+    {},
+    async () => {
+      await deps.stopSpeaking()
+      return text('stopped')
+    },
+  )
 
   const remember = tool(
     'remember',
     'Store a durable fact or preference about the user in the memory file (VIVI.md) so future conversations know it. Not for secrets or temporary task state.',
-    { fact: z.string().min(3).max(500), category: z.string().max(40).optional().describe('e.g. preference, project, contact, habit') },
+    {
+      fact: z.string().min(3).max(500),
+      category: z.string().max(40).optional().describe('e.g. preference, project, contact, habit'),
+    },
     async ({ fact, category }) => {
       try {
         return text(rememberFact(deps.memoryFile(), fact, category))
@@ -297,6 +396,22 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
   return createSdkMcpServer({
     name: 'vivi',
     version: '1.0.0',
-    tools: [screenshot, mouse, keyboard, listWindowsTool, windowsTool, open, listApps, clipboardRead, clipboardWrite, notify, system, systemInfoTool, speak, stopSpeaking, remember],
+    tools: [
+      screenshot,
+      mouse,
+      keyboard,
+      listWindowsTool,
+      windowsTool,
+      open,
+      listApps,
+      clipboardRead,
+      clipboardWrite,
+      notify,
+      system,
+      systemInfoTool,
+      speak,
+      stopSpeaking,
+      remember,
+    ],
   })
 }
