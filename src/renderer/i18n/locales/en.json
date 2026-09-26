@@ -317,6 +317,7 @@
       "microphone": "Microphone",
       "screen": "Screen recording",
       "accessibility": "Accessibility (mouse and keyboard control)",
+      "automation": "Automation (control other apps via System Events)",
       "grant": "Grant",
       "notNeeded": "Not needed on this system",
       "linuxNote": "On Linux permissions are system-level. For mouse control on Wayland install ydotool; X11 works out of the box.",

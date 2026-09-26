@@ -430,7 +430,7 @@ gantt
 - **Подход:** запоминать активное окно перед показом диалога и возвращать фокус после (`get-windows` + драйвер `focus`); `win.setContentProtection(true)` на время захвата или исключение по `sourceId`; overlay не активирует окно (`showInactive`).
 - **Оценка:** M · **P1** · **0.2**
 
-#### CU-06 · macOS: pre-flight проверки TCC
+#### CU-06 · macOS: pre-flight проверки TCC · ⚠️ Partially done (automation status check + onboarding row shipped; check-before-every-action wiring is still open)
 - **Цель:** до первого действия проверить Accessibility/Screen Recording/Automation и дать понятную ошибку с кнопкой в системные настройки.
 - **Подход:** `app/os-permissions.ts` расширить `automation` (AppleScript к System Events), проверка перед `mouse/keyboard/windows`, онбординг с шагом «Автоматизация».
 - **Оценка:** S · **P1** · **0.2**
@@ -948,7 +948,7 @@ SemVer; до 1.0 минорные версии могут менять наст�
 | CU-03 | «Действие + наблюдение» | CU | P1 | S | 0.2 | 📋 |
 | CU-04 | Корректный DPI | CU | P0 | S | 0.1.x | ✅ |
 | CU-05 | Гигиена фокуса и захвата | CU | P1 | M | 0.2 | 🔶 |
-| CU-06 | macOS pre-flight TCC | CU | P1 | S | 0.2 | 📋 |
+| CU-06 | macOS pre-flight TCC | CU | P1 | S | 0.2 | 🔶 |
 | CU-07 | HUD, «Стоп» в трее, освобождение ввода | CU | P1 | M | 0.2 | 📋 |
 | CU-08 | Accessibility-дерево macOS | CU | P1 | XL | 0.4 | 📋 |
 | CU-09 | Accessibility-дерево Windows/Linux | CU | P2 | XL | 0.5 | 📋 |

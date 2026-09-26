@@ -37,7 +37,7 @@ export function registerCoreHandlers(opts: {
   backend: () => AppInfo['backend']
 }): void {
   handle('app:getInfo', (): AppInfo => getAppInfo(opts))
-  handle('app:getOsPermissions', (): OsPermissionStatus => getOsPermissions())
+  handle('app:getOsPermissions', (): Promise<OsPermissionStatus> => getOsPermissions())
   handle('app:requestOsPermission', (_e, kind) => requestOsPermission(kind))
   handle('app:openLogs', async () => {
     await shell.openPath(paths.logsDir)
@@ -50,7 +50,7 @@ export function registerCoreHandlers(opts: {
     const report = buildDiagnosticsReport({
       appInfo: getAppInfo(opts),
       settings: settings().get(),
-      osPermissions: getOsPermissions(),
+      osPermissions: await getOsPermissions(),
       logFilePath: join(paths.logsDir, 'vivi.log'),
     })
     const defaultPath = join(

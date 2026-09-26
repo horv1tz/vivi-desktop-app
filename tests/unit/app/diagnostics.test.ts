@@ -33,6 +33,7 @@ const appInfo: AppInfo = {
 const osPermissions: OsPermissionStatus = {
   microphone: 'granted',
   screen: 'n/a',
+  automation: 'n/a',
   accessibility: 'n/a',
 }
 

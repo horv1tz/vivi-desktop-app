@@ -58,7 +58,10 @@ export interface VoiceModelInfo {
 export interface InvokeMap {
   'app:getInfo': { args: []; result: AppInfo }
   'app:getOsPermissions': { args: []; result: OsPermissionStatus }
-  'app:requestOsPermission': { args: ['microphone' | 'screen' | 'accessibility']; result: boolean }
+  'app:requestOsPermission': {
+    args: ['microphone' | 'screen' | 'accessibility' | 'automation']
+    result: boolean
+  }
   'app:openLogs': { args: []; result: void }
   'app:relaunch': { args: []; result: void }
   /** OBS-01: writes a diagnostics report (app info, redaction-free settings, OS permissions, log

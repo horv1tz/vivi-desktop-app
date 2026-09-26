@@ -98,12 +98,25 @@ export interface AgentError {
 }
 
 export type AgentUiEvent =
-  | { type: 'session'; sessionId: string; state: SessionState; model?: string; tools?: string[]; title?: string }
+  | {
+      type: 'session'
+      sessionId: string
+      state: SessionState
+      model?: string
+      tools?: string[]
+      title?: string
+    }
   | { type: 'state'; state: SessionState }
   | { type: 'status'; status: 'compacting' | 'requesting' | 'retrying' | null; detail?: string }
   | { type: 'user-message'; message: UiMessage }
   | { type: 'assistant-start'; messageId: string; parentToolUseId: string | null }
-  | { type: 'text-delta'; messageId: string; blockIndex: number; text: string; kind: 'text' | 'thinking' }
+  | {
+      type: 'text-delta'
+      messageId: string
+      blockIndex: number
+      text: string
+      kind: 'text' | 'thinking'
+    }
   | { type: 'assistant-message'; message: UiMessage }
   | { type: 'tool-use'; messageId: string; block: UiToolUseBlock; parentToolUseId: string | null }
   | { type: 'tool-result'; toolUseId: string; result: UiToolResult }
@@ -156,7 +169,8 @@ export interface QuestionRequest {
   questions: QuestionItem[]
 }
 
-export type VoiceState = 'off' | 'armed' | 'listening' | 'transcribing' | 'thinking' | 'speaking' | 'error'
+export type VoiceState =
+  'off' | 'armed' | 'listening' | 'transcribing' | 'thinking' | 'speaking' | 'error'
 
 export interface VoiceStateEvent {
   state: VoiceState
@@ -202,7 +216,18 @@ export type UpdateStatus =
   | { type: 'downloaded'; version: string }
   | { type: 'error'; message: string }
 
-export type Platform = 'aix' | 'android' | 'darwin' | 'freebsd' | 'haiku' | 'linux' | 'openbsd' | 'sunos' | 'win32' | 'cygwin' | 'netbsd'
+export type Platform =
+  | 'aix'
+  | 'android'
+  | 'darwin'
+  | 'freebsd'
+  | 'haiku'
+  | 'linux'
+  | 'openbsd'
+  | 'sunos'
+  | 'win32'
+  | 'cygwin'
+  | 'netbsd'
 
 export interface AppInfo {
   version: string
@@ -224,4 +249,6 @@ export interface OsPermissionStatus {
   microphone: 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown' | 'n/a'
   screen: 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown' | 'n/a'
   accessibility: 'granted' | 'denied' | 'unknown' | 'n/a'
+  /** CU-06: can Vivi drive other apps via Apple Events (osascript to System Events, window focus, etc.). */
+  automation: 'granted' | 'denied' | 'unknown' | 'n/a'
 }
