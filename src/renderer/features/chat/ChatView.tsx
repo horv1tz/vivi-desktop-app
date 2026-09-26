@@ -86,7 +86,9 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
           <div className="mt-1.5 flex items-center gap-3 px-1 text-[11px] text-faint">
             {lastResult ? (
               <>
-                <span>{t('chat.cost')}: {formatUsd(lastResult.costUsd)} {t('chat.turnCost')} · {formatUsd(totalCost)} {t('chat.total')}</span>
+                {lastResult.totalCostUsd !== undefined ? (
+                  <span>{t('chat.cost')}: {formatUsd(lastResult.costUsd ?? 0)} {t('chat.turnCost')} · {formatUsd(totalCost ?? 0)} {t('chat.total')}</span>
+                ) : null}
                 <span>{t('chat.tokens')}: {formatTokens(lastResult.inputTokens)} in / {formatTokens(lastResult.outputTokens)} out{lastResult.cacheReadTokens ? ` · cache ${formatTokens(lastResult.cacheReadTokens)}` : ''}</span>
               </>
             ) : null}

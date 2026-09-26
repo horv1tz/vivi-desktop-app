@@ -34,7 +34,7 @@ export interface AgentStateSnapshot {
   state: SessionState
   model: string | null
   title: string | null
-  totalCostUsd: number
+  totalCostUsd?: number
 }
 
 export interface ProxyTestResult {

@@ -74,7 +74,7 @@ export class SdkBackend implements AgentBackend {
   }
 
   private emit(e: AgentUiEvent): void {
-    if (e.type === 'result') this.totalCost = e.result.totalCostUsd
+    if (e.type === 'result' && e.result.totalCostUsd !== undefined) this.totalCost = e.result.totalCostUsd
     if (e.type === 'result') this.policyState.turnGrants.clear()
     if (e.type === 'session') this.selectedSessionId = e.sessionId
     for (const l of this.listeners) l(e)

@@ -59,7 +59,7 @@ const session = new AgentSession({
         break
       case 'result':
         result = e.result
-        console.log(`\n[result] ${e.result.subtype} cost=$${e.result.costUsd.toFixed(4)} total=$${e.result.totalCostUsd.toFixed(4)} in=${e.result.inputTokens} out=${e.result.outputTokens} ${e.result.durationMs}ms`)
+        console.log(`\n[result] ${e.result.subtype} cost=$${(e.result.costUsd ?? 0).toFixed(4)} total=$${(e.result.totalCostUsd ?? 0).toFixed(4)} in=${e.result.inputTokens} out=${e.result.outputTokens} ${e.result.durationMs}ms`)
         break
       case 'error':
         console.log(`\n[error] ${e.error.code}: ${e.error.message}`)

@@ -90,6 +90,10 @@ export class AcpTranslator {
   private toolCalls = 0
   private turnStartedAt = 0
   private usage: { used: number; size: number } | null = null
+  /** Cumulative session cost last reported via `usage_update.cost` (USD only; other currencies are left unreported). */
+  private cumulativeCostUsd: number | undefined
+  /** `cumulativeCostUsd` as of the previous `finishTurn`, so each turn's own cost is a delta. */
+  private lastReportedCostUsd = 0
   private replay: UiMessage[] | null = null
   private replayUser: UiMessage | null = null
 
@@ -159,6 +163,7 @@ export class AcpTranslator {
         break
       case 'usage_update':
         this.usage = { used: update.used, size: update.size }
+        if (update.cost && update.cost.currency === 'USD') this.cumulativeCostUsd = update.cost.amount
         break
       case 'compaction_update':
         if (!this.replay) this.emit({ type: 'compact' })
@@ -173,7 +178,7 @@ export class AcpTranslator {
   }
 
   /** Finalize the assistant message of a live prompt and emit the turn result. */
-  finishTurn(response: PromptResponse | null, opts: { turnId?: string; error?: boolean; totalCostUsd?: number } = {}): TurnResult {
+  finishTurn(response: PromptResponse | null, opts: { turnId?: string; error?: boolean } = {}): TurnResult {
     const message = this.streaming ? this.finalizeStreaming() : null
     if (message) this.emit({ type: 'assistant-message', message })
     // Tool calls that never completed (cancelled turn) get an empty result so the UI stops spinning.
@@ -186,12 +191,21 @@ export class AcpTranslator {
     this.tools.clear()
     const stopReason = response?.stopReason ?? null
     const usage = this.turnUsage(response?.usage)
+    // usage_update.cost is cumulative for the whole session; this turn's own cost is the delta
+    // since the last turn. Left undefined (never shown as $0.00) until the agent actually reports one.
+    let costUsd: number | undefined
+    let totalCostUsd: number | undefined
+    if (this.cumulativeCostUsd !== undefined) {
+      totalCostUsd = this.cumulativeCostUsd
+      costUsd = Math.max(0, totalCostUsd - this.lastReportedCostUsd)
+      this.lastReportedCostUsd = totalCostUsd
+    }
     const result: TurnResult = {
       turnId: opts.turnId ?? randomUUID(),
       subtype: stopReason === 'end_turn' ? 'success' : stopReason === 'max_turn_requests' ? 'error_max_turns' : stopReason ?? (opts.error ? 'error' : 'success'),
       isError: !!opts.error || stopReason === 'refusal',
-      costUsd: 0,
-      totalCostUsd: opts.totalCostUsd ?? 0,
+      costUsd,
+      totalCostUsd,
       durationMs: Math.max(0, this.now() - this.turnStartedAt),
       numTurns: this.toolCalls + 1,
       inputTokens: usage.inputTokens,

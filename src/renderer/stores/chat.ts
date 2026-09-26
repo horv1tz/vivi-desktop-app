@@ -12,7 +12,7 @@ interface ChatState {
   title: string | null
   messages: UiMessage[]
   lastResult: TurnResult | null
-  totalCostUsd: number
+  totalCostUsd?: number
   rateLimit: RateLimitInfo | null
   error: AgentError | null
   apply: (e: AgentUiEvent) => void
@@ -51,7 +51,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   title: null,
   messages: [],
   lastResult: null,
-  totalCostUsd: 0,
+  totalCostUsd: undefined,
   rateLimit: null,
   error: null,
 

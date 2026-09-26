@@ -118,6 +118,42 @@ describe('AcpTranslator (usage and diffs)', () => {
     expect([r3.inputTokens, r3.outputTokens]).toEqual([0, 0])
   })
 
+  it('leaves cost undefined (never $0.00) until the agent reports usage_update.cost (ACP-01)', () => {
+    const { t } = make()
+    t.beginTurn()
+    const r1 = t.finishTurn({ stopReason: 'end_turn' })
+    expect(r1.costUsd).toBeUndefined()
+    expect(r1.totalCostUsd).toBeUndefined()
+  })
+
+  it('derives per-turn cost as the delta of the cumulative session cost (ACP-01)', () => {
+    const { t } = make()
+    t.beginTurn()
+    t.handleUpdate({ sessionUpdate: 'usage_update', used: 100, size: 200000, cost: { amount: 0.02, currency: 'USD' } })
+    const r1 = t.finishTurn({ stopReason: 'end_turn' })
+    expect(r1.costUsd).toBeCloseTo(0.02)
+    expect(r1.totalCostUsd).toBeCloseTo(0.02)
+    t.beginTurn()
+    t.handleUpdate({ sessionUpdate: 'usage_update', used: 300, size: 200000, cost: { amount: 0.05, currency: 'USD' } })
+    const r2 = t.finishTurn({ stopReason: 'end_turn' })
+    expect(r2.costUsd).toBeCloseTo(0.03)
+    expect(r2.totalCostUsd).toBeCloseTo(0.05)
+    // A turn with no fresh usage_update keeps reporting the last known total, with zero delta.
+    t.beginTurn()
+    const r3 = t.finishTurn({ stopReason: 'end_turn' })
+    expect(r3.costUsd).toBeCloseTo(0)
+    expect(r3.totalCostUsd).toBeCloseTo(0.05)
+  })
+
+  it('ignores a reported cost in a non-USD currency', () => {
+    const { t } = make()
+    t.beginTurn()
+    t.handleUpdate({ sessionUpdate: 'usage_update', used: 100, size: 200000, cost: { amount: 0.02, currency: 'EUR' } })
+    const r1 = t.finishTurn({ stopReason: 'end_turn' })
+    expect(r1.costUsd).toBeUndefined()
+    expect(r1.totalCostUsd).toBeUndefined()
+  })
+
   it('keeps the diff announced with an Edit call when the completion update carries no content', () => {
     const { t, events } = make()
     t.beginTurn()

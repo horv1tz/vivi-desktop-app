@@ -261,6 +261,8 @@ export class AcpBackend implements AgentBackend {
   private stderrTail: string[] = []
   private voiceMode = false
   private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
+  /** Cumulative session cost as last reported by the agent (ACP-01); undefined until it reports one. */
+  private totalCost: number | undefined
 
   constructor(private readonly deps: AcpBackendDeps) {
     this.mcp = new ViviMcpHttpServer({ createServer: deps.createMcpServer, log: deps.log })
@@ -290,6 +292,7 @@ export class AcpBackend implements AgentBackend {
     if (e.type === 'state') this._state = e.state
     if (e.type === 'session') this._state = e.state
     if (e.type === 'result') this.policyState.turnGrants.clear()
+    if (e.type === 'result' && e.result.totalCostUsd !== undefined) this.totalCost = e.result.totalCostUsd
     if (e.type === 'user-message') this.history.push(e.message)
     if (e.type === 'assistant-message') {
       const i = this.history.findIndex((m) => m.id === e.message.id)
@@ -310,7 +313,7 @@ export class AcpBackend implements AgentBackend {
       state: this._state,
       model: this.currentModel() ?? (this.deps.getSettings().agent.model || null),
       title: this.selectedTitle,
-      totalCostUsd: 0,
+      totalCostUsd: this.totalCost,
     }
   }
 

@@ -53,8 +53,9 @@ export interface TurnResult {
   turnId: string
   subtype: string
   isError: boolean
-  costUsd: number
-  totalCostUsd: number
+  /** Undefined (not 0) when the backend never reported a cost for this turn — e.g. a third-party ACP agent. */
+  costUsd?: number
+  totalCostUsd?: number
   durationMs: number
   numTurns: number
   inputTokens: number
