@@ -89,3 +89,5 @@ publish:
   provider: github
   owner: horv1tz
   repo: vivi-desktop-app
+  # Publish immediately on tag builds (electron-builder would otherwise leave a draft).
+  releaseType: release

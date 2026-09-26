@@ -1,6 +1,34 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { isAbsolute } from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import { ndJsonStream, type Stream } from '@agentclientprotocol/sdk'
+
+/** npm-style launchers on Windows are .cmd/.bat shims that only cmd.exe can start. */
+export function needsWindowsShell(command: string): boolean {
+  return /\.(cmd|bat)$/i.test(command)
+}
+
+/**
+ * On Windows a bare command name ("gemini") usually maps to a .cmd shim that CreateProcess cannot run
+ * directly. Resolve it through `where` so the caller knows the real file (and whether a shell is needed).
+ */
+export function resolveWindowsCommand(command: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform !== 'win32' || isAbsolute(command) || /[\\/]/.test(command) || /\.[a-z0-9]+$/i.test(command)) return command
+  try {
+    const r = spawnSync('where.exe', [command], { encoding: 'utf8', windowsHide: true, timeout: 5000 })
+    const first = r.stdout?.split(/\r?\n/).map((l) => l.trim()).find(Boolean)
+    return first || command
+  } catch {
+    return command
+  }
+}
+
+/** Quote an argument for cmd.exe when a .cmd shim has to be started through the shell. */
+export function quoteForCmd(arg: string): string {
+  if (arg === '') return '""'
+  if (!/[\s"&|<>^()]/.test(arg)) return arg
+  return `"${arg.replace(/"/g, '\\"')}"`
+}
 
 export interface AcpProcessOptions {
   command: string
@@ -25,11 +53,14 @@ export interface AcpProcess {
  * Works for the bundled Claude adapter (run with Electron as Node) and for any third-party ACP agent.
  */
 export function spawnAcpProcess(opts: AcpProcessOptions): AcpProcess {
-  const child: ChildProcessWithoutNullStreams = spawn(opts.command, opts.args, {
+  const command = resolveWindowsCommand(opts.command)
+  const useShell = process.platform === 'win32' && needsWindowsShell(command)
+  const child: ChildProcessWithoutNullStreams = spawn(useShell ? quoteForCmd(command) : command, useShell ? opts.args.map(quoteForCmd) : opts.args, {
     cwd: opts.cwd,
     env: Object.fromEntries(Object.entries(opts.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
+    shell: useShell,
   })
   let running = true
   const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {

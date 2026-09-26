@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { RequestError } from '@agentclientprotocol/sdk'
 import { alwaysAllowRuleFor, answersToFormContent, formToQuestions, mapAcpError, selectPermissionOption } from '@main/agent/acp-backend'
 import { splitArgs } from '@main/agent/acp/args'
+import { needsWindowsShell, quoteForCmd, resolveWindowsCommand } from '@main/agent/acp/process'
 
 describe('splitArgs', () => {
   it('splits on whitespace and honours quotes and escapes', () => {
@@ -77,5 +78,24 @@ describe('form elicitation ⇄ question dialog', () => {
 
   it('returns no questions for non-form elicitations', () => {
     expect(formToQuestions({ mode: 'url', sessionId: 's', message: 'x', url: 'https://x' } as never).questions).toEqual([])
+  })
+})
+
+describe('windows command handling', () => {
+  it('only .cmd/.bat shims need cmd.exe', () => {
+    expect(needsWindowsShell('C:\\Users\\me\\AppData\\Roaming\\npm\\gemini.cmd')).toBe(true)
+    expect(needsWindowsShell('C:\\tools\\agent.exe')).toBe(false)
+    expect(needsWindowsShell('/usr/local/bin/gemini')).toBe(false)
+  })
+  it('leaves commands untouched off Windows and when they carry a path or extension', () => {
+    expect(resolveWindowsCommand('gemini', 'linux')).toBe('gemini')
+    expect(resolveWindowsCommand('C:\\x\\agent.exe', 'win32')).toBe('C:\\x\\agent.exe')
+    expect(resolveWindowsCommand('.\\agent', 'win32')).toBe('.\\agent')
+  })
+  it('quotes cmd.exe arguments only when needed', () => {
+    expect(quoteForCmd('--model')).toBe('--model')
+    expect(quoteForCmd('C:\\Program Files\\x')).toBe('"C:\\Program Files\\x"')
+    expect(quoteForCmd('')).toBe('""')
+    expect(quoteForCmd('say "hi"')).toBe('"say \\"hi\\""')
   })
 })

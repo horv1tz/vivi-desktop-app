@@ -3,7 +3,10 @@
   "productName": "Vivi",
   "version": "0.1.0",
   "description": "Vivi — personal AI desktop assistant powered by Claude (voice + text, files, web, computer control)",
-  "author": "horv1tz",
+  "author": {
+    "name": "horv1tz",
+    "email": "73078166+horv1tz@users.noreply.github.com"
+  },
   "license": "MIT",
   "private": true,
   "type": "module",
