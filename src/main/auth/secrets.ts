@@ -7,6 +7,23 @@ const log = logger('secrets')
 export type SecretKey = 'claudeOauthToken' | 'anthropicApiKey' | 'proxyPassword' | 'openaiApiKey'
 
 /**
+ * SEC-06: true only when secrets are genuinely encrypted, not just obfuscated. `safeStorage`
+ * reports a real OS-backed encryption backend on macOS/Windows unconditionally, but on Linux it
+ * falls back to `basic_text` (a fixed, publicly-known key baked into Chromium) when no keyring/
+ * wallet (gnome-keyring, KWallet, …) is available — a case worth actually warning the user about
+ * rather than the blanket "stored encrypted" reassurance this used to always show.
+ */
+export function computeIsSecure(
+  platform: NodeJS.Platform,
+  encryptionAvailable: boolean,
+  backend: string,
+): boolean {
+  if (!encryptionAvailable) return false
+  if (platform === 'linux') return backend !== 'basic_text'
+  return true
+}
+
+/**
  * Encrypted secret store: values are encrypted with Electron safeStorage (Keychain / DPAPI /
  * Secret Service) and the ciphertext is kept in a separate electron-store file.
  */
@@ -18,8 +35,7 @@ class SecretStore {
   }
 
   get isSecure(): boolean {
-    if (!safeStorage.isEncryptionAvailable()) return false
-    return this.backend !== 'basic_text'
+    return computeIsSecure(process.platform, safeStorage.isEncryptionAvailable(), this.backend)
   }
 
   async set(key: SecretKey, value: string): Promise<void> {

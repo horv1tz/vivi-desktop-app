@@ -598,7 +598,7 @@ gantt
 - **Объём:** предупреждение при отправке локальных данных во внешние URL (`WebFetch` с телом, `open` внешних ссылок с параметрами); маркировка контента из веба/файлов/скриншотов как недоверенного в промпте; набор тестов с инъекциями.
 - **Оценка:** M · **P2** · **0.4**
 
-#### SEC-06 · Секреты и вход
+#### SEC-06 · Секреты и вход · ⚠️ Partially done (a real basic_text/no-keyring warning replaces the previous always-on "stored encrypted" message; token/key validation on save, in-app OAuth loopback, and auth-status caching are still open)
 - **Объём:** предупреждение, если `safeStorage` — `basic_text`; проверка токена/ключа при сохранении (запрос к API); in-app OAuth loopback вместо разбора stdout CLI (когда CLI даст стабильный API); кэш статуса авторизации.
 - **Оценка:** M · **P2** · **0.3**
 
@@ -983,7 +983,7 @@ SemVer; до 1.0 минорные версии могут менять наст�
 | SEC-03 | Permission engine v2 | SEC | P1 | M | 0.2 | 📋 |
 | SEC-04 | Sandboxed Bash | SEC | P2 | M | 0.4 | 📋 |
 | SEC-05 | Egress-guard и prompt injection | SEC | P2 | M | 0.4 | 📋 |
-| SEC-06 | Секреты и вход | SEC | P2 | M | 0.3 | 📋 |
+| SEC-06 | Секреты и вход | SEC | P2 | M | 0.3 | 🔶 |
 | SEC-07 | Supply chain | SEC | P1 | S | 0.2 | 🔶 |
 | SEC-08 | Приватность экрана и буфера | SEC | P2 | M | 0.3 | 📋 |
 | UX-01 | Настройки без перезапусков | UX | P0 | S | 0.1.x | ✅ |

@@ -199,6 +199,8 @@ export interface AuthStatus {
   organization?: string
   subscriptionType?: string
   error?: string
+  /** SEC-06: false when secrets are only obfuscated (base64), not actually encrypted — e.g. Linux with no keyring/wallet available for Electron's safeStorage. */
+  secretsSecure: boolean
 }
 
 export interface LoginFlowEvent {

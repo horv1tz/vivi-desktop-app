@@ -271,6 +271,7 @@
     "logout": "Sign out",
     "notice": "Signing in with a Claude subscription is for personal use with your own subscription only (it is not a way to distribute the app). For anything else use an Anthropic API key.",
     "security": "Secrets are stored encrypted in the OS keychain (Keychain / DPAPI / Secret Service).",
+    "securityWarning": "Warning: no system keychain is available, so secrets (tokens, API keys, proxy password) are only obfuscated, not encrypted. Install and unlock a keyring (e.g. gnome-keyring or KWallet on Linux) for real protection.",
     "tabs": {
       "claude": "Claude subscription",
       "token": "setup-token",
