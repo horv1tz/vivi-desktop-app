@@ -169,6 +169,11 @@ export class VoiceOrchestrator {
     }
   }
 
+  /** Re-send the microphone port after the main window (re)loads. */
+  redeliverAudioPort(): void {
+    if (this.workerReady && this.worker) this.deps.deliverAudioPort(this.worker.createAudioChannel())
+  }
+
   async stop(): Promise<void> {
     this.worker?.send({ type: 'disarm' })
     this.setState('off')

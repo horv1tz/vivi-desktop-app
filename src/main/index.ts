@@ -16,6 +16,7 @@ import { emit } from './ipc/emitters'
 import { ProxyManager } from './proxy/manager'
 import { VoiceOrchestrator } from './voice/orchestrator'
 import { InputGuard, resolveInputDriver } from './agent/tools/drivers'
+import { applyAutostart } from './app/autostart'
 import { getMainWindow, isOverlayVisible } from './app/windows'
 
 const log = logger('main')
@@ -41,6 +42,15 @@ async function bootstrap(): Promise<void> {
   }
   electronApp.setAppUserModelId('dev.horv1tz.vivi')
   app.setName('Vivi')
+  if (process.platform === 'darwin') {
+    // GUI apps on macOS get a minimal PATH; the CLI's Bash tool and MCP spawns need the shell's PATH.
+    try {
+      const { default: fixPath } = await import('fix-path')
+      fixPath()
+    } catch (err) {
+      log.warn('fix-path failed', err)
+    }
+  }
 
   const store = settings()
   nativeTheme.themeSource = store.get().appearance.theme
@@ -92,9 +102,10 @@ async function bootstrap(): Promise<void> {
   agent.registerIpc()
   registerAuthHandlers(auth)
 
-  const startHidden = store.get().appearance.startMinimized
-  createMainWindow({ startHidden })
+  const startHidden = store.get().appearance.startMinimized || process.argv.includes('--hidden')
+  const mainWin = createMainWindow({ startHidden })
   createOverlayWindow()
+  mainWin.webContents.on('did-finish-load', () => voice.redeliverAudioPort())
 
   const trayActions = {
     onToggleWakeWord: (enabled: boolean) => {
@@ -120,7 +131,12 @@ async function bootstrap(): Promise<void> {
   })
 
   const shortcutActions = {
-    onOverlay: () => toggleOverlay(),
+    onOverlay: () => {
+      // Hotkey = push-to-talk: opening the palette starts listening, closing it stops.
+      const wasVisible = isOverlayVisible()
+      toggleOverlay()
+      if (store.get().voice.enabled) voice.pushToTalk(!wasVisible)
+    },
     onKillSwitch: () => {
       inputGuard.trip()
       setTimeout(() => inputGuard.reset(), 5000)
@@ -148,8 +164,15 @@ async function bootstrap(): Promise<void> {
   await agent.start()
   log.info(`ready (mock agent: ${mockAgent})`)
 
+  applyAutostart(store.get().appearance.launchAtLogin, store.get().appearance.startMinimized)
   let voiceFingerprint = JSON.stringify(store.get().voice)
+  let autostartFingerprint = `${store.get().appearance.launchAtLogin}:${store.get().appearance.startMinimized}`
   store.onChanged((next) => {
+    const af = `${next.appearance.launchAtLogin}:${next.appearance.startMinimized}`
+    if (af !== autostartFingerprint) {
+      autostartFingerprint = af
+      applyAutostart(next.appearance.launchAtLogin, next.appearance.startMinimized)
+    }
     const fp = JSON.stringify(next.voice)
     if (fp !== voiceFingerprint) {
       voiceFingerprint = fp
