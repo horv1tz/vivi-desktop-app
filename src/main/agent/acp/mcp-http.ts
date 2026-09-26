@@ -10,8 +10,20 @@ export interface McpHttpEndpoint {
   headers: { name: string; value: string }[]
 }
 
+class PayloadTooLargeError extends Error {}
+
+export function isIdleSessionExpired(lastActivity: number, now: number): boolean {
+  return now - lastActivity >= SESSION_TTL_MS
+}
+
 /** Env var through which the bearer token reaches the Claude CLI (it expands ${VAR} in MCP headers), keeping it out of argv. */
 export const MCP_TOKEN_ENV = 'VIVI_MCP_TOKEN'
+
+/** ACP-08: bounds so a slow, huge, or abandoned connection can't tie up the local endpoint indefinitely. */
+const MAX_BODY_BYTES = 10 * 1024 * 1024
+const REQUEST_TIMEOUT_MS = 30_000
+const SESSION_TTL_MS = 30 * 60_000
+const SESSION_SWEEP_INTERVAL_MS = 5 * 60_000
 
 export interface ViviMcpHttpServerDeps {
   /** Creates a fresh MCP server instance (one per MCP session). */
@@ -27,9 +39,10 @@ export interface ViviMcpHttpServerDeps {
 export class ViviMcpHttpServer {
   private server: Server | null = null
   private readonly token = randomBytes(24).toString('hex')
-  private readonly sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>()
+  private readonly sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; lastActivity: number }>()
   private endpoint: McpHttpEndpoint | null = null
   private starting: Promise<McpHttpEndpoint> | null = null
+  private sweepTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly deps: ViviMcpHttpServerDeps) {}
 
@@ -62,6 +75,10 @@ export class ViviMcpHttpServer {
 
   private async listen(): Promise<McpHttpEndpoint> {
     const server = createServer((req, res) => void this.handle(req, res))
+    // ACP-08: bound how long a connection may take, so a stalled or malicious client can't hold a
+    // socket (and the event loop's attention) open indefinitely.
+    server.requestTimeout = REQUEST_TIMEOUT_MS
+    server.headersTimeout = REQUEST_TIMEOUT_MS
     this.server = server
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject)
@@ -73,11 +90,29 @@ export class ViviMcpHttpServer {
     const { port } = server.address() as AddressInfo
     this.endpoint = { url: `http://127.0.0.1:${port}/mcp`, headers: [{ name: 'Authorization', value: `Bearer ${this.token}` }] }
     this.deps.log?.debug(`vivi MCP endpoint listening on ${this.endpoint.url}`)
+    this.sweepTimer = setInterval(() => void this.sweepIdleSessions(), SESSION_SWEEP_INTERVAL_MS)
+    this.sweepTimer.unref?.()
     return this.endpoint
+  }
+
+  /** ACP-08: reaps sessions the agent abandoned without a clean close (e.g. it crashed mid-turn). */
+  private async sweepIdleSessions(): Promise<void> {
+    const now = Date.now()
+    for (const [id, s] of this.sessions) {
+      if (!isIdleSessionExpired(s.lastActivity, now)) continue
+      this.sessions.delete(id)
+      this.deps.log?.debug(`vivi MCP session ${id} timed out after ${SESSION_TTL_MS}ms idle`)
+      await s.transport.close().catch(() => undefined)
+      await s.server.close().catch(() => undefined)
+    }
   }
 
   async stop(): Promise<void> {
     if (this.starting) await this.starting.catch(() => undefined)
+    if (this.sweepTimer) {
+      clearInterval(this.sweepTimer)
+      this.sweepTimer = null
+    }
     for (const [id, s] of this.sessions) {
       this.sessions.delete(id)
       await s.transport.close().catch(() => undefined)
@@ -94,9 +129,29 @@ export class ViviMcpHttpServer {
     return auth === `Bearer ${this.token}`
   }
 
+  /**
+   * ACP-08: guards against DNS rebinding / a browser tab reaching this loopback-only endpoint.
+   * The real caller is the ACP adapter's own HTTP MCP client, which never sends an `Origin` header
+   * (that header is a browser fetch/XHR concept) — so ANY `Origin` on a request is itself the
+   * signal of an untrusted caller, not just a mismatched one. `Host` must also name this exact
+   * server, not merely resolve to 127.0.0.1 (which a rebound DNS name would still do).
+   */
+  private originAllowed(req: IncomingMessage): boolean {
+    if (req.headers.origin !== undefined) return false
+    const host = req.headers.host
+    return typeof host === 'string' && host === `127.0.0.1:${(this.server?.address() as AddressInfo | null)?.port}`
+  }
+
   private async readBody(req: IncomingMessage): Promise<unknown> {
     const chunks: Buffer[] = []
-    for await (const c of req) chunks.push(c as Buffer)
+    let total = 0
+    for await (const c of req) {
+      const buf = c as Buffer
+      total += buf.length
+      // ACP-08: cap the body so a slow/huge upload can't exhaust memory before JSON.parse even runs.
+      if (total > MAX_BODY_BYTES) throw new PayloadTooLargeError()
+      chunks.push(buf)
+    }
     const text = Buffer.concat(chunks).toString('utf8')
     return text ? JSON.parse(text) : undefined
   }
@@ -108,12 +163,17 @@ export class ViviMcpHttpServer {
         res.writeHead(404).end()
         return
       }
+      if (!this.originAllowed(req)) {
+        res.writeHead(403, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'forbidden' }))
+        return
+      }
       if (!this.authorized(req)) {
         res.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'unauthorized' }))
         return
       }
       const sessionId = req.headers['mcp-session-id']
       const existing = typeof sessionId === 'string' ? this.sessions.get(sessionId) : undefined
+      if (existing) existing.lastActivity = Date.now()
       if (req.method === 'POST') {
         const body = await this.readBody(req)
         if (existing) {
@@ -125,7 +185,7 @@ export class ViviMcpHttpServer {
           const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (id: string): void => {
-              this.sessions.set(id, { transport, server })
+              this.sessions.set(id, { transport, server, lastActivity: Date.now() })
             },
           })
           transport.onclose = () => {
@@ -144,6 +204,11 @@ export class ViviMcpHttpServer {
       }
       res.writeHead(existing ? 405 : 400).end()
     } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        if (!res.headersSent) res.writeHead(413, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'payload too large' }))
+        else res.end()
+        return
+      }
       this.deps.log?.warn('vivi MCP http error', err)
       if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: (err as Error).message }))
       else res.end()
