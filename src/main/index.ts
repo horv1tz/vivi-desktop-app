@@ -31,7 +31,11 @@ async function bootstrap(): Promise<void> {
   nativeTheme.themeSource = store.get().appearance.theme
   paths.workspace(store.get().agent.workspaceDir)
 
-  const agent = new AgentController({ mock: mockAgent })
+  const agent = new AgentController({
+    mock: mockAgent,
+    getExtraEnv: async () => ({}),
+    isolateConfig: () => store.get().auth.mode !== 'existing-claude',
+  })
   registerCoreHandlers({ mockAgent })
   agent.registerIpc()
 
@@ -49,9 +53,17 @@ async function bootstrap(): Promise<void> {
     },
   }
   createTray(trayActions)
-  store.onChanged(() => {
+  let agentFingerprint = agentSettingsFingerprint(store.get())
+  store.onChanged((next) => {
     refreshTrayMenu(trayActions)
     registerShortcuts(shortcutActions)
+    nativeTheme.themeSource = next.appearance.theme
+    const fp = agentSettingsFingerprint(next)
+    if (fp !== agentFingerprint) {
+      agentFingerprint = fp
+      log.info('agent-affecting settings changed; restarting agent process')
+      void agent.restart()
+    }
   })
 
   const shortcutActions = {
@@ -77,6 +89,11 @@ async function bootstrap(): Promise<void> {
 
   await agent.start()
   log.info(`ready (mock agent: ${mockAgent})`)
+}
+
+/** Settings whose change requires respawning the Claude Code process. */
+function agentSettingsFingerprint(s: ReturnType<typeof settings>['get'] extends () => infer R ? R : never): string {
+  return JSON.stringify({ agent: s.agent, proxy: s.proxy, auth: s.auth, permissions: { ...s.permissions, alwaysAllowRules: undefined }, lang: s.appearance.language, debug: s.features.debugSdk })
 }
 
 process.on('uncaughtException', (err) => {

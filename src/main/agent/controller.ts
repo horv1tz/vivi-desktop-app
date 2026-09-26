@@ -1,28 +1,68 @@
+import { app } from 'electron'
 import type { AgentUiEvent } from '@shared/events'
 import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
+import { SdkBackend } from './sdk-backend'
 import { handle } from '../ipc/handlers'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
+import { settings } from '../settings/store'
+import { paths } from '../util/paths'
+import { resolveClaudeBinary } from '../util/claude-bin'
+import { getMainWindow, showMainWindow } from '../app/windows'
 
 const log = logger('agent')
 
+export interface ControllerDeps {
+  mock: boolean
+  getExtraEnv: () => Promise<Record<string, string | undefined>>
+  isolateConfig: () => boolean
+}
+
 /**
  * Owns the active AgentBackend, forwards its events to renderers and exposes the agent IPC surface.
- * Phase 2 adds the SDK-backed implementation; the controller stays the single entry point.
  */
 export class AgentController {
   private backend: AgentBackend
   private unsubscribe: (() => void) | null = null
 
-  constructor(private readonly opts: { mock: boolean }) {
+  constructor(private readonly deps: ControllerDeps) {
     this.backend = this.createBackend()
   }
 
+  get sdk(): SdkBackend | null {
+    return this.backend instanceof SdkBackend ? this.backend : null
+  }
+
   private createBackend(): AgentBackend {
-    if (this.opts.mock) return new MockBackend()
-    // SDK backend is wired in Phase 2; until then fall back to the mock so the app is always usable.
-    return new MockBackend()
+    if (this.deps.mock) return new MockBackend()
+    return new SdkBackend({
+      getSettings: () => settings().get(),
+      updateSettings: (patch) => {
+        settings().update(patch)
+        emit('settings:changed', settings().get())
+      },
+      getExtraEnv: this.deps.getExtraEnv,
+      isolateConfig: this.deps.isolateConfig,
+      cwd: () => paths.workspace(settings().get().agent.workspaceDir),
+      homeDir: paths.home,
+      memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+      claudeConfigDir: paths.claudeConfigDir,
+      claudeBinary: resolveClaudeBinary(),
+      debugFile: () => (settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined),
+      ui: {
+        requestPermission: (req) => {
+          emit('permission:request', req)
+          if (!getMainWindow()?.isVisible()) showMainWindow()
+        },
+        resolvePermission: (requestId) => emit('permission:resolved', { requestId }),
+        requestQuestion: (req) => {
+          emit('question:request', req)
+          if (!getMainWindow()?.isVisible()) showMainWindow()
+        },
+        resolveQuestion: (requestId) => emit('question:resolved', { requestId }),
+      },
+    })
   }
 
   async start(): Promise<void> {
@@ -34,6 +74,11 @@ export class AgentController {
   async killSwitch(): Promise<void> {
     log.warn('kill switch triggered')
     await this.backend.interrupt()
+  }
+
+  /** Restart the CLI process so changed auth/proxy/model settings apply. */
+  async restart(): Promise<void> {
+    await this.sdk?.restart()
   }
 
   async dispose(): Promise<void> {
@@ -51,5 +96,8 @@ export class AgentController {
     handle('agent:renameSession', (_e, id, title) => this.backend.renameSession(id, title))
     handle('agent:deleteSession', (_e, id) => this.backend.deleteSession(id))
     handle('agent:listModels', () => this.backend.listModels())
+    handle('permission:respond', (_e, requestId, decision) => this.sdk?.broker.respond(requestId, decision))
+    handle('question:respond', (_e, requestId, answers) => this.sdk?.broker.answerQuestion(requestId, answers))
+    app.on('will-quit', () => void this.dispose())
   }
 }
