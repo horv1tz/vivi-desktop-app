@@ -27,4 +27,16 @@ describe('keywords', () => {
     expect(matchesWakeWord('привет как дела')).toBe(false)
     expect(levenshtein('виви', 'вивы')).toBe(1)
   })
+
+  it('matches the Cyrillic keyword set the orchestrator sends to the worker (VO-01)', () => {
+    // Mirrors the literal keywords array in src/main/voice/orchestrator.ts's init message: the
+    // default transcript strategy previously only got the Latin spelling, so a Russian STT model
+    // decoding "виви"/"вивиан" never matched.
+    const keywords = ['vivi', 'hey vivi', 'виви', 'эй виви', 'вивиан']
+    expect(matchesWakeWord('виви открой блокнот', keywords)).toBe(true)
+    expect(matchesWakeWord('вивиан включи музыку', keywords)).toBe(true)
+    expect(matchesWakeWord('эй виви который час', keywords)).toBe(true)
+    expect(matchesWakeWord('hey vivi open notepad', keywords)).toBe(true)
+    expect(matchesWakeWord('просто разговор без слова', keywords)).toBe(false)
+  })
 })

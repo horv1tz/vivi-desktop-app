@@ -151,7 +151,12 @@ export class VoiceOrchestrator {
         wakeWordEnabled: settings.voice.wakeWordEnabled,
         wakeWordStrategy: settings.voice.wakeWordStrategy,
         wakeWordSensitivity: settings.voice.wakeWordSensitivity,
-        keywords: ['vivi', 'hey vivi'],
+        // Both the transcript strategy (fuzzy-matches the literal decoded text, so needs the
+        // Cyrillic spelling to catch a Russian STT model's output) and the KWS strategy
+        // (phoneticizes each keyword via keywordVariants) need these regardless of UI/STT
+        // language — VO-01: the Russian default transcript strategy previously never matched
+        // because only the Latin spelling was ever sent to the worker.
+        keywords: ['vivi', 'hey vivi', 'виви', 'эй виви', 'вивиан'],
         numThreads: Math.max(1, Math.min(4, Math.floor((cpus().length || 2) / 2))),
       },
       libDir: sherpaLibDir() ?? undefined,
