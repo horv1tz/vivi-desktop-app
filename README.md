@@ -80,6 +80,10 @@ VIVI_MODELS_DIR=<папка с моделями> LD_LIBRARY_PATH=$PWD/node_modul
 
 Архитектура — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), приватность — в [docs/PRIVACY.md](docs/PRIVACY.md).
 
+## План развития
+
+Полный план и roadmap по релизам (0.1.x → 1.0 → 2.x), карточки эпиков, стратегии качества и безопасности — в [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Ограничения
 
 - Linux Wayland: мышь/клавиатура через `ydotool` (best effort), глобальные хоткеи зависят от портала; X11 работает полностью.
@@ -115,8 +119,8 @@ npm run dist:linux|dist:win|dist:mac
 ```
 
 Hotkeys: `Ctrl/Cmd+Shift+Space` quick command, `Ctrl/Cmd+Shift+Esc` emergency stop (or move the
-mouse into a screen corner). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/PRIVACY.md](docs/PRIVACY.md).
+mouse into a screen corner). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+[docs/PRIVACY.md](docs/PRIVACY.md) and the development plan in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 
