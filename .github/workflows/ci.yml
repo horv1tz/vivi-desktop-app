@@ -31,6 +31,15 @@ jobs:
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb libnss3 libgtk-3-0 libgbm1 libasound2t64 libatk-bridge2.0-0 libxss1 libxtst6
       - run: npm ci
+      # SEC-07: surfaces known-vulnerable dependencies for a human to triage. Non-blocking
+      # (continue-on-error) because build-tooling transitives (e.g. node-gyp's own tar dependency,
+      # pulled in only to compile native modules during install, never shipped or run in the app)
+      # can carry a high-severity advisory with no fix published yet; npm ci itself already rejects
+      # a package.json/package-lock.json that are out of sync.
+      - name: Audit dependencies
+        shell: bash
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -60,10 +69,6 @@ jobs:
       - name: Package (dir) and verify Claude binary + native modules (macOS)
         if: runner.os == 'macOS'
         shell: bash
-        # electron-builder's mac "dir" target nests the .app one level down (dist/mac*/*.app),
-        # which verify-dist.mjs's shallow directory scan does not currently look inside; don't
-        # block the matrix on it while that's fixed (see CI workflow notes).
-        continue-on-error: true
         run: |
           npx electron-builder --mac dir --publish never
           node scripts/verify-dist.mjs

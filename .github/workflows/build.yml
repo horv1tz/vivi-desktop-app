@@ -104,6 +104,15 @@ jobs:
           # Allow uploading into a release created earlier than two hours ago (re-runs).
           EP_GH_IGNORE_TIME: 'true'
         run: npx electron-builder ${{ matrix.target }} --publish ${{ needs.release.result == 'success' && 'always' || 'never' }}
+      # SEC-07: lets a user verify a downloaded installer wasn't tampered with in transit or on a mirror.
+      - name: Generate checksums
+        shell: bash
+        run: node scripts/checksums.mjs dist checksums-${{ matrix.os }}.txt
+      - name: Upload checksums to release
+        if: needs.release.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ needs.release.outputs.tag }} dist/checksums-${{ matrix.os }}.txt --repo ${{ github.repository }} --clobber
       - uses: actions/upload-artifact@v4
         with:
           name: vivi-${{ matrix.os }}
@@ -114,4 +123,5 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/latest*.yml
+            dist/checksums-*.txt
           if-no-files-found: warn

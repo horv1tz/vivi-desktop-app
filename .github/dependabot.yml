@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    ignore:
+      # Native/prebuild-heavy deps carry platform binaries per version; bump these deliberately.
+      - dependency-name: 'robotjs'
+      - dependency-name: 'sherpa-onnx-node'
+      - dependency-name: 'electron'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

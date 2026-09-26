@@ -4,7 +4,10 @@
     "composite": true,
     "lib": ["ES2023"],
     "types": ["node", "electron-vite/node"],
-    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.node.tsbuildinfo"
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    // Only scripts/*.mjs (plain, untyped build/CI helpers unit-tested from tests/unit/scripts/**)
+    // need this; it doesn't pull any other .js/.jsx into the checked set.
+    "allowJs": true
   },
   "include": [
     "electron.vite.config.ts",
@@ -17,6 +20,7 @@
     "src/voice-worker/**/*",
     "src/acp-bootstrap/**/*",
     "scripts/**/*.ts",
+    "scripts/**/*.mjs",
     "tests/unit/**/*",
     "tests/e2e/**/*"
   ]
