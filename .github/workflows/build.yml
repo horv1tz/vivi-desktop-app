@@ -34,10 +34,14 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "$TAG" ]]; then
+            echo "pushed tag $GITHUB_REF_NAME does not match package.json version $VERSION" >&2
+            exit 1
+          fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release $TAG already exists"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Vivi $VERSION" --notes-file .github/release-notes.md
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Vivi $VERSION" --notes-file .github/release-notes.md
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vivi $VERSION" --notes-file .github/release-notes.md
           fi

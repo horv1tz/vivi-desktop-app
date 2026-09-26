@@ -2,13 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { RequestError } from '@agentclientprotocol/sdk'
 import { alwaysAllowRuleFor, answersToFormContent, findAlwaysAllowOption, formToQuestions, mapAcpError, selectPermissionOption } from '@main/agent/acp-backend'
 import { splitArgs } from '@main/agent/acp/args'
-import { needsWindowsShell, quoteForCmd, resolveWindowsCommand } from '@main/agent/acp/process'
+import { needsWindowsShell, pickWindowsExecutable, quoteForCmd, resolveWindowsCommand } from '@main/agent/acp/process'
 
 describe('splitArgs', () => {
-  it('splits on whitespace and honours quotes and escapes', () => {
-    expect(splitArgs('')).toEqual([])
-    expect(splitArgs('  --model  claude-sonnet-5 ')).toEqual(['--model', 'claude-sonnet-5'])
-    expect(splitArgs(`--name "John Doe" --path 'C:\\Program Files\\x' a\\ b ""`)).toEqual(['--name', 'John Doe', '--path', 'C:\\Program Files\\x', 'a b', ''])
+  it('splits on whitespace and honours quotes and escapes (POSIX)', () => {
+    expect(splitArgs('', 'linux')).toEqual([])
+    expect(splitArgs('  --model  claude-sonnet-5 ', 'linux')).toEqual(['--model', 'claude-sonnet-5'])
+    expect(splitArgs(`--name "John Doe" --path 'C:\\Program Files\\x' a\\ b ""`, 'linux')).toEqual(['--name', 'John Doe', '--path', 'C:\\Program Files\\x', 'a b', ''])
+  })
+  it('keeps backslashes literal on Windows (C runtime rules)', () => {
+    expect(splitArgs('--config C:\\Users\\me\\agent.json', 'win32')).toEqual(['--config', 'C:\\Users\\me\\agent.json'])
+    expect(splitArgs('"C:\\Program Files\\agent\\run.cmd" --flag', 'win32')).toEqual(['C:\\Program Files\\agent\\run.cmd', '--flag'])
+    // CRT quirk: a single backslash before the closing quote escapes it; doubling it keeps the backslash.
+    expect(splitArgs('--dir "C:\\tmp\\"', 'win32')).toEqual(['--dir', 'C:\\tmp"'])
+    expect(splitArgs('--dir "C:\\tmp\\\\"', 'win32')).toEqual(['--dir', 'C:\\tmp\\'])
+    expect(splitArgs('say \\"hi\\"', 'win32')).toEqual(['say', '"hi"'])
+    expect(splitArgs("it's", 'win32')).toEqual(["it's"])
   })
 })
 
@@ -130,6 +139,14 @@ describe('windows command handling', () => {
     expect(resolveWindowsCommand('gemini', 'linux')).toBe('gemini')
     expect(resolveWindowsCommand('C:\\x\\agent.exe', 'win32')).toBe('C:\\x\\agent.exe')
     expect(resolveWindowsCommand('.\\agent', 'win32')).toBe('.\\agent')
+  })
+  it('prefers a real executable or .cmd shim over the extensionless npm sh script', () => {
+    const where = ['C:\\Users\\me\\AppData\\Roaming\\npm\\gemini', 'C:\\Users\\me\\AppData\\Roaming\\npm\\gemini.cmd', '']
+    expect(pickWindowsExecutable(where)).toBe('C:\\Users\\me\\AppData\\Roaming\\npm\\gemini.cmd')
+    expect(pickWindowsExecutable(['C:\\a\\x.cmd', 'C:\\b\\x.exe'])).toBe('C:\\b\\x.exe')
+    expect(pickWindowsExecutable(['C:\\a\\x'])).toBeUndefined()
+    expect(resolveWindowsCommand('gemini', 'win32', () => where)).toBe('C:\\Users\\me\\AppData\\Roaming\\npm\\gemini.cmd')
+    expect(resolveWindowsCommand('nothing', 'win32', () => [])).toBe('nothing')
   })
   it('quotes cmd.exe arguments only when needed', () => {
     expect(quoteForCmd('--model')).toBe('--model')

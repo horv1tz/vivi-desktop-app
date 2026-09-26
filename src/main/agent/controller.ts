@@ -159,9 +159,22 @@ export class AgentController {
       log.info(`switching agent backend ${this.backend.kind} → ${desired}`)
       const old = this.backend
       this.unsubscribe?.()
+      // The old backend may still be finishing a turn: keep its content events flowing (so the
+      // renderer settles), but not its state/session events, which would fight the new backend's.
+      const tap = old.onEvent((e) => {
+        if (e.type === 'state' || e.type === 'session' || e.type === 'history') return
+        emit('agent:event', e)
+        for (const l of this.eventListeners) l(e)
+      })
       // Swap first so sends arriving during the old backend's teardown reach the new one.
       this.backend = this.createBackend()
-      await old.dispose().catch((err) => log.warn('backend dispose failed', err))
+      try {
+        await old.dispose()
+      } catch (err) {
+        log.warn('backend dispose failed', err)
+      } finally {
+        tap()
+      }
       await this.start()
       return
     }

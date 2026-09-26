@@ -105,18 +105,17 @@ describe('AcpTranslator (live turn)', () => {
 })
 
 describe('AcpTranslator (usage and diffs)', () => {
-  it('reports per-turn token deltas from cumulative session usage', () => {
+  it('reports the per-prompt usage the agent returns, turn by turn', () => {
     const { t } = make()
     t.beginTurn()
     const r1 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 110, inputTokens: 10, outputTokens: 100, cachedReadTokens: 1000, cachedWriteTokens: 0 } })
     t.beginTurn()
     const r2 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 200, inputTokens: 15, outputTokens: 185, cachedReadTokens: 1500, cachedWriteTokens: 20 } })
     expect([r1.inputTokens, r1.outputTokens, r1.cacheReadTokens]).toEqual([10, 100, 1000])
-    expect([r2.inputTokens, r2.outputTokens, r2.cacheReadTokens, r2.cacheWriteTokens]).toEqual([5, 85, 500, 20])
-    t.resetUsage()
+    expect([r2.inputTokens, r2.outputTokens, r2.cacheReadTokens, r2.cacheWriteTokens]).toEqual([15, 185, 1500, 20])
     t.beginTurn()
-    const r3 = t.finishTurn({ stopReason: 'end_turn', usage: { totalTokens: 3, inputTokens: 1, outputTokens: 2 } })
-    expect([r3.inputTokens, r3.outputTokens]).toEqual([1, 2])
+    const r3 = t.finishTurn({ stopReason: 'end_turn' })
+    expect([r3.inputTokens, r3.outputTokens]).toEqual([0, 0])
   })
 
   it('keeps the diff announced with an Edit call when the completion update carries no content', () => {

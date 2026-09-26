@@ -1,4 +1,4 @@
-import type { PermissionSettings } from '@shared/settings'
+import type { PermissionRule, PermissionSettings } from '@shared/settings'
 import type { PermissionCategory } from '@shared/events'
 import type { PolicyDecision } from './broker'
 import { detectDangerousCommand } from './danger'
@@ -30,6 +30,34 @@ export function autoAllowedTools(settings: PermissionSettings): string[] {
   return [...out]
 }
 
+/**
+ * Whether a persisted "always allow" rule covers this call. A bare rule (no ruleContent) always
+ * allows the tool; a scoped rule matches a command prefix ("git:*") or a fetched host ("domain:x").
+ * This is what makes "always allow" actually stick on the next call for any backend — the SDK/Claude
+ * CLI additionally enforces the same rules itself, but a non-Claude ACP agent has no such layer, so
+ * Vivi's own policy must honor them too.
+ */
+export function matchesAlwaysAllowRule(toolName: string, input: Record<string, unknown>, rules: PermissionRule[]): boolean {
+  for (const r of rules) {
+    if (r.toolName !== toolName) continue
+    if (!r.ruleContent) return true
+    const prefix = /^([\w./-]+):\*$/.exec(r.ruleContent)
+    if (prefix && typeof input.command === 'string') {
+      if (input.command.trim().split(/\s+/)[0] === prefix[1]) return true
+      continue
+    }
+    const domain = /^domain:(.+)$/.exec(r.ruleContent)
+    if (domain && typeof input.url === 'string') {
+      try {
+        if (new URL(input.url).hostname === domain[1]) return true
+      } catch {
+        /* not a URL: no match */
+      }
+    }
+  }
+  return false
+}
+
 export interface PolicyState {
   /** Categories granted for the live session via "allow for this session". */
   sessionGrants: Set<PermissionCategory>
@@ -50,6 +78,7 @@ export function makePolicy(getSettings: () => PermissionSettings, state: PolicyS
     if (category === 'system' && !settings.askForSystem) return { ...base, verdict: 'allow' }
     if (category === 'input' && (!settings.askForInput || state.sessionGrants.has('input') || state.turnGrants.has('input'))) return { ...base, verdict: 'allow' }
     if (state.sessionGrants.has(category)) return { ...base, verdict: 'allow' }
+    if (matchesAlwaysAllowRule(toolName, input, settings.alwaysAllowRules)) return { ...base, verdict: 'allow' }
     return base
   }
 }

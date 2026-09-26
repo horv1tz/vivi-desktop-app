@@ -12,14 +12,31 @@ export function needsWindowsShell(command: string): boolean {
  * On Windows a bare command name ("gemini") usually maps to a .cmd shim that CreateProcess cannot run
  * directly. Resolve it through `where` so the caller knows the real file (and whether a shell is needed).
  */
-export function resolveWindowsCommand(command: string, platform: NodeJS.Platform = process.platform): string {
+export function resolveWindowsCommand(command: string, platform: NodeJS.Platform = process.platform, lookup: (cmd: string) => string[] = whereLookup): string {
   if (platform !== 'win32' || isAbsolute(command) || /[\\/]/.test(command) || /\.[a-z0-9]+$/i.test(command)) return command
+  const candidates = lookup(command)
+  return pickWindowsExecutable(candidates) ?? command
+}
+
+/** `where` lists every match on PATH (npm shims come as an extensionless sh script *and* a .cmd); prefer real executables. */
+export function pickWindowsExecutable(candidates: string[]): string | undefined {
+  const rank = (p: string): number => {
+    const m = /\.([a-z0-9]+)$/i.exec(p)
+    const ext = m ? m[1]!.toLowerCase() : ''
+    return ext === 'exe' ? 0 : ext === 'com' ? 1 : ext === 'cmd' ? 2 : ext === 'bat' ? 3 : 9
+  }
+  const ranked = candidates.map((c) => c.trim()).filter(Boolean).map((c) => ({ c, r: rank(c) })).filter((x) => x.r < 9)
+  ranked.sort((a, b) => a.r - b.r)
+  return ranked[0]?.c
+}
+
+function whereLookup(command: string): string[] {
   try {
-    const r = spawnSync('where.exe', [command], { encoding: 'utf8', windowsHide: true, timeout: 5000 })
-    const first = r.stdout?.split(/\r?\n/).map((l) => l.trim()).find(Boolean)
-    return first || command
+    const where = `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\where.exe`
+    const r = spawnSync(where, [command], { encoding: 'utf8', windowsHide: true, timeout: 5000 })
+    return (r.stdout ?? '').split(/\r?\n/)
   } catch {
-    return command
+    return []
   }
 }
 
@@ -108,6 +125,16 @@ export function spawnAcpProcess(opts: AcpProcessOptions): AcpProcess {
       }
       const wait = (ms: number): Promise<boolean> => Promise.race([exited.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), ms))])
       if (await wait(graceMs)) return
+      if (process.platform === 'win32' && child.pid) {
+        // A .cmd shim runs the real agent under cmd.exe: kill the whole tree, not just the shell.
+        try {
+          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 5000 })
+        } catch {
+          /* ignore */
+        }
+        await wait(1500)
+        return
+      }
       try {
         child.kill('SIGTERM')
       } catch {

@@ -90,8 +90,6 @@ export class AcpTranslator {
   private toolCalls = 0
   private turnStartedAt = 0
   private usage: { used: number; size: number } | null = null
-  /** PromptResponse.usage is cumulative for the session (claude-agent-acp); per-turn numbers are deltas. */
-  private lastUsage: UsageTotals | null = null
   private replay: UiMessage[] | null = null
   private replayUser: UiMessage | null = null
 
@@ -130,20 +128,12 @@ export class AcpTranslator {
     return out
   }
 
-  /** Forget cumulative usage (new/loaded session). */
-  resetUsage(): void {
-    this.lastUsage = null
-  }
-
+  /**
+   * PromptResponse.usage is per prompt: claude-agent-acp resets its tally when a user turn activates
+   * (`accumulatedUsage` in acp-agent.js) and the ACP spec defines usage per prompt request.
+   */
   private turnUsage(usage: PromptResponse['usage'] | undefined): UsageTotals {
-    const cur: UsageTotals = { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, cachedReadTokens: usage?.cachedReadTokens ?? 0, cachedWriteTokens: usage?.cachedWriteTokens ?? 0 }
-    if (!usage) return cur
-    const prev = this.lastUsage
-    this.lastUsage = cur
-    if (!prev) return cur
-    const monotonic = cur.inputTokens >= prev.inputTokens && cur.outputTokens >= prev.outputTokens && cur.cachedReadTokens >= prev.cachedReadTokens && cur.cachedWriteTokens >= prev.cachedWriteTokens
-    if (!monotonic) return cur // the agent reports per-turn numbers (or reset its counters)
-    return { inputTokens: cur.inputTokens - prev.inputTokens, outputTokens: cur.outputTokens - prev.outputTokens, cachedReadTokens: cur.cachedReadTokens - prev.cachedReadTokens, cachedWriteTokens: cur.cachedWriteTokens - prev.cachedWriteTokens }
+    return { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, cachedReadTokens: usage?.cachedReadTokens ?? 0, cachedWriteTokens: usage?.cachedWriteTokens ?? 0 }
   }
 
   handle(notification: SessionNotification): void {

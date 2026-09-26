@@ -324,6 +324,8 @@ export class AcpBackend implements AgentBackend {
     try {
       const [last] = await this.listSessions()
       if (!last) return
+      // listSessions() connected to a third-party agent; without session/load its history cannot be attached.
+      if (!this.isClaudeAdapter() && !this.conn?.capabilities.loadSession) return
       this.selectedSessionId = last.sessionId
       this.selectedTitle = last.title || null
       // Claude sessions are plain files: show the history now and attach the agent lazily on first send.
@@ -483,6 +485,17 @@ export class AcpBackend implements AgentBackend {
     void this.mcp.stop()
   }
 
+  /**
+   * The JSON-RPC transport can reject a request with its own "stream closed" error a tick before the
+   * child's 'exit' event actually fires, so `err` may not be an AcpProcessExitedError even though the
+   * agent crashed. Give the exit a brief grace window to land so a crash is still classified as
+   * process_exited, matching a client that already died, rather than a generic/unknown error.
+   */
+  private async classifyPromptError(conn: Connection, err: unknown): Promise<{ code: AgentErrorCode; message: string }> {
+    const diedAroundNow = await Promise.race([conn.process.exited.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 200))])
+    return diedAroundNow ? { code: 'process_exited', message: this.exitError().message } : mapAcpError(err)
+  }
+
   private exitError(): Error {
     const info = this.lastExit
     return new AcpProcessExitedError(`ACP agent exited (code ${info?.code ?? 'null'}${info?.signal ? `, signal ${info.signal}` : ''})\n${this.stderrTail.slice(-20).join('\n')}`.trim())
@@ -545,6 +558,9 @@ export class AcpBackend implements AgentBackend {
     this.setState('starting')
     let messages: UiMessage[] = []
     try {
+      if (this.selectedSessionId && !conn.capabilities.loadSession) {
+        this.selectedSessionId = null // never silently open a fresh session under a resumed id
+      }
       if (this.selectedSessionId && conn.capabilities.loadSession) {
         this.sessionId = this.selectedSessionId
         this.translator.beginReplay()
@@ -572,7 +588,6 @@ export class AcpBackend implements AgentBackend {
       this.sessionId = null
       throw new Error('ACP session start was cancelled')
     }
-    this.translator.resetUsage()
     this.history = messages
     await this.applyPermissionMode(conn)
     this.emit({ type: 'session', sessionId: this.sessionId!, state: 'idle', model: this.currentModel() ?? undefined, title: this.selectedTitle ?? undefined })
@@ -646,6 +661,7 @@ export class AcpBackend implements AgentBackend {
       return
     }
     const sessionId = this.sessionId!
+    const generation = this.generation
     this.inFlight = true
     const abort = new AbortController()
     this.turnAbort = abort
@@ -666,15 +682,22 @@ export class AcpBackend implements AgentBackend {
       if (res.stopReason === 'max_turn_requests') this.emit({ type: 'error', error: makeError('max_turns', 'Step limit reached') })
     } catch (err) {
       settled = true
-      const mapped = err instanceof AcpProcessExitedError ? { code: 'process_exited' as const, message: err.message } : mapAcpError(err)
-      this.deps.log.error('ACP prompt failed', mapped.message)
-      this.translator.finishTurn(null, { turnId, error: true })
-      this.emit({ type: 'error', error: makeError(mapped.code, mapped.message) })
+      if (generation !== this.generation) {
+        // Deliberate teardown (restart, new session, dispose): the turn was cancelled, not lost.
+        this.translator.finishTurn({ stopReason: 'cancelled' }, { turnId })
+      } else {
+        const mapped = err instanceof AcpProcessExitedError ? { code: 'process_exited' as const, message: err.message } : await this.classifyPromptError(conn, err)
+        this.deps.log.error('ACP prompt failed', mapped.message)
+        this.translator.finishTurn(null, { turnId, error: true })
+        this.emit({ type: 'error', error: makeError(mapped.code, mapped.message) })
+      }
     } finally {
       this.inFlight = false
       abort.abort() // closes any permission/question dialog still waiting on this turn
       if (this.turnAbort === abort) this.turnAbort = null
-      if (this.conn === conn) this.setState('idle')
+      if (generation !== this.generation) {
+        /* teardown reports its own state */
+      } else if (this.conn === conn) this.setState('idle')
       else if (!this.disposed) this.setState('failed')
     }
   }
@@ -801,6 +824,11 @@ export class AcpBackend implements AgentBackend {
       this.history = messages
       this.emit({ type: 'session', sessionId, state: 'idle', title: this.selectedTitle ?? undefined })
       return messages
+    }
+    const conn = await this.ensureConnection()
+    if (!conn.capabilities.loadSession) {
+      this.selectedSessionId = null
+      throw new Error('This ACP agent cannot resume earlier sessions (no session/load support)')
     }
     return this.ensureSession()
   }
