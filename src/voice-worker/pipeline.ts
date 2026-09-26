@@ -257,7 +257,8 @@ export class VoicePipeline {
       this.engines.vad.reset()
       this.engines.stt.reset()
       this.finalizing = false
-      if (this.state === 'finalizing') this.setState(this.opts.wakeWordEnabled || this.engines.wake ? 'armed' : 'off')
+      if (this.state === 'finalizing')
+        this.setState(this.opts.wakeWordEnabled || this.engines.wake ? 'armed' : 'off')
     }
   }
 }

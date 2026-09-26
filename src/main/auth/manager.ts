@@ -57,9 +57,7 @@ export class AuthManager {
     return this.mode !== 'existing-claude'
   }
 
-  private async cliStatus(
-    configDir: string | undefined,
-  ): Promise<{
+  private async cliStatus(configDir: string | undefined): Promise<{
     loggedIn: boolean
     authMethod?: string
     email?: string

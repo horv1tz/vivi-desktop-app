@@ -6,18 +6,30 @@ export class OpenAIVoiceProvider {
   private client: OpenAI
 
   constructor(apiKey: string, dispatcher?: Dispatcher) {
-    this.client = new OpenAI({ apiKey, fetchOptions: dispatcher ? ({ dispatcher } as never) : undefined })
+    this.client = new OpenAI({
+      apiKey,
+      fetchOptions: dispatcher ? ({ dispatcher } as never) : undefined,
+    })
   }
 
   async transcribe(pcm16k: Float32Array, language: 'ru' | 'en' | 'auto'): Promise<string> {
     const wav = encodeWav(pcm16k, 16000)
     const file = new File([wav], 'speech.wav', { type: 'audio/wav' })
-    const res = await this.client.audio.transcriptions.create({ file, model: 'gpt-4o-mini-transcribe', language: language === 'auto' ? undefined : language })
+    const res = await this.client.audio.transcriptions.create({
+      file,
+      model: 'gpt-4o-mini-transcribe',
+      language: language === 'auto' ? undefined : language,
+    })
     return res.text
   }
 
   async synthesize(text: string, voice: string): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
-    const res = await this.client.audio.speech.create({ model: 'gpt-4o-mini-tts', voice: voice as 'alloy', input: text, response_format: 'mp3' })
+    const res = await this.client.audio.speech.create({
+      model: 'gpt-4o-mini-tts',
+      voice: voice as 'alloy',
+      input: text,
+      response_format: 'mp3',
+    })
     return { bytes: await res.arrayBuffer(), mimeType: 'audio/mpeg' }
   }
 }

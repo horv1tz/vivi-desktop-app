@@ -26,7 +26,12 @@ export class VoiceWorkerClient extends EventEmitter {
     this.stopping = false
     const env: Record<string, string> = {}
     for (const [k, v] of Object.entries(this.opts.env)) if (v !== undefined) env[k] = v
-    const proc = utilityProcess.fork(this.opts.entry, [], { serviceName: 'vivi-voice', stdio: 'pipe', env, allowLoadingUnsignedLibraries: true })
+    const proc = utilityProcess.fork(this.opts.entry, [], {
+      serviceName: 'vivi-voice',
+      stdio: 'pipe',
+      env,
+      allowLoadingUnsignedLibraries: true,
+    })
     this.proc = proc
     this.readyPromise = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('voice worker did not start')), 20_000)
@@ -57,7 +62,10 @@ export class VoiceWorkerClient extends EventEmitter {
       if (!this.stopping && this.restarts < 5) {
         const delay = Math.min(10_000, 500 * 2 ** this.restarts++)
         setTimeout(() => {
-          if (!this.stopping) this.start().then(() => this.emit('restarted')).catch((err) => log.error('restart failed', err))
+          if (!this.stopping)
+            this.start()
+              .then(() => this.emit('restarted'))
+              .catch((err) => log.error('restart failed', err))
         }, delay)
       }
     })

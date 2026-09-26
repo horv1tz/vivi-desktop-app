@@ -46,4 +46,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 }))
 
 vivi.on('auth:status', (status) => useAuthStore.setState({ status }))
-vivi.on('auth:loginFlow', (login) => useAuthStore.setState({ login: login.phase === 'success' || login.phase === 'cancelled' ? null : login }))
+vivi.on('auth:loginFlow', (login) =>
+  useAuthStore.setState({
+    login: login.phase === 'success' || login.phase === 'cancelled' ? null : login,
+  }),
+)

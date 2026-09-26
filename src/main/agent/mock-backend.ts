@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
-import type { AgentUiEvent, SessionState, SessionSummary, UiMessage, UiToolUseBlock } from '@shared/events'
+import type {
+  AgentUiEvent,
+  SessionState,
+  SessionSummary,
+  UiMessage,
+  UiToolUseBlock,
+} from '@shared/events'
 import type { AgentBackend } from './backend'
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -17,7 +23,13 @@ export class MockBackend implements AgentBackend {
   private sessions: SessionSummary[] = []
 
   async start(): Promise<void> {
-    this.emit({ type: 'session', sessionId: this.sessionId, state: 'idle', model: 'mock-model', tools: ['Read', 'Bash'] })
+    this.emit({
+      type: 'session',
+      sessionId: this.sessionId,
+      state: 'idle',
+      model: 'mock-model',
+      tools: ['Read', 'Bash'],
+    })
   }
 
   onEvent(listener: (event: AgentUiEvent) => void): () => void {
@@ -35,12 +47,23 @@ export class MockBackend implements AgentBackend {
   }
 
   getState(): AgentStateSnapshot {
-    return { sessionId: this.sessionId, state: this.state, model: 'mock-model', title: 'Mock session', totalCostUsd: this.totalCost }
+    return {
+      sessionId: this.sessionId,
+      state: this.state,
+      model: 'mock-model',
+      title: 'Mock session',
+      totalCostUsd: this.totalCost,
+    }
   }
 
   async send(args: SendArgs): Promise<{ messageId: string }> {
     const userId = randomUUID()
-    const userMsg: UiMessage = { id: userId, role: 'user', blocks: [{ type: 'text', text: args.text }], timestamp: Date.now() }
+    const userMsg: UiMessage = {
+      id: userId,
+      role: 'user',
+      blocks: [{ type: 'text', text: args.text }],
+      timestamp: Date.now(),
+    }
     this.history.push(userMsg)
     this.emit({ type: 'user-message', message: userMsg })
     void this.runTurn(args)
@@ -73,17 +96,30 @@ export class MockBackend implements AgentBackend {
     }
 
     if (useTool) {
-      await streamText(args.fromVoice ? 'Смотрю, что есть в папке.' : 'Сейчас посмотрю содержимое рабочей папки.')
-      const tool: UiToolUseBlock = { type: 'tool_use', toolUseId: randomUUID(), name: 'Bash', input: { command: 'ls -la ~/Vivi' } }
+      await streamText(
+        args.fromVoice ? 'Смотрю, что есть в папке.' : 'Сейчас посмотрю содержимое рабочей папки.',
+      )
+      const tool: UiToolUseBlock = {
+        type: 'tool_use',
+        toolUseId: randomUUID(),
+        name: 'Bash',
+        input: { command: 'ls -la ~/Vivi' },
+      }
       blocks.push(tool)
       blockIndex++
       this.emit({ type: 'tool-use', messageId, block: tool, parentToolUseId: null })
       await sleep(600)
       if (this.aborted) return this.finish(messageId, blocks, started, true)
-      const result = { content: 'total 3\nnotes.md\nmemory/\nprojects/', isError: false, durationMs: 590 }
+      const result = {
+        content: 'total 3\nnotes.md\nmemory/\nprojects/',
+        isError: false,
+        durationMs: 590,
+      }
       tool.result = result
       this.emit({ type: 'tool-result', toolUseId: tool.toolUseId, result })
-      await streamText('В папке ~/Vivi три элемента: notes.md, memory/ и projects/. Что с ними сделать?')
+      await streamText(
+        'В папке ~/Vivi три элемента: notes.md, memory/ и projects/. Что с ними сделать?',
+      )
     } else {
       await streamText(
         args.fromVoice
@@ -94,7 +130,12 @@ export class MockBackend implements AgentBackend {
     this.finish(messageId, blocks, started, this.aborted)
   }
 
-  private finish(messageId: string, blocks: UiMessage['blocks'], started: number, interrupted: boolean): void {
+  private finish(
+    messageId: string,
+    blocks: UiMessage['blocks'],
+    started: number,
+    interrupted: boolean,
+  ): void {
     const message: UiMessage = { id: messageId, role: 'assistant', blocks, timestamp: Date.now() }
     this.history.push(message)
     this.emit({ type: 'assistant-message', message })
@@ -140,7 +181,14 @@ export class MockBackend implements AgentBackend {
 
   async newSession(): Promise<void> {
     if (this.history.length > 0) {
-      this.sessions.unshift({ sessionId: this.sessionId, title: this.history[0]?.blocks[0]?.type === 'text' ? this.history[0].blocks[0].text.slice(0, 60) : 'Session', lastModified: Date.now() })
+      this.sessions.unshift({
+        sessionId: this.sessionId,
+        title:
+          this.history[0]?.blocks[0]?.type === 'text'
+            ? this.history[0].blocks[0].text.slice(0, 60)
+            : 'Session',
+        lastModified: Date.now(),
+      })
     }
     this.sessionId = randomUUID()
     this.history = []

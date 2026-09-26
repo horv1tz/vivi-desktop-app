@@ -1,7 +1,11 @@
 import type { ModelPaths } from '../main/voice/models'
 
 export interface WorkerModelConfig {
-  stt?: { engine: 'online-transducer' | 'offline-transducer' | 'offline-whisper' | 'offline-nemo-ctc'; paths: ModelPaths; language: 'ru' | 'en' | 'auto' }
+  stt?: {
+    engine: 'online-transducer' | 'offline-transducer' | 'offline-whisper' | 'offline-nemo-ctc'
+    paths: ModelPaths
+    language: 'ru' | 'en' | 'auto'
+  }
   vad?: ModelPaths
   kws?: ModelPaths
   tts?: { paths: ModelPaths; speed: number }
@@ -32,7 +36,12 @@ export type MainToWorker =
 export type WorkerToMain =
   | { type: 'ready' }
   | { type: 'pong' }
-  | { type: 'init-done'; ok: boolean; error?: string; capabilities: { stt: boolean; vad: boolean; kws: boolean; tts: boolean } }
+  | {
+      type: 'init-done'
+      ok: boolean
+      error?: string
+      capabilities: { stt: boolean; vad: boolean; kws: boolean; tts: boolean }
+    }
   | { type: 'state'; state: 'off' | 'armed' | 'listening' | 'transcribing' }
   | { type: 'wake' }
   | { type: 'partial'; text: string }

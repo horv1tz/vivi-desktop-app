@@ -1,6 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { AgentError, AgentErrorCode, AgentUiEvent, SessionState, TurnResult, UiBlock, UiImageBlock, UiMessage, UiToolResult, UiToolUseBlock } from '@shared/events'
+import type {
+  AgentError,
+  AgentErrorCode,
+  AgentUiEvent,
+  SessionState,
+  TurnResult,
+  UiBlock,
+  UiImageBlock,
+  UiMessage,
+  UiToolResult,
+  UiToolUseBlock,
+} from '@shared/events'
 
 type ContentBlock = { type: string; [k: string]: unknown }
 
@@ -28,7 +39,13 @@ const ERROR_CODES: Record<string, AgentErrorCode> = {
   max_output_tokens: 'max_output_tokens',
 }
 
-const RETRYABLE: ReadonlySet<AgentErrorCode> = new Set(['rate_limit', 'overloaded', 'server_error', 'process_exited', 'unknown'])
+const RETRYABLE: ReadonlySet<AgentErrorCode> = new Set([
+  'rate_limit',
+  'overloaded',
+  'server_error',
+  'process_exited',
+  'unknown',
+])
 
 export function mapErrorCode(sdkError: string | undefined): AgentErrorCode {
   return (sdkError && ERROR_CODES[sdkError]) || 'unknown'
@@ -57,7 +74,8 @@ function imagesOf(content: unknown): UiImageBlock[] {
   for (const b of content as ContentBlock[]) {
     if (b.type === 'image') {
       const source = b.source as { type?: string; media_type?: string; data?: string } | undefined
-      if (source?.type === 'base64' && source.data) out.push({ type: 'image', mimeType: source.media_type ?? 'image/png', data: source.data })
+      if (source?.type === 'base64' && source.data)
+        out.push({ type: 'image', mimeType: source.media_type ?? 'image/png', data: source.data })
     }
   }
   return out
@@ -65,7 +83,8 @@ function imagesOf(content: unknown): UiImageBlock[] {
 
 /** Converts Anthropic assistant content blocks to UI blocks (shared by live reducer and history loader). */
 export function assistantBlocksToUi(content: unknown): UiBlock[] {
-  if (!Array.isArray(content)) return typeof content === 'string' ? [{ type: 'text', text: content }] : []
+  if (!Array.isArray(content))
+    return typeof content === 'string' ? [{ type: 'text', text: content }] : []
   const out: UiBlock[] = []
   for (const raw of content as ContentBlock[]) {
     switch (raw.type) {
@@ -73,10 +92,16 @@ export function assistantBlocksToUi(content: unknown): UiBlock[] {
         if (String(raw.text ?? '').length) out.push({ type: 'text', text: String(raw.text) })
         break
       case 'thinking':
-        if (String(raw.thinking ?? '').trim()) out.push({ type: 'thinking', text: String(raw.thinking) })
+        if (String(raw.thinking ?? '').trim())
+          out.push({ type: 'thinking', text: String(raw.thinking) })
         break
       case 'tool_use':
-        out.push({ type: 'tool_use', toolUseId: String(raw.id), name: String(raw.name), input: raw.input })
+        out.push({
+          type: 'tool_use',
+          toolUseId: String(raw.id),
+          name: String(raw.name),
+          input: raw.input,
+        })
         break
       case 'image': {
         const [img] = imagesOf([raw])
@@ -100,14 +125,20 @@ export function toolResultsOf(content: unknown): { toolUseId: string; result: Ui
     const images = imagesOf(inner)
     out.push({
       toolUseId: String(raw.tool_use_id),
-      result: { content: textOf(inner), isError: raw.is_error === true, images: images.length ? images : undefined },
+      result: {
+        content: textOf(inner),
+        isError: raw.is_error === true,
+        images: images.length ? images : undefined,
+      },
     })
   }
   return out
 }
 
 /** Builds UI messages from persisted session transcript entries (getSessionMessages). */
-export function historyToUi(entries: { type: string; uuid: string; message: unknown; parent_tool_use_id: string | null }[]): UiMessage[] {
+export function historyToUi(
+  entries: { type: string; uuid: string; message: unknown; parent_tool_use_id: string | null }[],
+): UiMessage[] {
   const messages: UiMessage[] = []
   const toolIndex = new Map<string, UiToolUseBlock>()
   let ts = 0
@@ -119,7 +150,13 @@ export function historyToUi(entries: { type: string; uuid: string; message: unkn
       const blocks = assistantBlocksToUi(msg.content)
       if (!blocks.length) continue
       for (const b of blocks) if (b.type === 'tool_use') toolIndex.set(b.toolUseId, b)
-      messages.push({ id: entry.uuid, role: 'assistant', blocks, timestamp: ts, parentToolUseId: entry.parent_tool_use_id })
+      messages.push({
+        id: entry.uuid,
+        role: 'assistant',
+        blocks,
+        timestamp: ts,
+        parentToolUseId: entry.parent_tool_use_id,
+      })
     } else if (entry.type === 'user') {
       const results = toolResultsOf(msg.content)
       if (results.length) {
@@ -150,7 +187,10 @@ export class SessionReducer {
   private readonly flushMs: number
   private readonly now: () => number
   private streaming = new Map<string, StreamingMessage>() // keyed by parent_tool_use_id ?? 'main'
-  private pendingDeltas = new Map<string, { messageId: string; blockIndex: number; kind: 'text' | 'thinking'; text: string }>()
+  private pendingDeltas = new Map<
+    string,
+    { messageId: string; blockIndex: number; kind: 'text' | 'thinking'; text: string }
+  >()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private lastTotalCost = 0
   private toolStart = new Map<string, number>()
@@ -173,7 +213,12 @@ export class SessionReducer {
     return parent ?? 'main'
   }
 
-  private queueDelta(messageId: string, blockIndex: number, kind: 'text' | 'thinking', text: string): void {
+  private queueDelta(
+    messageId: string,
+    blockIndex: number,
+    kind: 'text' | 'thinking',
+    text: string,
+  ): void {
     const k = `${messageId}:${blockIndex}`
     const cur = this.pendingDeltas.get(k)
     if (cur) cur.text += text
@@ -187,7 +232,14 @@ export class SessionReducer {
       this.flushTimer = null
     }
     for (const d of this.pendingDeltas.values()) {
-      if (d.text) this.emit({ type: 'text-delta', messageId: d.messageId, blockIndex: d.blockIndex, text: d.text, kind: d.kind })
+      if (d.text)
+        this.emit({
+          type: 'text-delta',
+          messageId: d.messageId,
+          blockIndex: d.blockIndex,
+          text: d.text,
+          kind: d.kind,
+        })
     }
     this.pendingDeltas.clear()
   }
@@ -232,7 +284,8 @@ export class SessionReducer {
         })
         break
       case 'tool_progress':
-        if (!this.toolStart.has(msg.tool_use_id)) this.toolStart.set(msg.tool_use_id, this.now() - msg.elapsed_time_seconds * 1000)
+        if (!this.toolStart.has(msg.tool_use_id))
+          this.toolStart.set(msg.tool_use_id, this.now() - msg.elapsed_time_seconds * 1000)
         break
       default:
         break
@@ -244,17 +297,33 @@ export class SessionReducer {
       case 'init':
         this.sessionId = msg.session_id
         this.model = msg.model
-        this.emit({ type: 'session', sessionId: msg.session_id, state: 'idle', model: msg.model, tools: msg.tools })
+        this.emit({
+          type: 'session',
+          sessionId: msg.session_id,
+          state: 'idle',
+          model: msg.model,
+          tools: msg.tools,
+        })
         this.setState('idle')
         break
       case 'session_state_changed':
-        this.setState(msg.state === 'running' ? 'running' : msg.state === 'requires_action' ? 'awaiting_permission' : 'idle')
+        this.setState(
+          msg.state === 'running'
+            ? 'running'
+            : msg.state === 'requires_action'
+              ? 'awaiting_permission'
+              : 'idle',
+        )
         break
       case 'status':
         this.emit({ type: 'status', status: msg.status })
         break
       case 'api_retry':
-        this.emit({ type: 'status', status: 'retrying', detail: `${msg.attempt}/${msg.max_retries} (${msg.error})` })
+        this.emit({
+          type: 'status',
+          status: 'retrying',
+          detail: `${msg.attempt}/${msg.max_retries} (${msg.error})`,
+        })
         break
       case 'compact_boundary':
         this.emit({ type: 'compact' })
@@ -265,7 +334,11 @@ export class SessionReducer {
   }
 
   private handleStreamEvent(msg: Extract<SDKMessage, { type: 'stream_event' }>): void {
-    const ev = msg.event as { type: string; index?: number; delta?: { type?: string; text?: string; thinking?: string } }
+    const ev = msg.event as {
+      type: string
+      index?: number
+      delta?: { type?: string; text?: string; thinking?: string }
+    }
     const key = this.key(msg.parent_tool_use_id)
     if (ev.type === 'message_start') {
       const id = randomUUID()
@@ -276,8 +349,10 @@ export class SessionReducer {
     if (ev.type === 'content_block_delta' && ev.delta) {
       const cur = this.streaming.get(key)
       if (!cur) return
-      if (ev.delta.type === 'text_delta' && ev.delta.text) this.queueDelta(cur.id, ev.index ?? 0, 'text', ev.delta.text)
-      else if (ev.delta.type === 'thinking_delta' && ev.delta.thinking) this.queueDelta(cur.id, ev.index ?? 0, 'thinking', ev.delta.thinking)
+      if (ev.delta.type === 'text_delta' && ev.delta.text)
+        this.queueDelta(cur.id, ev.index ?? 0, 'text', ev.delta.text)
+      else if (ev.delta.type === 'thinking_delta' && ev.delta.thinking)
+        this.queueDelta(cur.id, ev.index ?? 0, 'thinking', ev.delta.thinking)
     }
   }
 
@@ -287,11 +362,23 @@ export class SessionReducer {
     const id = streaming?.id ?? randomUUID()
     this.streaming.delete(key)
     const blocks = assistantBlocksToUi(msg.message.content)
-    const message: UiMessage = { id, role: 'assistant', blocks, timestamp: this.now(), parentToolUseId: msg.parent_tool_use_id, streaming: false }
+    const message: UiMessage = {
+      id,
+      role: 'assistant',
+      blocks,
+      timestamp: this.now(),
+      parentToolUseId: msg.parent_tool_use_id,
+      streaming: false,
+    }
     for (const b of blocks) {
       if (b.type === 'tool_use') {
         this.toolStart.set(b.toolUseId, this.now())
-        this.emit({ type: 'tool-use', messageId: id, block: b, parentToolUseId: msg.parent_tool_use_id })
+        this.emit({
+          type: 'tool-use',
+          messageId: id,
+          block: b,
+          parentToolUseId: msg.parent_tool_use_id,
+        })
       }
     }
     this.emit({ type: 'assistant-message', message })
@@ -314,9 +401,15 @@ export class SessionReducer {
   }
 
   private handleResult(msg: Extract<SDKMessage, { type: 'result' }>): void {
-    const usage = msg.usage as { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }
+    const usage = msg.usage as {
+      input_tokens?: number
+      output_tokens?: number
+      cache_read_input_tokens?: number
+      cache_creation_input_tokens?: number
+    }
     const modelUsage = Object.values(msg.modelUsage ?? {})
-    const contextWindow = modelUsage.reduce((m, u) => Math.max(m, u.contextWindow ?? 0), 0) || undefined
+    const contextWindow =
+      modelUsage.reduce((m, u) => Math.max(m, u.contextWindow ?? 0), 0) || undefined
     const total = msg.total_cost_usd ?? 0
     const cost = Math.max(0, total - this.lastTotalCost)
     this.lastTotalCost = total
@@ -340,8 +433,20 @@ export class SessionReducer {
     if (msg.subtype !== 'success') {
       const errors = msg.errors?.length ? msg.errors.join('\n') : msg.subtype
       const code: AgentErrorCode =
-        msg.subtype === 'error_max_turns' ? 'max_turns' : msg.subtype === 'error_max_budget_usd' ? 'max_budget' : msg.startup_failure_reason ? 'startup_failed' : 'unknown'
-      this.emit({ type: 'error', error: makeError(code, msg.startup_failure_reason ? `${msg.startup_failure_reason}: ${errors}` : errors) })
+        msg.subtype === 'error_max_turns'
+          ? 'max_turns'
+          : msg.subtype === 'error_max_budget_usd'
+            ? 'max_budget'
+            : msg.startup_failure_reason
+              ? 'startup_failed'
+              : 'unknown'
+      this.emit({
+        type: 'error',
+        error: makeError(
+          code,
+          msg.startup_failure_reason ? `${msg.startup_failure_reason}: ${errors}` : errors,
+        ),
+      })
     }
     this.setState('idle')
   }

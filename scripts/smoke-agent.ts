@@ -10,7 +10,9 @@ import { buildOptions } from '../src/main/agent/options'
 import { defaultSettings } from '../src/shared/settings'
 import { autoAllowedTools } from '../src/main/agent/permissions/policy'
 
-const prompt = process.argv.slice(2).join(' ') || 'Скажи, какой сегодня день недели, и перечисли файлы в рабочей папке одной строкой.'
+const prompt =
+  process.argv.slice(2).join(' ') ||
+  'Скажи, какой сегодня день недели, и перечисли файлы в рабочей папке одной строкой.'
 const cwd = mkdtempSync(join(tmpdir(), 'vivi-smoke-'))
 writeFileSync(join(cwd, 'hello.txt'), 'hello from vivi smoke test\n')
 const settings = defaultSettings()
@@ -55,11 +57,15 @@ const session = new AgentSession({
         console.log(`\n[tool-use] ${e.block.name} ${JSON.stringify(e.block.input).slice(0, 120)}`)
         break
       case 'tool-result':
-        console.log(`[tool-result] ${e.result.isError ? 'ERROR ' : ''}${e.result.content.slice(0, 200).replace(/\n/g, ' ')}`)
+        console.log(
+          `[tool-result] ${e.result.isError ? 'ERROR ' : ''}${e.result.content.slice(0, 200).replace(/\n/g, ' ')}`,
+        )
         break
       case 'result':
         result = e.result
-        console.log(`\n[result] ${e.result.subtype} cost=$${(e.result.costUsd ?? 0).toFixed(4)} total=$${(e.result.totalCostUsd ?? 0).toFixed(4)} in=${e.result.inputTokens} out=${e.result.outputTokens} ${e.result.durationMs}ms`)
+        console.log(
+          `\n[result] ${e.result.subtype} cost=$${(e.result.costUsd ?? 0).toFixed(4)} total=$${(e.result.totalCostUsd ?? 0).toFixed(4)} in=${e.result.inputTokens} out=${e.result.outputTokens} ${e.result.durationMs}ms`,
+        )
         break
       case 'error':
         console.log(`\n[error] ${e.error.code}: ${e.error.message}`)

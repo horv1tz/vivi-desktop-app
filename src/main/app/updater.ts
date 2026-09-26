@@ -39,7 +39,10 @@ export interface UpdaterDeps {
  * doesn't bother wrapping its fake module in `{ default: ... }`) still works.
  */
 async function loadAutoUpdaterModule(): Promise<AppUpdater | null> {
-  const mod = (await import('electron-updater')) as unknown as { default?: { autoUpdater?: AppUpdater }; autoUpdater?: AppUpdater }
+  const mod = (await import('electron-updater')) as unknown as {
+    default?: { autoUpdater?: AppUpdater }
+    autoUpdater?: AppUpdater
+  }
   return mod.default?.autoUpdater ?? mod.autoUpdater ?? null
 }
 
@@ -79,12 +82,18 @@ export class Updater {
         au.on('checking-for-update', () => {
           if (!this.silentCheck) this.deps.onStatus({ type: 'checking' })
         })
-        au.on('update-available', (info: UpdateInfo) => this.deps.onStatus({ type: 'available', version: info.version }))
+        au.on('update-available', (info: UpdateInfo) =>
+          this.deps.onStatus({ type: 'available', version: info.version }),
+        )
         au.on('update-not-available', () => {
           if (!this.silentCheck) this.deps.onStatus({ type: 'not-available' })
         })
-        au.on('download-progress', (p: ProgressInfo) => this.deps.onStatus({ type: 'downloading', percent: Math.round(p.percent) }))
-        au.on('update-downloaded', (info: UpdateInfo) => this.deps.onStatus({ type: 'downloaded', version: info.version }))
+        au.on('download-progress', (p: ProgressInfo) =>
+          this.deps.onStatus({ type: 'downloading', percent: Math.round(p.percent) }),
+        )
+        au.on('update-downloaded', (info: UpdateInfo) =>
+          this.deps.onStatus({ type: 'downloaded', version: info.version }),
+        )
         au.on('error', (err: Error) => this.reportError(err))
       }
       this.instance = au

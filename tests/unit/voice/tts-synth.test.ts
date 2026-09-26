@@ -3,7 +3,9 @@ import { synthesizeTtsJob, type TtsSynthesizer } from '../../../src/voice-worker
 
 describe('synthesizeTtsJob (VO-02: one failed chunk must not stall/kill the TTS queue)', () => {
   it('resolves to tts-audio on success', async () => {
-    const tts: TtsSynthesizer = { synthesize: async () => ({ samples: new Float32Array([0.1, 0.2, 0.3]), sampleRate: 22050 }) }
+    const tts: TtsSynthesizer = {
+      synthesize: async () => ({ samples: new Float32Array([0.1, 0.2, 0.3]), sampleRate: 22050 }),
+    }
     const onError = vi.fn()
     const msg = await synthesizeTtsJob({ generation: 1, seq: 0, text: 'hello' }, tts, 1.0, onError)
     expect(msg.type).toBe('tts-audio')
@@ -22,7 +24,9 @@ describe('synthesizeTtsJob (VO-02: one failed chunk must not stall/kill the TTS 
       },
     }
     const onError = vi.fn()
-    await expect(synthesizeTtsJob({ generation: 1, seq: 3, text: 'bad chunk' }, tts, 1.0, onError)).resolves.toEqual({
+    await expect(
+      synthesizeTtsJob({ generation: 1, seq: 3, text: 'bad chunk' }, tts, 1.0, onError),
+    ).resolves.toEqual({
       type: 'tts-error',
       generation: 1,
       seq: 3,

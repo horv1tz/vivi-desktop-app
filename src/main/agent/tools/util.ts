@@ -15,12 +15,35 @@ export function image(base64: string, mimeType: string, caption?: string): CallT
   return { content }
 }
 
-export function run(cmd: string, args: string[], opts: { timeoutMs?: number; input?: string; env?: NodeJS.ProcessEnv } = {}): Promise<{ code: number; stdout: string; stderr: string }> {
+export function run(
+  cmd: string,
+  args: string[],
+  opts: { timeoutMs?: number; input?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = execFile(cmd, args, { timeout: opts.timeoutMs ?? 15_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: opts.env }, (err, stdout, stderr) => {
-      const code = err && typeof (err as { code?: unknown }).code === 'number' ? ((err as { code: number }).code ?? 1) : err ? 1 : 0
-      resolve({ code, stdout: String(stdout ?? ''), stderr: String(stderr ?? '') + (err && !stderr ? err.message : '') })
-    })
+    const child = execFile(
+      cmd,
+      args,
+      {
+        timeout: opts.timeoutMs ?? 15_000,
+        maxBuffer: 4 * 1024 * 1024,
+        windowsHide: true,
+        env: opts.env,
+      },
+      (err, stdout, stderr) => {
+        const code =
+          err && typeof (err as { code?: unknown }).code === 'number'
+            ? ((err as { code: number }).code ?? 1)
+            : err
+              ? 1
+              : 0
+        resolve({
+          code,
+          stdout: String(stdout ?? ''),
+          stderr: String(stderr ?? '') + (err && !stderr ? err.message : ''),
+        })
+      },
+    )
     if (opts.input !== undefined) {
       child.stdin?.write(opts.input)
       child.stdin?.end()
@@ -34,8 +57,16 @@ export function run(cmd: string, args: string[], opts: { timeoutMs?: number; inp
  * the substituted text was quote-escaped, so any externally-influenced string (a window title, an app
  * name, typed key names, …) MUST travel as an environment variable, never as literal script text.
  */
-export function powershell(script: string, timeoutMs = 20_000, env?: Record<string, string>): Promise<{ code: number; stdout: string; stderr: string }> {
-  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeoutMs, env: env ? { ...process.env, ...env } : undefined })
+export function powershell(
+  script: string,
+  timeoutMs = 20_000,
+  env?: Record<string, string>,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return run(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    { timeoutMs, env: env ? { ...process.env, ...env } : undefined },
+  )
 }
 
 export function truncate(s: string, max = 20_000): string {

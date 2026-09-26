@@ -20,7 +20,13 @@ describe('buildEnv', () => {
   })
 
   it('does not override config dir when isolateConfig is false', () => {
-    const env = buildEnv({ baseEnv: {}, extraEnv: {}, claudeConfigDir: '/x', appVersion: '1', isolateConfig: false })
+    const env = buildEnv({
+      baseEnv: {},
+      extraEnv: {},
+      claudeConfigDir: '/x',
+      appVersion: '1',
+      isolateConfig: false,
+    })
     expect(env.CLAUDE_CONFIG_DIR).toBeUndefined()
   })
 })
@@ -62,6 +68,8 @@ describe('buildOptions', () => {
   })
 
   it('formats permission rules', () => {
-    expect(buildPermissionAllowRules([{ toolName: 'Bash', ruleContent: 'npm test' }])).toEqual(['Bash(npm test)'])
+    expect(buildPermissionAllowRules([{ toolName: 'Bash', ruleContent: 'npm test' }])).toEqual([
+      'Bash(npm test)',
+    ])
   })
 })

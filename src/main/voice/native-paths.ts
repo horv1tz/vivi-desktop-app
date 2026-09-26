@@ -11,7 +11,12 @@ export function sherpaLibDir(): string | null {
   try {
     const require = createRequire(import.meta.url)
     const p = require.resolve(`${pkg}/package.json`)
-    candidates.push(dirname(p).replace(`app.asar${process.platform === 'win32' ? '\\' : '/'}`, `app.asar.unpacked${process.platform === 'win32' ? '\\' : '/'}`))
+    candidates.push(
+      dirname(p).replace(
+        `app.asar${process.platform === 'win32' ? '\\' : '/'}`,
+        `app.asar.unpacked${process.platform === 'win32' ? '\\' : '/'}`,
+      ),
+    )
   } catch {
     /* fall through */
   }

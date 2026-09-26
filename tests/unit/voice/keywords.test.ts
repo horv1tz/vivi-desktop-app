@@ -1,7 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { buildKeywordsFile, levenshtein, matchesWakeWord, tokenizeWord } from '../../../src/voice-worker/keywords'
+import {
+  buildKeywordsFile,
+  levenshtein,
+  matchesWakeWord,
+  tokenizeWord,
+} from '../../../src/voice-worker/keywords'
 
-const tokens = ['<blk>', '▁', '▁HE', 'Y', '▁HEY', '▁V', 'I', 'V', '▁VI', 'VI', 'E', '▁VE', 'VE', '▁W', 'W', '▁WI', 'Y', 'EE', '▁VEE'].map((t, i) => `${t} ${i}`).join('\n')
+const tokens = [
+  '<blk>',
+  '▁',
+  '▁HE',
+  'Y',
+  '▁HEY',
+  '▁V',
+  'I',
+  'V',
+  '▁VI',
+  'VI',
+  'E',
+  '▁VE',
+  'VE',
+  '▁W',
+  'W',
+  '▁WI',
+  'Y',
+  'EE',
+  '▁VEE',
+]
+  .map((t, i) => `${t} ${i}`)
+  .join('\n')
 
 describe('keywords', () => {
   it('tokenizes words greedily with BPE pieces', () => {

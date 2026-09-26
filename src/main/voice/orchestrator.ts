@@ -76,7 +76,10 @@ export class VoiceOrchestrator {
   private thinkingWatchdog: ReturnType<typeof setTimeout> | null = null
   private speakingWatchdog: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: OrchestratorDeps, timeouts?: VoiceOrchestratorTimeouts) {
+  constructor(
+    private readonly deps: OrchestratorDeps,
+    timeouts?: VoiceOrchestratorTimeouts,
+  ) {
     this.models = new ModelManager(deps.modelsDir, (p) => emit('voice:modelProgress', p))
     this.thinkingTimeoutMs = timeouts?.thinkingMs ?? DEFAULT_THINKING_TIMEOUT_MS
     this.speakingTimeoutMs = timeouts?.speakingMs ?? DEFAULT_SPEAKING_TIMEOUT_MS
@@ -150,13 +153,24 @@ export class VoiceOrchestrator {
   /** A short, silent stand-in for a chunk whose TTS synthesis failed (VO-02): keeps the
    *  renderer's strictly-ordered playback queue moving instead of stalling on the missing seq. */
   private emitSilentFiller(generation: number, seq: number): void {
-    emit('voice:audio', { generation, seq, sampleRate: FILLER_SAMPLE_RATE, pcm: new Float32Array(FILLER_SAMPLES).buffer, last: false })
+    emit('voice:audio', {
+      generation,
+      seq,
+      sampleRate: FILLER_SAMPLE_RATE,
+      pcm: new Float32Array(FILLER_SAMPLES).buffer,
+      last: false,
+    })
   }
 
   /** Models that still need downloading for the current settings. */
   missingModels(): string[] {
     const v = this.deps.getSettings().voice
-    return requiredModels({ sttModel: v.sttModel, ttsVoice: v.ttsVoice, wakeWordEnabled: v.wakeWordEnabled, wakeWordStrategy: v.wakeWordStrategy }).filter((id) => !this.models.isInstalled(id))
+    return requiredModels({
+      sttModel: v.sttModel,
+      ttsVoice: v.ttsVoice,
+      wakeWordEnabled: v.wakeWordEnabled,
+      wakeWordStrategy: v.wakeWordStrategy,
+    }).filter((id) => !this.models.isInstalled(id))
   }
 
   private buildModelConfig(): WorkerModelConfig {
@@ -165,9 +179,15 @@ export class VoiceOrchestrator {
     const sttPaths = this.models.paths(v.sttModel)
     const ttsPaths = this.models.paths(v.ttsVoice)
     const vad = this.models.paths('vad-silero-v5')
-    const kws = v.wakeWordEnabled && v.wakeWordStrategy === 'kws' ? this.models.paths('kws-zipformer-en') : null
+    const kws =
+      v.wakeWordEnabled && v.wakeWordStrategy === 'kws'
+        ? this.models.paths('kws-zipformer-en')
+        : null
     return {
-      stt: stt?.engine && sttPaths ? { engine: stt.engine, paths: sttPaths, language: v.language } : undefined,
+      stt:
+        stt?.engine && sttPaths
+          ? { engine: stt.engine, paths: sttPaths, language: v.language }
+          : undefined,
       vad: vad ?? undefined,
       kws: kws ?? undefined,
       tts: ttsPaths ? { paths: ttsPaths, speed: 1.0 } : undefined,
@@ -197,8 +217,14 @@ export class VoiceOrchestrator {
       const env: Record<string, string | undefined> = { ...process.env }
       const libDir = sherpaLibDir()
       if (libDir) {
-        const key = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : process.platform === 'win32' ? 'PATH' : 'LD_LIBRARY_PATH'
-        env[key] = `${libDir}${env[key] ? `${process.platform === 'win32' ? ';' : ':'}${env[key]}` : ''}`
+        const key =
+          process.platform === 'darwin'
+            ? 'DYLD_LIBRARY_PATH'
+            : process.platform === 'win32'
+              ? 'PATH'
+              : 'LD_LIBRARY_PATH'
+        env[key] =
+          `${libDir}${env[key] ? `${process.platform === 'win32' ? ';' : ':'}${env[key]}` : ''}`
       }
       const worker = new VoiceWorkerClient({ entry: workerEntryPath(), env })
       worker.on('message', (msg: WorkerToMain) => this.onWorkerMessage(msg))
@@ -261,7 +287,8 @@ export class VoiceOrchestrator {
 
   /** Re-send the microphone port after the main window (re)loads. */
   redeliverAudioPort(): void {
-    if (this.workerReady && this.worker) this.deps.deliverAudioPort(this.worker.createAudioChannel())
+    if (this.workerReady && this.worker)
+      this.deps.deliverAudioPort(this.worker.createAudioChannel())
   }
 
   async stop(): Promise<void> {
@@ -293,7 +320,8 @@ export class VoiceOrchestrator {
       case 'state':
         if (msg.state === 'listening') this.setState('listening')
         else if (msg.state === 'transcribing') this.setState('transcribing')
-        else if (msg.state === 'armed' && !this.speaking && this.state !== 'thinking') this.setState('armed')
+        else if (msg.state === 'armed' && !this.speaking && this.state !== 'thinking')
+          this.setState('armed')
         else if (msg.state === 'off' && !this.speaking) this.setState('off')
         break
       case 'wake':
@@ -320,7 +348,13 @@ export class VoiceOrchestrator {
         void this.deps.interruptAgent()
         break
       case 'tts-audio':
-        emit('voice:audio', { generation: msg.generation, seq: msg.seq, sampleRate: msg.sampleRate, pcm: msg.pcm, last: false })
+        emit('voice:audio', {
+          generation: msg.generation,
+          seq: msg.seq,
+          sampleRate: msg.sampleRate,
+          pcm: msg.pcm,
+          last: false,
+        })
         break
       case 'tts-error':
         log.warn(`tts error seq ${msg.seq}: ${msg.error}`)
@@ -370,7 +404,14 @@ export class VoiceOrchestrator {
       for (const chunk of this.chunker.flush()) this.speakChunk(chunk.text)
       this.currentVoiceTurn = false
       if (!this.speaking) this.setState('armed')
-      if (this.pendingSeq > 0) emit('voice:audio', { generation: this.speakGeneration, seq: this.pendingSeq, sampleRate: 0, pcm: new ArrayBuffer(0), last: true })
+      if (this.pendingSeq > 0)
+        emit('voice:audio', {
+          generation: this.speakGeneration,
+          seq: this.pendingSeq,
+          sampleRate: 0,
+          pcm: new ArrayBuffer(0),
+          last: true,
+        })
     }
   }
 
@@ -397,9 +438,19 @@ export class VoiceOrchestrator {
         if (!key) throw new Error('OpenAI API key is not set')
         this.cloud = new OpenAIVoiceProvider(key, this.deps.getDispatcher())
       }
-      const { bytes, mimeType } = await this.cloud.synthesize(text, this.deps.getSettings().voice.openaiVoice)
+      const { bytes, mimeType } = await this.cloud.synthesize(
+        text,
+        this.deps.getSettings().voice.openaiVoice,
+      )
       if (generation !== this.speakGeneration) return
-      emit('voice:audio', { generation, seq, sampleRate: 0, pcm: bytes, last: false, mimeType } as never)
+      emit('voice:audio', {
+        generation,
+        seq,
+        sampleRate: 0,
+        pcm: bytes,
+        last: false,
+        mimeType,
+      } as never)
     } catch (err) {
       log.warn('cloud tts failed', err)
       // Same reasoning as the local-worker 'tts-error' case above: fill the gap so the ordered
@@ -421,8 +472,16 @@ export class VoiceOrchestrator {
     this.speakGeneration++
     this.pendingSeq = 0
     this.chunker.reset()
-    for (const chunk of [...this.chunker.push(text), ...this.chunker.flush()]) this.speakChunk(chunk.text)
-    if (this.pendingSeq > 0) emit('voice:audio', { generation: this.speakGeneration, seq: this.pendingSeq, sampleRate: 0, pcm: new ArrayBuffer(0), last: true })
+    for (const chunk of [...this.chunker.push(text), ...this.chunker.flush()])
+      this.speakChunk(chunk.text)
+    if (this.pendingSeq > 0)
+      emit('voice:audio', {
+        generation: this.speakGeneration,
+        seq: this.pendingSeq,
+        sampleRate: 0,
+        pcm: new ArrayBuffer(0),
+        last: true,
+      })
   }
 
   async stopSpeaking(): Promise<void> {

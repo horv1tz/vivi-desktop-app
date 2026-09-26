@@ -37,14 +37,36 @@ export interface TtsSynthesizer {
  * 'tts-error' message instead of rejecting, so the caller's queue loop can move straight on to
  * the next chunk rather than a single bad sentence stalling — or killing — the whole reply.
  */
-export async function synthesizeTtsJob(job: TtsJob, tts: TtsSynthesizer | null, speed: number, onError: (err: unknown) => void): Promise<WorkerToMain> {
-  if (!tts) return { type: 'tts-error', generation: job.generation, seq: job.seq, error: 'TTS model not loaded' }
+export async function synthesizeTtsJob(
+  job: TtsJob,
+  tts: TtsSynthesizer | null,
+  speed: number,
+  onError: (err: unknown) => void,
+): Promise<WorkerToMain> {
+  if (!tts)
+    return {
+      type: 'tts-error',
+      generation: job.generation,
+      seq: job.seq,
+      error: 'TTS model not loaded',
+    }
   try {
     const { samples, sampleRate } = await tts.synthesize(job.text, speed)
-    return { type: 'tts-audio', generation: job.generation, seq: job.seq, sampleRate, pcm: Float32Array.from(samples).buffer }
+    return {
+      type: 'tts-audio',
+      generation: job.generation,
+      seq: job.seq,
+      sampleRate,
+      pcm: Float32Array.from(samples).buffer,
+    }
   } catch (err) {
     onError(err)
-    return { type: 'tts-error', generation: job.generation, seq: job.seq, error: (err as Error).message }
+    return {
+      type: 'tts-error',
+      generation: job.generation,
+      seq: job.seq,
+      error: (err as Error).message,
+    }
   }
 }
 
@@ -75,7 +97,9 @@ async function runTtsQueue(): Promise<void> {
       if (job.generation <= cancelledGeneration) continue
       // A single chunk failing to synthesize must not stop the rest of the queue (VO-02): log it
       // and keep going — synthesizeTtsJob() always resolves, it never throws.
-      const msg = await synthesizeTtsJob(job, engines?.tts ?? null, speed, (err) => log.error(`tts synth failed (gen ${job.generation} seq ${job.seq})`, err))
+      const msg = await synthesizeTtsJob(job, engines?.tts ?? null, speed, (err) =>
+        log.error(`tts synth failed (gen ${job.generation} seq ${job.seq})`, err),
+      )
       if (job.generation <= cancelledGeneration) continue
       send(msg)
     }
@@ -103,9 +127,19 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
         for (const w of engines.warnings) send({ type: 'log', level: 'warn', message: w })
         pipeline = new VoicePipeline(
           { wake: engines.wake, vad: engines.vad, stt: engines.stt },
-          { sampleRate: 16000, silenceMs: msg.settings.silenceMs, noSpeechTimeoutMs: 7000, maxUtteranceMs: 30_000, preRollMs: 1500, wakeWordEnabled: msg.settings.wakeWordEnabled && !!engines.wake, bargeInMs: 300, bargeInGraceMs: 400 },
           {
-            onState: (state) => send({ type: 'state', state: state === 'finalizing' ? 'transcribing' : state }),
+            sampleRate: 16000,
+            silenceMs: msg.settings.silenceMs,
+            noSpeechTimeoutMs: 7000,
+            maxUtteranceMs: 30_000,
+            preRollMs: 1500,
+            wakeWordEnabled: msg.settings.wakeWordEnabled && !!engines.wake,
+            bargeInMs: 300,
+            bargeInGraceMs: 400,
+          },
+          {
+            onState: (state) =>
+              send({ type: 'state', state: state === 'finalizing' ? 'transcribing' : state }),
             onWake: () => send({ type: 'wake' }),
             onPartial: (text) => send({ type: 'partial', text }),
             onFinal: (text, durationMs) => send({ type: 'final', text, durationMs }),
@@ -115,11 +149,22 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
             onError: (message) => send({ type: 'error', message }),
           },
         )
-        send({ type: 'init-done', ok: true, capabilities: { stt: true, vad: true, kws: !!engines.wake, tts: !!engines.tts } })
-        log.info(`engines ready (sherpa ${sherpaVersion()}) wake=${!!engines.wake} tts=${!!engines.tts}`)
+        send({
+          type: 'init-done',
+          ok: true,
+          capabilities: { stt: true, vad: true, kws: !!engines.wake, tts: !!engines.tts },
+        })
+        log.info(
+          `engines ready (sherpa ${sherpaVersion()}) wake=${!!engines.wake} tts=${!!engines.tts}`,
+        )
       } catch (err) {
         log.error('init failed', err)
-        send({ type: 'init-done', ok: false, error: (err as Error).message, capabilities: { stt: false, vad: false, kws: false, tts: false } })
+        send({
+          type: 'init-done',
+          ok: false,
+          error: (err as Error).message,
+          capabilities: { stt: false, vad: false, kws: false, tts: false },
+        })
       }
       break
     }

@@ -13,16 +13,16 @@ directories:
 files:
   - out/**/*
   - package.json
-  - "!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**"
-  - "!**/*.map"
-  - "!**/node_modules/**/{test,tests,__tests__,docs,example,examples}/**"
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
+  - '!**/*.map'
+  - '!**/node_modules/**/{test,tests,__tests__,docs,example,examples}/**'
 
 asar: true
 asarUnpack:
-  - "**/*.node"
-  - "**/node_modules/sherpa-onnx-*/**"
-  - "**/node_modules/robotjs/**"
-  - "**/node_modules/get-windows/**"
+  - '**/*.node'
+  - '**/node_modules/sherpa-onnx-*/**'
+  - '**/node_modules/robotjs/**'
+  - '**/node_modules/get-windows/**'
 
 # Every native dependency ships N-API prebuilds; never rebuild against Electron headers.
 npmRebuild: false

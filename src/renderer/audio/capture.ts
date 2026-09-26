@@ -22,13 +22,23 @@ export class MicCapture {
     await this.stop()
     this.deviceId = deviceId
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: deviceId ? { exact: deviceId } : undefined, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
       video: false,
     })
     this.ctx = new AudioContext({ sampleRate: 16000, latencyHint: 'interactive' })
     await this.ctx.audioWorklet.addModule(workletUrl)
     const source = this.ctx.createMediaStreamSource(this.stream)
-    this.node = new AudioWorkletNode(this.ctx, 'pcm-capture', { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1 })
+    this.node = new AudioWorkletNode(this.ctx, 'pcm-capture', {
+      numberOfInputs: 1,
+      numberOfOutputs: 0,
+      channelCount: 1,
+    })
     source.connect(this.node)
     if (this.port) {
       const p = this.port

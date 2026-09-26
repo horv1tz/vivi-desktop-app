@@ -12,8 +12,18 @@ export function needsWindowsShell(command: string): boolean {
  * On Windows a bare command name ("gemini") usually maps to a .cmd shim that CreateProcess cannot run
  * directly. Resolve it through `where` so the caller knows the real file (and whether a shell is needed).
  */
-export function resolveWindowsCommand(command: string, platform: NodeJS.Platform = process.platform, lookup: (cmd: string) => string[] = whereLookup): string {
-  if (platform !== 'win32' || isAbsolute(command) || /[\\/]/.test(command) || /\.[a-z0-9]+$/i.test(command)) return command
+export function resolveWindowsCommand(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+  lookup: (cmd: string) => string[] = whereLookup,
+): string {
+  if (
+    platform !== 'win32' ||
+    isAbsolute(command) ||
+    /[\\/]/.test(command) ||
+    /\.[a-z0-9]+$/i.test(command)
+  )
+    return command
   const candidates = lookup(command)
   return pickWindowsExecutable(candidates) ?? command
 }
@@ -25,7 +35,11 @@ export function pickWindowsExecutable(candidates: string[]): string | undefined 
     const ext = m ? m[1]!.toLowerCase() : ''
     return ext === 'exe' ? 0 : ext === 'com' ? 1 : ext === 'cmd' ? 2 : ext === 'bat' ? 3 : 9
   }
-  const ranked = candidates.map((c) => c.trim()).filter(Boolean).map((c) => ({ c, r: rank(c) })).filter((x) => x.r < 9)
+  const ranked = candidates
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => ({ c, r: rank(c) }))
+    .filter((x) => x.r < 9)
   ranked.sort((a, b) => a.r - b.r)
   return ranked[0]?.c
 }
@@ -72,13 +86,19 @@ export interface AcpProcess {
 export function spawnAcpProcess(opts: AcpProcessOptions): AcpProcess {
   const command = resolveWindowsCommand(opts.command)
   const useShell = process.platform === 'win32' && needsWindowsShell(command)
-  const child: ChildProcessWithoutNullStreams = spawn(useShell ? quoteForCmd(command) : command, useShell ? opts.args.map(quoteForCmd) : opts.args, {
-    cwd: opts.cwd,
-    env: Object.fromEntries(Object.entries(opts.env).filter((e): e is [string, string] => typeof e[1] === 'string')),
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true,
-    shell: useShell,
-  })
+  const child: ChildProcessWithoutNullStreams = spawn(
+    useShell ? quoteForCmd(command) : command,
+    useShell ? opts.args.map(quoteForCmd) : opts.args,
+    {
+      cwd: opts.cwd,
+      env: Object.fromEntries(
+        Object.entries(opts.env).filter((e): e is [string, string] => typeof e[1] === 'string'),
+      ),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      shell: useShell,
+    },
+  )
   let running = true
   const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
     child.once('exit', (code, signal) => {
@@ -106,7 +126,10 @@ export function spawnAcpProcess(opts: AcpProcessOptions): AcpProcess {
   child.stdin.on('error', () => {
     /* EPIPE after the agent died: reported through exit */
   })
-  const stream = ndJsonStream(Writable.toWeb(child.stdin) as WritableStream<Uint8Array>, Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>)
+  const stream = ndJsonStream(
+    Writable.toWeb(child.stdin) as WritableStream<Uint8Array>,
+    Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
+  )
   return {
     get pid() {
       return child.pid
@@ -123,12 +146,19 @@ export function spawnAcpProcess(opts: AcpProcessOptions): AcpProcess {
       } catch {
         /* ignore */
       }
-      const wait = (ms: number): Promise<boolean> => Promise.race([exited.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), ms))])
+      const wait = (ms: number): Promise<boolean> =>
+        Promise.race([
+          exited.then(() => true),
+          new Promise<boolean>((r) => setTimeout(() => r(false), ms)),
+        ])
       if (await wait(graceMs)) return
       if (process.platform === 'win32' && child.pid) {
         // A .cmd shim runs the real agent under cmd.exe: kill the whole tree, not just the shell.
         try {
-          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 5000 })
+          spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+            windowsHide: true,
+            timeout: 5000,
+          })
         } catch {
           /* ignore */
         }

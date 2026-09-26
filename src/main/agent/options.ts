@@ -1,4 +1,9 @@
-import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY, type CanUseTool, type McpServerConfig, type Options } from '@anthropic-ai/claude-agent-sdk'
+import {
+  SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+  type CanUseTool,
+  type McpServerConfig,
+  type Options,
+} from '@anthropic-ai/claude-agent-sdk'
 import type { Settings } from '@shared/settings'
 import { buildSystemPrompt, osVersionString } from './prompt'
 import { dangerConfirmationHook } from './permissions/danger-hook'
@@ -30,9 +35,23 @@ export interface BuildOptionsInput {
 }
 
 /** Env vars that would make the child believe it runs nested inside another Claude Code session. */
-const NESTED_SESSION_VARS = ['CLAUDE_SESSION_ID', 'CLAUDECODE', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SIMPLE', 'CLAUDE_PROJECT_DIR', 'CLAUDE_CODE_REMOTE', 'CLAUDE_CODE_TMPDIR']
+const NESTED_SESSION_VARS = [
+  'CLAUDE_SESSION_ID',
+  'CLAUDECODE',
+  'CLAUDE_CODE_SSE_PORT',
+  'CLAUDE_CODE_ENTRYPOINT',
+  'CLAUDE_CODE_SIMPLE',
+  'CLAUDE_PROJECT_DIR',
+  'CLAUDE_CODE_REMOTE',
+  'CLAUDE_CODE_TMPDIR',
+]
 
-export function buildEnv(input: Pick<BuildOptionsInput, 'extraEnv' | 'claudeConfigDir' | 'appVersion' | 'baseEnv' | 'isolateConfig'>): Record<string, string | undefined> {
+export function buildEnv(
+  input: Pick<
+    BuildOptionsInput,
+    'extraEnv' | 'claudeConfigDir' | 'appVersion' | 'baseEnv' | 'isolateConfig'
+  >,
+): Record<string, string | undefined> {
   const base = { ...(input.baseEnv ?? process.env) }
   for (const k of NESTED_SESSION_VARS) delete base[k]
   const env: Record<string, string | undefined> = {
@@ -50,7 +69,9 @@ export function buildEnv(input: Pick<BuildOptionsInput, 'extraEnv' | 'claudeConf
   return env
 }
 
-export function buildPermissionAllowRules(rules: { toolName: string; ruleContent?: string }[]): string[] {
+export function buildPermissionAllowRules(
+  rules: { toolName: string; ruleContent?: string }[],
+): string[] {
   return rules.map((r) => (r.ruleContent ? `${r.toolName}(${r.ruleContent})` : r.toolName))
 }
 
@@ -73,14 +94,19 @@ export function buildOptions(input: BuildOptionsInput): Options {
     // opt in to extra folders explicitly (Settings → Agent → additional directories).
     additionalDirectories: [...new Set(s.agent.additionalDirectories)],
     env: buildEnv(input),
-    systemPrompt: { type: 'custom', prompt: [staticPart, SYSTEM_PROMPT_DYNAMIC_BOUNDARY, dynamicPart], snapshot: true },
+    systemPrompt: {
+      type: 'custom',
+      prompt: [staticPart, SYSTEM_PROMPT_DYNAMIC_BOUNDARY, dynamicPart],
+      snapshot: true,
+    },
     tools: { type: 'preset', preset: 'claude_code' },
     allowedTools: input.allowedTools,
     disallowedTools: input.disallowedTools,
     settingSources: [],
     settings: { permissions: { allow: buildPermissionAllowRules(input.alwaysAllowRules) } },
     permissionMode: s.agent.permissionMode,
-    allowDangerouslySkipPermissions: s.agent.permissionMode === 'bypassPermissions' ? true : undefined,
+    allowDangerouslySkipPermissions:
+      s.agent.permissionMode === 'bypassPermissions' ? true : undefined,
     includePartialMessages: true,
     persistSession: true,
     maxTurns: s.agent.maxTurns,

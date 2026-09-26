@@ -23,7 +23,9 @@ vi.mock('electron', () => ({
   clipboard: { readText: vi.fn(async () => ''), writeText: vi.fn(async () => undefined) },
 }))
 vi.mock('robotjs', () => ({ default: robot }))
-vi.mock('../../../src/main/agent/tools/windows-list', () => ({ listWindows: vi.fn(async () => []) }))
+vi.mock('../../../src/main/agent/tools/windows-list', () => ({
+  listWindows: vi.fn(async () => []),
+}))
 
 function setPlatform(p: NodeJS.Platform): void {
   Object.defineProperty(process, 'platform', { value: p, configurable: true })
@@ -39,7 +41,10 @@ describe('RobotJsDriver — Windows DPI calibration', () => {
     setPlatform('win32')
     robot.getMousePos.mockReturnValue({ x: 500, y: 300 })
     getCursorScreenPoint.mockReturnValue({ x: 500, y: 300 })
-    getDisplayNearestPoint.mockReturnValue({ scaleFactor: 2, bounds: { x: 0, y: 0, width: 1920, height: 1080 } })
+    getDisplayNearestPoint.mockReturnValue({
+      scaleFactor: 2,
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    })
     const { RobotJsDriver } = await import('../../../src/main/agent/tools/drivers/robotjs')
     const driver = new RobotJsDriver()
     await driver.moveMouse(800, 400, false)
@@ -51,7 +56,10 @@ describe('RobotJsDriver — Windows DPI calibration', () => {
     setPlatform('win32')
     robot.getMousePos.mockReturnValue({ x: 1000, y: 600 }) // 2x what Electron reports below
     getCursorScreenPoint.mockReturnValue({ x: 500, y: 300 })
-    getDisplayNearestPoint.mockReturnValue({ scaleFactor: 2, bounds: { x: 0, y: 0, width: 1920, height: 1080 } })
+    getDisplayNearestPoint.mockReturnValue({
+      scaleFactor: 2,
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    })
     const { RobotJsDriver } = await import('../../../src/main/agent/tools/drivers/robotjs')
     const driver = new RobotJsDriver()
     await driver.moveMouse(800, 400, false)
@@ -72,7 +80,10 @@ describe('RobotJsDriver — Windows DPI calibration', () => {
     setPlatform('win32')
     robot.getMousePos.mockReturnValue({ x: 10, y: 10 })
     getCursorScreenPoint.mockReturnValue({ x: 10, y: 10 })
-    getDisplayNearestPoint.mockReturnValue({ scaleFactor: 1.5, bounds: { x: 0, y: 0, width: 1920, height: 1080 } })
+    getDisplayNearestPoint.mockReturnValue({
+      scaleFactor: 1.5,
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    })
     const { RobotJsDriver } = await import('../../../src/main/agent/tools/drivers/robotjs')
     const driver = new RobotJsDriver()
     await driver.moveMouse(1, 1, false)

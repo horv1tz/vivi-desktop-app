@@ -1,6 +1,22 @@
 import { randomUUID } from 'node:crypto'
-import type { ContentBlock, PromptResponse, SessionNotification, SessionUpdate, ToolCallContent, ToolCallUpdate, ToolKind } from '@agentclientprotocol/sdk'
-import type { AgentUiEvent, TurnResult, UiBlock, UiImageBlock, UiMessage, UiToolResult, UiToolUseBlock } from '@shared/events'
+import type {
+  ContentBlock,
+  PromptResponse,
+  SessionNotification,
+  SessionUpdate,
+  ToolCallContent,
+  ToolCallUpdate,
+  ToolKind,
+} from '@agentclientprotocol/sdk'
+import type {
+  AgentUiEvent,
+  TurnResult,
+  UiBlock,
+  UiImageBlock,
+  UiMessage,
+  UiToolResult,
+  UiToolUseBlock,
+} from '@shared/events'
 
 interface StreamingMessage {
   id: string
@@ -31,9 +47,17 @@ export interface TranslatorOptions {
 }
 
 /** Claude-specific metadata the claude-agent-acp adapter attaches to tool calls. */
-type ClaudeToolMeta = { claudeCode?: { toolName?: string; parentToolUseId?: string; subagent?: true } } | null | undefined
+type ClaudeToolMeta =
+  | { claudeCode?: { toolName?: string; parentToolUseId?: string; subagent?: true } }
+  | null
+  | undefined
 
-export function toolNameOf(call: { title?: string | null; name?: string | null; kind?: ToolKind | null; _meta?: unknown }): string {
+export function toolNameOf(call: {
+  title?: string | null
+  name?: string | null
+  kind?: ToolKind | null
+  _meta?: unknown
+}): string {
   const meta = call._meta as ClaudeToolMeta
   return meta?.claudeCode?.toolName ?? call.name ?? call.title ?? call.kind ?? 'tool'
 }
@@ -60,19 +84,29 @@ export function toolResultOf(update: ToolCallUpdate): UiToolResult {
   for (const c of update.content ?? []) {
     const cc = c as ToolCallContent
     if (cc.type === 'content') {
-      if (cc.content.type === 'image') images.push({ type: 'image', mimeType: cc.content.mimeType, data: cc.content.data })
+      if (cc.content.type === 'image')
+        images.push({ type: 'image', mimeType: cc.content.mimeType, data: cc.content.data })
       else parts.push(textOfContent(cc.content))
     } else if (cc.type === 'diff') {
-      parts.push(`--- ${cc.path}\n${cc.oldText ? `- ${cc.oldText.split('\n').join('\n- ')}\n` : ''}+ ${cc.newText.split('\n').join('\n+ ')}`)
+      parts.push(
+        `--- ${cc.path}\n${cc.oldText ? `- ${cc.oldText.split('\n').join('\n- ')}\n` : ''}+ ${cc.newText.split('\n').join('\n+ ')}`,
+      )
     } else if (cc.type === 'terminal') {
       parts.push(`[terminal ${cc.terminalId}]`)
     }
   }
   let content = parts.filter(Boolean).join('\n')
   if (!content && update.rawOutput !== undefined && update.rawOutput !== null) {
-    content = typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput, null, 2)
+    content =
+      typeof update.rawOutput === 'string'
+        ? update.rawOutput
+        : JSON.stringify(update.rawOutput, null, 2)
   }
-  return { content, isError: update.status === 'failed', images: images.length ? images : undefined }
+  return {
+    content,
+    isError: update.status === 'failed',
+    images: images.length ? images : undefined,
+  }
 }
 
 /**
@@ -137,7 +171,12 @@ export class AcpTranslator {
    * (`accumulatedUsage` in acp-agent.js) and the ACP spec defines usage per prompt request.
    */
   private turnUsage(usage: PromptResponse['usage'] | undefined): UsageTotals {
-    return { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, cachedReadTokens: usage?.cachedReadTokens ?? 0, cachedWriteTokens: usage?.cachedWriteTokens ?? 0 }
+    return {
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: usage?.outputTokens ?? 0,
+      cachedReadTokens: usage?.cachedReadTokens ?? 0,
+      cachedWriteTokens: usage?.cachedWriteTokens ?? 0,
+    }
   }
 
   handle(notification: SessionNotification): void {
@@ -163,13 +202,19 @@ export class AcpTranslator {
         break
       case 'usage_update':
         this.usage = { used: update.used, size: update.size }
-        if (update.cost && update.cost.currency === 'USD') this.cumulativeCostUsd = update.cost.amount
+        if (update.cost && update.cost.currency === 'USD')
+          this.cumulativeCostUsd = update.cost.amount
         break
       case 'compaction_update':
         if (!this.replay) this.emit({ type: 'compact' })
         break
       case 'notice':
-        if (!this.replay) this.emit({ type: 'status', status: null, detail: `${update.title}${update.description ? `: ${update.description}` : ''}` })
+        if (!this.replay)
+          this.emit({
+            type: 'status',
+            status: null,
+            detail: `${update.title}${update.description ? `: ${update.description}` : ''}`,
+          })
         break
       default:
         // plan, available_commands_update, current_mode_update, config_option_update, session_info_update: not surfaced in the chat.
@@ -178,14 +223,24 @@ export class AcpTranslator {
   }
 
   /** Finalize the assistant message of a live prompt and emit the turn result. */
-  finishTurn(response: PromptResponse | null, opts: { turnId?: string; error?: boolean } = {}): TurnResult {
+  finishTurn(
+    response: PromptResponse | null,
+    opts: { turnId?: string; error?: boolean } = {},
+  ): TurnResult {
     const message = this.streaming ? this.finalizeStreaming() : null
     if (message) this.emit({ type: 'assistant-message', message })
     // Tool calls that never completed (cancelled turn) get an empty result so the UI stops spinning.
     for (const [id, t] of this.tools) {
       if (!t.done) {
         t.done = true
-        this.emit({ type: 'tool-result', toolUseId: id, result: { content: response?.stopReason === 'cancelled' ? 'Cancelled' : '', isError: response?.stopReason === 'cancelled' } })
+        this.emit({
+          type: 'tool-result',
+          toolUseId: id,
+          result: {
+            content: response?.stopReason === 'cancelled' ? 'Cancelled' : '',
+            isError: response?.stopReason === 'cancelled',
+          },
+        })
       }
     }
     this.tools.clear()
@@ -202,7 +257,12 @@ export class AcpTranslator {
     }
     const result: TurnResult = {
       turnId: opts.turnId ?? randomUUID(),
-      subtype: stopReason === 'end_turn' ? 'success' : stopReason === 'max_turn_requests' ? 'error_max_turns' : stopReason ?? (opts.error ? 'error' : 'success'),
+      subtype:
+        stopReason === 'end_turn'
+          ? 'success'
+          : stopReason === 'max_turn_requests'
+            ? 'error_max_turns'
+            : (stopReason ?? (opts.error ? 'error' : 'success')),
       isError: !!opts.error || stopReason === 'refusal',
       costUsd,
       totalCostUsd,
@@ -213,7 +273,12 @@ export class AcpTranslator {
       cacheReadTokens: usage.cachedReadTokens,
       cacheWriteTokens: usage.cachedWriteTokens,
       contextWindow: this.usage?.size || undefined,
-      resultText: message ? message.blocks.filter((b): b is Extract<UiBlock, { type: 'text' }> => b.type === 'text').map((b) => b.text).join('\n') : undefined,
+      resultText: message
+        ? message.blocks
+            .filter((b): b is Extract<UiBlock, { type: 'text' }> => b.type === 'text')
+            .map((b) => b.text)
+            .join('\n')
+        : undefined,
       stopReason,
     }
     this.emit({ type: 'result', result })
@@ -236,7 +301,8 @@ export class AcpTranslator {
     }
     if (!this.streaming) {
       this.streaming = { id: randomUUID(), blocks: [], afterTool: false }
-      if (!this.replay) this.emit({ type: 'assistant-start', messageId: this.streaming.id, parentToolUseId: null })
+      if (!this.replay)
+        this.emit({ type: 'assistant-start', messageId: this.streaming.id, parentToolUseId: null })
     }
     return this.streaming
   }
@@ -244,7 +310,14 @@ export class AcpTranslator {
   private finalizeStreaming(): UiMessage {
     const s = this.streaming!
     this.streaming = null
-    return { id: s.id, role: 'assistant', blocks: s.blocks, timestamp: this.now(), parentToolUseId: null, streaming: false }
+    return {
+      id: s.id,
+      role: 'assistant',
+      blocks: s.blocks,
+      timestamp: this.now(),
+      parentToolUseId: null,
+      streaming: false,
+    }
   }
 
   private onAgentChunk(content: ContentBlock, kind: 'text' | 'thinking'): void {
@@ -266,7 +339,8 @@ export class AcpTranslator {
       s.blocks.push({ type: kind, text })
       index = s.blocks.length - 1
     }
-    if (!this.replay) this.emit({ type: 'text-delta', messageId: s.id, blockIndex: index, text, kind })
+    if (!this.replay)
+      this.emit({ type: 'text-delta', messageId: s.id, blockIndex: index, text, kind })
   }
 
   private onUserChunk(content: ContentBlock): void {
@@ -274,8 +348,10 @@ export class AcpTranslator {
     if (this.streaming) {
       this.replay.push(this.finalizeStreaming())
     }
-    if (!this.replayUser) this.replayUser = { id: randomUUID(), role: 'user', blocks: [], timestamp: this.now() }
-    if (content.type === 'image') this.replayUser.blocks.push({ type: 'image', mimeType: content.mimeType, data: content.data })
+    if (!this.replayUser)
+      this.replayUser = { id: randomUUID(), role: 'user', blocks: [], timestamp: this.now() }
+    if (content.type === 'image')
+      this.replayUser.blocks.push({ type: 'image', mimeType: content.mimeType, data: content.data })
     else {
       const text = textOfContent(content)
       if (!text) return
@@ -295,29 +371,57 @@ export class AcpTranslator {
   private onToolCall(update: Extract<SessionUpdate, { sessionUpdate: 'tool_call' }>): void {
     this.flushReplayUser()
     const s = this.ensureStreaming()
-    const block: UiToolUseBlock = { type: 'tool_use', toolUseId: update.toolCallId, name: toolNameOf(update), input: update.rawInput ?? {} }
+    const block: UiToolUseBlock = {
+      type: 'tool_use',
+      toolUseId: update.toolCallId,
+      name: toolNameOf(update),
+      input: update.rawInput ?? {},
+    }
     s.blocks.push(block)
     s.afterTool = true
     this.toolCalls++
-    this.tools.set(update.toolCallId, { messageId: s.id, startedAt: this.now(), block, done: false, content: update.content?.length ? update.content : undefined })
+    this.tools.set(update.toolCallId, {
+      messageId: s.id,
+      startedAt: this.now(),
+      block,
+      done: false,
+      content: update.content?.length ? update.content : undefined,
+    })
     if (!this.replay) this.emit({ type: 'tool-use', messageId: s.id, block, parentToolUseId: null })
-    if (update.status === 'completed' || update.status === 'failed') this.onToolCallUpdate({ ...update, sessionUpdate: 'tool_call_update' })
+    if (update.status === 'completed' || update.status === 'failed')
+      this.onToolCallUpdate({ ...update, sessionUpdate: 'tool_call_update' })
   }
 
   private onToolCallUpdate(update: ToolCallUpdate & { sessionUpdate?: string }): void {
     const t = this.tools.get(update.toolCallId)
     if (t) {
       let changed = false
-      if (update.rawInput !== undefined && update.rawInput !== null && JSON.stringify(update.rawInput) !== JSON.stringify(t.block.input)) {
+      if (
+        update.rawInput !== undefined &&
+        update.rawInput !== null &&
+        JSON.stringify(update.rawInput) !== JSON.stringify(t.block.input)
+      ) {
         t.block.input = update.rawInput
         changed = true
       }
       const name = toolNameOf(update)
-      if (name !== 'tool' && name !== t.block.name && (t.block.name === 'tool' || (update._meta as { claudeCode?: { toolName?: string } } | undefined)?.claudeCode?.toolName)) {
+      if (
+        name !== 'tool' &&
+        name !== t.block.name &&
+        (t.block.name === 'tool' ||
+          (update._meta as { claudeCode?: { toolName?: string } } | undefined)?.claudeCode
+            ?.toolName)
+      ) {
         t.block.name = name
         changed = true
       }
-      if (changed && !this.replay) this.emit({ type: 'tool-update', toolUseId: update.toolCallId, input: t.block.input, name: t.block.name })
+      if (changed && !this.replay)
+        this.emit({
+          type: 'tool-update',
+          toolUseId: update.toolCallId,
+          input: t.block.input,
+          name: t.block.name,
+        })
       if (update.content?.length) t.content = update.content
     }
     if (update.status !== 'completed' && update.status !== 'failed') return

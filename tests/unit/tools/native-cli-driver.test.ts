@@ -1,14 +1,44 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const runMock = vi.fn<(cmd: string, args: string[], opts?: unknown) => Promise<{ code: number; stdout: string; stderr: string }>>()
-const powershellMock = vi.fn<(script: string, timeoutMs?: number, env?: Record<string, string>) => Promise<{ code: number; stdout: string; stderr: string }>>()
+const runMock =
+  vi.fn<
+    (
+      cmd: string,
+      args: string[],
+      opts?: unknown,
+    ) => Promise<{ code: number; stdout: string; stderr: string }>
+  >()
+const powershellMock =
+  vi.fn<
+    (
+      script: string,
+      timeoutMs?: number,
+      env?: Record<string, string>,
+    ) => Promise<{ code: number; stdout: string; stderr: string }>
+  >()
 
-vi.mock('electron', () => ({ clipboard: { readText: vi.fn(async () => ''), writeText: vi.fn(async () => undefined) } }))
-vi.mock('../../../src/main/agent/tools/util', () => ({ run: runMock, powershell: powershellMock, truncate: (s: string) => s }))
-vi.mock('../../../src/main/agent/tools/windows-list', () => ({ listWindows: vi.fn(async () => []) }))
+vi.mock('electron', () => ({
+  clipboard: { readText: vi.fn(async () => ''), writeText: vi.fn(async () => undefined) },
+}))
+vi.mock('../../../src/main/agent/tools/util', () => ({
+  run: runMock,
+  powershell: powershellMock,
+  truncate: (s: string) => s,
+}))
+vi.mock('../../../src/main/agent/tools/windows-list', () => ({
+  listWindows: vi.fn(async () => []),
+}))
 
-const ok = (stdout = ''): { code: number; stdout: string; stderr: string } => ({ code: 0, stdout, stderr: '' })
-const fail = (stderr = 'boom'): { code: number; stdout: string; stderr: string } => ({ code: 1, stdout: '', stderr })
+const ok = (stdout = ''): { code: number; stdout: string; stderr: string } => ({
+  code: 0,
+  stdout,
+  stderr: '',
+})
+const fail = (stderr = 'boom'): { code: number; stdout: string; stderr: string } => ({
+  code: 1,
+  stdout: '',
+  stderr,
+})
 
 function setPlatform(p: NodeJS.Platform): void {
   Object.defineProperty(process, 'platform', { value: p, configurable: true })
@@ -99,7 +129,11 @@ describe('NativeCliDriver — Windows mouse button state', () => {
   it('minimizeWindow calls ShowWindow with SW_MINIMIZE', async () => {
     setPlatform('win32')
     powershellMock.mockResolvedValue(ok())
-    vi.doMock('../../../src/main/agent/tools/windows-list', () => ({ listWindows: vi.fn(async () => [{ id: 42, title: 'x', app: 'x', pid: 1, bounds: { x: 0, y: 0, width: 0, height: 0 } }]) }))
+    vi.doMock('../../../src/main/agent/tools/windows-list', () => ({
+      listWindows: vi.fn(async () => [
+        { id: 42, title: 'x', app: 'x', pid: 1, bounds: { x: 0, y: 0, width: 0, height: 0 } },
+      ]),
+    }))
     vi.resetModules()
     const { NativeCliDriver } = await import('../../../src/main/agent/tools/drivers/native-cli')
     const driver = new NativeCliDriver()

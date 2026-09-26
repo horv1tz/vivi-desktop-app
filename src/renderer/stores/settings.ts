@@ -14,7 +14,12 @@ interface SettingsState {
 
 function applyTheme(s: Settings): void {
   const theme = s.appearance.theme
-  const resolved = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
+  const resolved =
+    theme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : theme
   document.documentElement.dataset.theme = resolved
   document.documentElement.lang = s.appearance.language
   if (i18n.language !== s.appearance.language) void i18n.changeLanguage(s.appearance.language)
@@ -41,4 +46,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 }))
 
 vivi.on('settings:changed', (s) => useSettingsStore.getState().applyRemote(s))
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(useSettingsStore.getState().settings))
+window
+  .matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', () => applyTheme(useSettingsStore.getState().settings))

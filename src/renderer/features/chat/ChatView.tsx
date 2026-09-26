@@ -36,7 +36,9 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
       {mockAgent ? (
         <div className="flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-1.5 text-xs text-fg">
           <AlertTriangle size={14} className="text-warning" /> {t('chat.mockBanner')}
-          <button className="ml-auto underline" onClick={() => openSettings('account')}>{t('errors.openSettings')}</button>
+          <button className="ml-auto underline" onClick={() => openSettings('account')}>
+            {t('errors.openSettings')}
+          </button>
         </div>
       ) : null}
       <div
@@ -49,13 +51,30 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
       >
         <div className="mx-auto flex max-w-3xl flex-col gap-5">
           {messages.length === 0 ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-[12vh] flex flex-col items-center text-center">
-              <div className="mb-4 h-20 w-20 rounded-full" style={{ background: 'radial-gradient(circle at 32% 28%, #fff 0%, var(--accent-2) 22%, var(--accent) 70%, #2a1f7a 100%)', boxShadow: '0 20px 50px -20px var(--accent)' }} />
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-[12vh] flex flex-col items-center text-center"
+            >
+              <div
+                className="mb-4 h-20 w-20 rounded-full"
+                style={{
+                  background:
+                    'radial-gradient(circle at 32% 28%, #fff 0%, var(--accent-2) 22%, var(--accent) 70%, #2a1f7a 100%)',
+                  boxShadow: '0 20px 50px -20px var(--accent)',
+                }}
+              />
               <h1 className="text-2xl font-semibold">{t('chat.empty')}</h1>
-              <p className="mt-2 max-w-md text-sm text-muted">{t('chat.emptyHint', { hotkey: hotkey.replace('CommandOrControl', 'Ctrl') })}</p>
+              <p className="mt-2 max-w-md text-sm text-muted">
+                {t('chat.emptyHint', { hotkey: hotkey.replace('CommandOrControl', 'Ctrl') })}
+              </p>
               <div className="mt-6 grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
                 {suggestions.map((s) => (
-                  <button key={s} className="flex items-start gap-2 rounded-xl border border-line bg-elev px-3 py-2.5 text-left text-[13px] text-muted hover:border-accent/50 hover:text-fg" onClick={() => void send({ text: s })}>
+                  <button
+                    key={s}
+                    className="flex items-start gap-2 rounded-xl border border-line bg-elev px-3 py-2.5 text-left text-[13px] text-muted hover:border-accent/50 hover:text-fg"
+                    onClick={() => void send({ text: s })}
+                  >
                     <Sparkles size={14} className="mt-0.5 shrink-0 text-accent" /> {s}
                   </button>
                 ))}
@@ -67,14 +86,29 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
           ))}
           <AnimatePresence>
             {error ? (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm">
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm"
+              >
                 <AlertTriangle size={16} className="shrink-0 text-danger" />
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium">{t(`errors.${error.code}`, { defaultValue: t('errors.unknown') })}</div>
-                  <div className="truncate text-xs text-muted selectable" title={error.message}>{error.message}</div>
+                  <div className="font-medium">
+                    {t(`errors.${error.code}`, { defaultValue: t('errors.unknown') })}
+                  </div>
+                  <div className="truncate text-xs text-muted selectable" title={error.message}>
+                    {error.message}
+                  </div>
                 </div>
-                {error.code === 'authentication_failed' ? <Button size="sm" onClick={() => openSettings('account')}>{t('errors.openSettings')}</Button> : null}
-                <Button size="sm" variant="ghost" onClick={clearError}>{t('common.close')}</Button>
+                {error.code === 'authentication_failed' ? (
+                  <Button size="sm" onClick={() => openSettings('account')}>
+                    {t('errors.openSettings')}
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="ghost" onClick={clearError}>
+                  {t('common.close')}
+                </Button>
               </motion.div>
             ) : null}
           </AnimatePresence>
@@ -87,14 +121,34 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
             {lastResult ? (
               <>
                 {lastResult.totalCostUsd !== undefined ? (
-                  <span>{t('chat.cost')}: {formatUsd(lastResult.costUsd ?? 0)} {t('chat.turnCost')} · {formatUsd(totalCost ?? 0)} {t('chat.total')}</span>
+                  <span>
+                    {t('chat.cost')}: {formatUsd(lastResult.costUsd ?? 0)} {t('chat.turnCost')} ·{' '}
+                    {formatUsd(totalCost ?? 0)} {t('chat.total')}
+                  </span>
                 ) : null}
-                <span>{t('chat.tokens')}: {formatTokens(lastResult.inputTokens)} in / {formatTokens(lastResult.outputTokens)} out{lastResult.cacheReadTokens ? ` · cache ${formatTokens(lastResult.cacheReadTokens)}` : ''}</span>
+                <span>
+                  {t('chat.tokens')}: {formatTokens(lastResult.inputTokens)} in /{' '}
+                  {formatTokens(lastResult.outputTokens)} out
+                  {lastResult.cacheReadTokens
+                    ? ` · cache ${formatTokens(lastResult.cacheReadTokens)}`
+                    : ''}
+                </span>
               </>
             ) : null}
             {rateLimit && rateLimit.utilization !== undefined ? (
-              <span className={rateLimit.status === 'rejected' ? 'text-danger' : rateLimit.status === 'allowed_warning' ? 'text-warning' : ''}>
-                limit {rateLimit.rateLimitType ?? ''}: {Math.round(rateLimit.utilization * 100)}%{rateLimit.resetsAt ? ` · reset ${new Date(rateLimit.resetsAt * 1000).toLocaleTimeString()}` : ''}
+              <span
+                className={
+                  rateLimit.status === 'rejected'
+                    ? 'text-danger'
+                    : rateLimit.status === 'allowed_warning'
+                      ? 'text-warning'
+                      : ''
+                }
+              >
+                limit {rateLimit.rateLimitType ?? ''}: {Math.round(rateLimit.utilization * 100)}%
+                {rateLimit.resetsAt
+                  ? ` · reset ${new Date(rateLimit.resetsAt * 1000).toLocaleTimeString()}`
+                  : ''}
               </span>
             ) : null}
           </div>

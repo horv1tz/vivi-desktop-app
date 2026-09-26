@@ -1,7 +1,17 @@
 import { Switch as RadixSwitch } from 'radix-ui'
 import { cn } from '../../lib/cn'
 
-export function Switch({ checked, onCheckedChange, disabled, className }: { checked: boolean; onCheckedChange: (v: boolean) => void; disabled?: boolean; className?: string }) {
+export function Switch({
+  checked,
+  onCheckedChange,
+  disabled,
+  className,
+}: {
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+  disabled?: boolean
+  className?: string
+}) {
   return (
     <RadixSwitch.Root
       checked={checked}

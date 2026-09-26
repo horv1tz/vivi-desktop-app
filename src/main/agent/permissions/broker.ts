@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type { CanUseTool, PermissionResult, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
-import type { PermissionCategory, PermissionDecision, PermissionRequest, QuestionItem, QuestionRequest } from '@shared/events'
+import type {
+  PermissionCategory,
+  PermissionDecision,
+  PermissionRequest,
+  QuestionItem,
+  QuestionRequest,
+} from '@shared/events'
 
 export interface BrokerUi {
   requestPermission: (req: PermissionRequest) => void
@@ -37,10 +43,20 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>
 }
 
-export type RawQuestion = { question: string; header?: string; multiSelect?: boolean; options?: { label: string; description?: string }[] }
+export type RawQuestion = {
+  question: string
+  header?: string
+  multiSelect?: boolean
+  options?: { label: string; description?: string }[]
+}
 
 export function toQuestionItems(raw: RawQuestion[]): QuestionItem[] {
-  return raw.map((q) => ({ question: q.question, header: q.header, multiSelect: q.multiSelect, options: (q.options ?? []).map((o) => ({ label: o.label, description: o.description })) }))
+  return raw.map((q) => ({
+    question: q.question,
+    header: q.header,
+    multiSelect: q.multiSelect,
+    options: (q.options ?? []).map((o) => ({ label: o.label, description: o.description })),
+  }))
 }
 
 /**
@@ -64,7 +80,10 @@ export class PermissionBroker {
     if (signal?.aborted) return Promise.resolve('deny')
     const requestId = randomUUID()
     return new Promise<PermissionDecision>((resolve) => {
-      const timer = setTimeout(() => this.settle(requestId, 'deny'), this.deps.timeoutMs ?? 5 * 60_000)
+      const timer = setTimeout(
+        () => this.settle(requestId, 'deny'),
+        this.deps.timeoutMs ?? 5 * 60_000,
+      )
       this.pending.set(requestId, {
         resolve: (d) => {
           this.deps.ui.resolvePermission(requestId)
@@ -78,7 +97,11 @@ export class PermissionBroker {
   }
 
   /** Records the side effects of a user decision (turn/session grants, persisted always-allow rules). */
-  applyDecision(answer: PermissionDecision, category: PermissionCategory, rules: { toolName: string; ruleContent?: string }[]): void {
+  applyDecision(
+    answer: PermissionDecision,
+    category: PermissionCategory,
+    rules: { toolName: string; ruleContent?: string }[],
+  ): void {
     if (answer === 'allow' && category === 'input') this.deps.onTurnAllow?.('input')
     if (answer === 'allow-session') this.deps.onSessionAllow?.(category)
     if (answer === 'allow-always') this.deps.onAlwaysAllow?.(rules)
@@ -88,7 +111,8 @@ export class PermissionBroker {
     if (toolName === 'AskUserQuestion') return this.askQuestionTool(input, ctx.signal)
     const decision = this.decide(toolName, input)
     if (decision.verdict === 'allow') return { behavior: 'allow', updatedInput: input }
-    if (decision.verdict === 'deny') return { behavior: 'deny', message: decision.denyMessage ?? 'Blocked by Vivi policy' }
+    if (decision.verdict === 'deny')
+      return { behavior: 'deny', message: decision.denyMessage ?? 'Blocked by Vivi policy' }
 
     const answer = await this.ask(
       {
@@ -107,7 +131,10 @@ export class PermissionBroker {
       ctx.signal,
     )
 
-    const suggestions = (ctx.suggestions ?? []).filter((s): s is Extract<PermissionUpdate, { type: 'addRules' }> => s.type === 'addRules' && s.behavior === 'allow')
+    const suggestions = (ctx.suggestions ?? []).filter(
+      (s): s is Extract<PermissionUpdate, { type: 'addRules' }> =>
+        s.type === 'addRules' && s.behavior === 'allow',
+    )
     const rules = suggestions.length ? suggestions.flatMap((s) => s.rules) : [{ toolName }]
     this.applyDecision(answer, decision.category, rules)
 
@@ -116,11 +143,22 @@ export class PermissionBroker {
       case 'allow-session':
         return { behavior: 'allow', updatedInput: input, decisionClassification: 'user_temporary' }
       case 'allow-always': {
-        const updatedPermissions: PermissionUpdate[] = [{ type: 'addRules', rules, behavior: 'allow', destination: 'session' }]
-        return { behavior: 'allow', updatedInput: input, updatedPermissions, decisionClassification: 'user_permanent' }
+        const updatedPermissions: PermissionUpdate[] = [
+          { type: 'addRules', rules, behavior: 'allow', destination: 'session' },
+        ]
+        return {
+          behavior: 'allow',
+          updatedInput: input,
+          updatedPermissions,
+          decisionClassification: 'user_permanent',
+        }
       }
       default:
-        return { behavior: 'deny', message: 'The user denied this action.', decisionClassification: 'user_reject' }
+        return {
+          behavior: 'deny',
+          message: 'The user denied this action.',
+          decisionClassification: 'user_reject',
+        }
     }
   }
 
@@ -155,10 +193,14 @@ export class PermissionBroker {
     })
   }
 
-  private async askQuestionTool(input: Record<string, unknown>, signal: AbortSignal): Promise<PermissionResult> {
+  private async askQuestionTool(
+    input: Record<string, unknown>,
+    signal: AbortSignal,
+  ): Promise<PermissionResult> {
     const raw = (input.questions as RawQuestion[] | undefined) ?? []
     const answers = await this.askQuestions(toQuestionItems(raw), signal)
-    if (Object.keys(answers).length === 0) return { behavior: 'deny', message: 'The user dismissed the question.' }
+    if (Object.keys(answers).length === 0)
+      return { behavior: 'deny', message: 'The user dismissed the question.' }
     return { behavior: 'allow', updatedInput: { ...input, answers } }
   }
 

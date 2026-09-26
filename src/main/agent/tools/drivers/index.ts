@@ -12,7 +12,12 @@ let resolved: InputDriver | null | undefined
 export async function resolveInputDriver(): Promise<InputDriver | null> {
   if (resolved !== undefined) return resolved
   const forced = process.env.VIVI_INPUT_DRIVER
-  const candidates: InputDriver[] = forced === 'native' ? [new NativeCliDriver()] : forced === 'robotjs' ? [new RobotJsDriver()] : [new RobotJsDriver(), new NativeCliDriver()]
+  const candidates: InputDriver[] =
+    forced === 'native'
+      ? [new NativeCliDriver()]
+      : forced === 'robotjs'
+        ? [new RobotJsDriver()]
+        : [new RobotJsDriver(), new NativeCliDriver()]
   for (const c of candidates) {
     if (await c.available()) {
       log.info(`input driver: ${c.name}`)
@@ -49,7 +54,8 @@ export class InputGuard {
         [x, y + height - 1],
         [x + width - 1, y + height - 1],
       ]
-      if (corners.some(([cx, cy]) => Math.abs(pos.x - cx!) <= 2 && Math.abs(pos.y - cy!) <= 2)) throw new Error('fail-safe: mouse is in a screen corner, automation aborted')
+      if (corners.some(([cx, cy]) => Math.abs(pos.x - cx!) <= 2 && Math.abs(pos.y - cy!) <= 2))
+        throw new Error('fail-safe: mouse is in a screen corner, automation aborted')
     }
   }
 }

@@ -12,10 +12,33 @@ export interface ResolvedProxy {
 }
 
 export function resolveProxy(settings: ProxySettings, password: string | null): ResolvedProxy {
-  if (settings.mode === 'none') return { upstreamUrl: null, proxyRules: 'direct://', proxyBypassRules: '', needsBridge: false, mode: 'none' }
-  if (settings.mode === 'system') return { upstreamUrl: null, proxyRules: '', proxyBypassRules: settings.bypass, needsBridge: false, mode: 'system' }
-  if (!settings.host || !settings.port) return { upstreamUrl: null, proxyRules: 'direct://', proxyBypassRules: '', needsBridge: false, mode: 'none' }
-  const auth = settings.username ? `${encodeURIComponent(settings.username)}${password ? `:${encodeURIComponent(password)}` : ''}@` : ''
+  if (settings.mode === 'none')
+    return {
+      upstreamUrl: null,
+      proxyRules: 'direct://',
+      proxyBypassRules: '',
+      needsBridge: false,
+      mode: 'none',
+    }
+  if (settings.mode === 'system')
+    return {
+      upstreamUrl: null,
+      proxyRules: '',
+      proxyBypassRules: settings.bypass,
+      needsBridge: false,
+      mode: 'system',
+    }
+  if (!settings.host || !settings.port)
+    return {
+      upstreamUrl: null,
+      proxyRules: 'direct://',
+      proxyBypassRules: '',
+      needsBridge: false,
+      mode: 'none',
+    }
+  const auth = settings.username
+    ? `${encodeURIComponent(settings.username)}${password ? `:${encodeURIComponent(password)}` : ''}@`
+    : ''
   const upstreamUrl = `${settings.scheme}://${auth}${settings.host}:${settings.port}`
   const proxyRules = `${settings.scheme === 'socks5' ? 'socks5' : settings.scheme}://${settings.host}:${settings.port}`
   const needsBridge = settings.scheme === 'socks5' || !!settings.username
@@ -23,7 +46,11 @@ export function resolveProxy(settings: ProxySettings, password: string | null): 
 }
 
 /** Env vars for the Claude Code subprocess. `bridgeUrl` replaces the upstream when a local bridge runs. */
-export function proxyEnv(resolved: ResolvedProxy, bridgeUrl: string | null, caCertPath: string): Record<string, string | undefined> {
+export function proxyEnv(
+  resolved: ResolvedProxy,
+  bridgeUrl: string | null,
+  caCertPath: string,
+): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {}
   if (resolved.mode === 'manual') {
     const url = bridgeUrl ?? resolved.upstreamUrl ?? undefined

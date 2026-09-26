@@ -28,10 +28,18 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('../../../src/main/logging/log', () => ({
-  logger: () => ({ info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined }),
+  logger: () => ({
+    info: () => undefined,
+    warn: () => undefined,
+    error: () => undefined,
+    debug: () => undefined,
+  }),
 }))
 vi.mock('electron', () => ({ app: mocks.electronApp }))
-vi.mock('electron-updater', () => ({ autoUpdater: mocks.fakeAutoUpdater, default: { autoUpdater: mocks.fakeAutoUpdater } }))
+vi.mock('electron-updater', () => ({
+  autoUpdater: mocks.fakeAutoUpdater,
+  default: { autoUpdater: mocks.fakeAutoUpdater },
+}))
 
 const { Updater } = await import('../../../src/main/app/updater')
 
@@ -155,7 +163,10 @@ describe('Updater', () => {
 
     const manual = makeDeps(true)
     await new Updater(manual.deps).checkForUpdates({ silent: false })
-    expect(manual.statuses).toEqual([{ type: 'checking' }, { type: 'error', message: 'network down' }])
+    expect(manual.statuses).toEqual([
+      { type: 'checking' },
+      { type: 'error', message: 'network down' },
+    ])
 
     mocks.resetListeners()
     const silent = makeDeps(true)
@@ -176,7 +187,11 @@ describe('Updater', () => {
 
     await new Updater(deps).checkForUpdates({ silent: false })
 
-    expect(statuses).toEqual([{ type: 'available', version: '1.5.0' }, { type: 'error', message: 'disk full' }, { type: 'error', message: 'disk full' }])
+    expect(statuses).toEqual([
+      { type: 'available', version: '1.5.0' },
+      { type: 'error', message: 'disk full' },
+      { type: 'error', message: 'disk full' },
+    ])
   })
 
   it('quitAndInstall no-ops in dev mode', async () => {

@@ -16,7 +16,9 @@ vi.mock('../../../src/main/logging/log', () => ({ logger: () => logMock }))
 vi.mock('../../../src/main/ipc/handlers', () => ({ handle: vi.fn() }))
 vi.mock('../../../src/main/app/windows', () => ({ showOverlay: vi.fn() }))
 vi.mock('../../../src/main/voice/native-paths', () => ({ sherpaLibDir: () => null }))
-vi.mock('../../../src/main/auth/secrets', () => ({ secrets: () => ({ get: async () => 'fake-openai-key', set: async () => undefined }) }))
+vi.mock('../../../src/main/auth/secrets', () => ({
+  secrets: () => ({ get: async () => 'fake-openai-key', set: async () => undefined }),
+}))
 vi.mock('../../../src/main/voice/models', () => ({
   ModelManager: class {
     isInstalled(): boolean {
@@ -97,7 +99,9 @@ vi.mock('../../../src/main/voice/worker-client', () => {
 })
 
 const { VoiceOrchestrator } = await import('../../../src/main/voice/orchestrator')
-const workerClientMock = (await import('../../../src/main/voice/worker-client')) as unknown as { __getLastWorkerClient: () => FakeWorkerClientLike }
+const workerClientMock = (await import('../../../src/main/voice/worker-client')) as unknown as {
+  __getLastWorkerClient: () => FakeWorkerClientLike
+}
 
 const flushReal = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
@@ -123,16 +127,29 @@ function makeDeps(settings: Settings): OrchestratorDeps {
 }
 
 /** Starts the orchestrator and completes the worker handshake so it reaches 'armed'. */
-async function armOrchestrator(orch: InstanceType<typeof VoiceOrchestrator>, flush: () => Promise<unknown> = flushReal): Promise<FakeWorkerClientLike> {
+async function armOrchestrator(
+  orch: InstanceType<typeof VoiceOrchestrator>,
+  flush: () => Promise<unknown> = flushReal,
+): Promise<FakeWorkerClientLike> {
   const starting = orch.start()
   await flush()
   const client = workerClientMock.__getLastWorkerClient()!
-  client.emitEvent('message', { type: 'init-done', ok: true, capabilities: { stt: true, vad: true, kws: true, tts: true } } satisfies WorkerToMain)
+  client.emitEvent('message', {
+    type: 'init-done',
+    ok: true,
+    capabilities: { stt: true, vad: true, kws: true, tts: true },
+  } satisfies WorkerToMain)
   await starting
   return client
 }
 
-function audioEvents(): { generation: number; seq: number; sampleRate: number; pcm: ArrayBuffer; last: boolean }[] {
+function audioEvents(): {
+  generation: number
+  seq: number
+  sampleRate: number
+  pcm: ArrayBuffer
+  last: boolean
+}[] {
   return emitted.filter((e) => e.channel === 'voice:audio').map((e) => e.payload as never)
 }
 
@@ -154,15 +171,28 @@ describe('VoiceOrchestrator TTS chunk resilience (VO-02)', () => {
     const orch = new VoiceOrchestrator(makeDeps(settings))
     const client = await armOrchestrator(orch)
 
-    await orch.speak('Привет! Я нашла три файла в папке. Первый называется notes.md, второй — plan.txt.')
+    await orch.speak(
+      'Привет! Я нашла три файла в папке. Первый называется notes.md, второй — plan.txt.',
+    )
     const ttsSent = client.sent.filter((m) => m.type === 'tts')
     expect(ttsSent.length).toBe(2)
     const gen = ttsSent[0]!.generation as number
 
     const seq0 = ttsSent[0]!.seq as number
     const seq1 = ttsSent[1]!.seq as number
-    client.emitEvent('message', { type: 'tts-audio', generation: gen, seq: seq0, sampleRate: 16000, pcm: new Float32Array(320).buffer } satisfies WorkerToMain)
-    client.emitEvent('message', { type: 'tts-error', generation: gen, seq: seq1, error: 'sherpa boom' } satisfies WorkerToMain)
+    client.emitEvent('message', {
+      type: 'tts-audio',
+      generation: gen,
+      seq: seq0,
+      sampleRate: 16000,
+      pcm: new Float32Array(320).buffer,
+    } satisfies WorkerToMain)
+    client.emitEvent('message', {
+      type: 'tts-error',
+      generation: gen,
+      seq: seq1,
+      error: 'sherpa boom',
+    } satisfies WorkerToMain)
 
     expect(logMock.warn).toHaveBeenCalledWith(expect.stringContaining(`tts error seq ${seq1}`))
 
@@ -181,11 +211,19 @@ describe('VoiceOrchestrator TTS chunk resilience (VO-02)', () => {
     const orch = new VoiceOrchestrator(makeDeps(settings))
     const client = await armOrchestrator(orch)
 
-    await orch.speak('Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.')
+    await orch.speak(
+      'Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.',
+    )
     const ttsSent = client.sent.filter((m) => m.type === 'tts')
     expect(ttsSent.length).toBe(2)
     const gen = ttsSent[0]!.generation as number
-    for (const job of ttsSent) client.emitEvent('message', { type: 'tts-error', generation: gen, seq: job.seq as number, error: 'boom' } satisfies WorkerToMain)
+    for (const job of ttsSent)
+      client.emitEvent('message', {
+        type: 'tts-error',
+        generation: gen,
+        seq: job.seq as number,
+        error: 'boom',
+      } satisfies WorkerToMain)
 
     const events = audioEvents()
     expect(events.filter((e) => e.generation === gen && !e.last)).toHaveLength(2) // both filled with silence
@@ -219,7 +257,11 @@ describe("VoiceOrchestrator 'thinking' watchdog (VO-02)", () => {
     orch.attachAgent()
     const client = await armOrchestrator(orch, () => vi.advanceTimersByTimeAsync(0))
 
-    client.emitEvent('message', { type: 'final', text: 'привет вива', durationMs: 500 } satisfies WorkerToMain)
+    client.emitEvent('message', {
+      type: 'final',
+      text: 'привет вива',
+      durationMs: 500,
+    } satisfies WorkerToMain)
     expect(orch.getState()).toBe('thinking')
 
     // Advance to just before the timeout: nothing has happened yet.
@@ -228,7 +270,9 @@ describe("VoiceOrchestrator 'thinking' watchdog (VO-02)", () => {
 
     await vi.advanceTimersByTimeAsync(2)
     expect(orch.getState()).toBe('armed')
-    expect(stateEvents().some((e) => e.state === 'error' && e.detail === 'response timed out')).toBe(true)
+    expect(
+      stateEvents().some((e) => e.state === 'error' && e.detail === 'response timed out'),
+    ).toBe(true)
   })
 
   it('does not fire if the agent replies before the timeout', async () => {
@@ -238,13 +282,29 @@ describe("VoiceOrchestrator 'thinking' watchdog (VO-02)", () => {
     orch.attachAgent()
     const client = await armOrchestrator(orch, () => vi.advanceTimersByTimeAsync(0))
 
-    client.emitEvent('message', { type: 'final', text: 'привет вива', durationMs: 500 } satisfies WorkerToMain)
+    client.emitEvent('message', {
+      type: 'final',
+      text: 'привет вива',
+      durationMs: 500,
+    } satisfies WorkerToMain)
     expect(orch.getState()).toBe('thinking')
 
     await vi.advanceTimersByTimeAsync(1000)
     agentListener?.({
       type: 'result',
-      result: { turnId: 't1', subtype: 'success', isError: false, costUsd: 0, totalCostUsd: 0, durationMs: 10, numTurns: 1, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      result: {
+        turnId: 't1',
+        subtype: 'success',
+        isError: false,
+        costUsd: 0,
+        totalCostUsd: 0,
+        durationMs: 10,
+        numTurns: 1,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
     })
     expect(orch.getState()).toBe('armed')
 
@@ -262,7 +322,9 @@ describe("VoiceOrchestrator 'speaking' watchdog (VO-02)", () => {
     const orch = new VoiceOrchestrator(makeDeps(settings), { thinkingMs: 5000, speakingMs: 3000 })
     const client = await armOrchestrator(orch, () => vi.advanceTimersByTimeAsync(0))
 
-    await orch.speak('Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.')
+    await orch.speak(
+      'Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.',
+    )
     expect(orch.getState()).toBe('speaking')
 
     await vi.advanceTimersByTimeAsync(2999)
@@ -271,7 +333,9 @@ describe("VoiceOrchestrator 'speaking' watchdog (VO-02)", () => {
     await vi.advanceTimersByTimeAsync(2)
     expect(orch.getState()).toBe('armed')
     expect(client.sent.some((m) => m.type === 'tts-cancel')).toBe(true)
-    expect(stateEvents().some((e) => e.state === 'error' && e.detail === 'playback timed out')).toBe(true)
+    expect(
+      stateEvents().some((e) => e.state === 'error' && e.detail === 'playback timed out'),
+    ).toBe(true)
   })
 
   it('does not fire if playback legitimately finishes first', async () => {
@@ -280,7 +344,9 @@ describe("VoiceOrchestrator 'speaking' watchdog (VO-02)", () => {
     const orch = new VoiceOrchestrator(makeDeps(settings), { thinkingMs: 5000, speakingMs: 3000 })
     const client = await armOrchestrator(orch, () => vi.advanceTimersByTimeAsync(0))
 
-    await orch.speak('Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.')
+    await orch.speak(
+      'Первое предложение довольно длинное значение. Второе тоже вполне длинное предложение.',
+    )
     const gen = client.sent.find((m) => m.type === 'tts')!.generation as number
     expect(orch.getState()).toBe('speaking')
 

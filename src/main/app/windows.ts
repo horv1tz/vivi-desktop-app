@@ -42,7 +42,9 @@ export function getOverlayWindow(): BrowserWindow | null {
  * screen-share the user is running in another app still sees Vivi normally the rest of the time.
  */
 export async function withOwnWindowsHidden<T>(fn: () => Promise<T>): Promise<T> {
-  const windows = [getMainWindow(), getOverlayWindow()].filter((w): w is BrowserWindow => w !== null)
+  const windows = [getMainWindow(), getOverlayWindow()].filter(
+    (w): w is BrowserWindow => w !== null,
+  )
   for (const w of windows) w.setContentProtection(true)
   try {
     return await fn()
@@ -65,7 +67,10 @@ export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow 
     backgroundColor: '#0b0d14',
     title: 'Vivi',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    titleBarOverlay: process.platform === 'darwin' ? undefined : { color: '#0b0d14', symbolColor: '#c7cbe0', height: 40 },
+    titleBarOverlay:
+      process.platform === 'darwin'
+        ? undefined
+        : { color: '#0b0d14', symbolColor: '#c7cbe0', height: 40 },
     trafficLightPosition: { x: 14, y: 14 },
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -132,7 +137,9 @@ export function createOverlayWindow(): BrowserWindow {
     alwaysOnTop: true,
     focusable: true,
     title: 'Vivi Overlay',
-    ...(process.platform === 'darwin' ? { type: 'panel' as const, hiddenInMissionControl: true } : {}),
+    ...(process.platform === 'darwin'
+      ? { type: 'panel' as const, hiddenInMissionControl: true }
+      : {}),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

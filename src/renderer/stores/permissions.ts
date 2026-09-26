@@ -22,7 +22,23 @@ export const usePermissionStore = create<PermissionState>((set, get) => ({
   },
 }))
 
-vivi.on('permission:request', (req) => usePermissionStore.setState((s) => ({ pending: [...s.pending.filter((p) => p.requestId !== req.requestId), req] })))
-vivi.on('permission:resolved', ({ requestId }) => usePermissionStore.setState((s) => ({ pending: s.pending.filter((p) => p.requestId !== requestId) })))
-vivi.on('question:request', (req) => usePermissionStore.setState((s) => ({ questions: [...s.questions.filter((q) => q.requestId !== req.requestId), req] })))
-vivi.on('question:resolved', ({ requestId }) => usePermissionStore.setState((s) => ({ questions: s.questions.filter((q) => q.requestId !== requestId) })))
+vivi.on('permission:request', (req) =>
+  usePermissionStore.setState((s) => ({
+    pending: [...s.pending.filter((p) => p.requestId !== req.requestId), req],
+  })),
+)
+vivi.on('permission:resolved', ({ requestId }) =>
+  usePermissionStore.setState((s) => ({
+    pending: s.pending.filter((p) => p.requestId !== requestId),
+  })),
+)
+vivi.on('question:request', (req) =>
+  usePermissionStore.setState((s) => ({
+    questions: [...s.questions.filter((q) => q.requestId !== req.requestId), req],
+  })),
+)
+vivi.on('question:resolved', ({ requestId }) =>
+  usePermissionStore.setState((s) => ({
+    questions: s.questions.filter((q) => q.requestId !== requestId),
+  })),
+)

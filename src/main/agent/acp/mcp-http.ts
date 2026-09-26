@@ -28,7 +28,11 @@ const SESSION_SWEEP_INTERVAL_MS = 5 * 60_000
 export interface ViviMcpHttpServerDeps {
   /** Creates a fresh MCP server instance (one per MCP session). */
   createServer: () => McpServer
-  log?: { info: (...a: unknown[]) => void; warn: (...a: unknown[]) => void; debug: (...a: unknown[]) => void }
+  log?: {
+    info: (...a: unknown[]) => void
+    warn: (...a: unknown[]) => void
+    debug: (...a: unknown[]) => void
+  }
 }
 
 /**
@@ -39,7 +43,10 @@ export interface ViviMcpHttpServerDeps {
 export class ViviMcpHttpServer {
   private server: Server | null = null
   private readonly token = randomBytes(24).toString('hex')
-  private readonly sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; lastActivity: number }>()
+  private readonly sessions = new Map<
+    string,
+    { transport: StreamableHTTPServerTransport; server: McpServer; lastActivity: number }
+  >()
   private endpoint: McpHttpEndpoint | null = null
   private starting: Promise<McpHttpEndpoint> | null = null
   private sweepTimer: ReturnType<typeof setInterval> | null = null
@@ -61,7 +68,9 @@ export class ViviMcpHttpServer {
    */
   async endpointFor(viaEnv: boolean): Promise<McpHttpEndpoint> {
     const ep = await this.start()
-    return viaEnv ? { url: ep.url, headers: [{ name: 'Authorization', value: `Bearer \${${MCP_TOKEN_ENV}}` }] } : ep
+    return viaEnv
+      ? { url: ep.url, headers: [{ name: 'Authorization', value: `Bearer \${${MCP_TOKEN_ENV}}` }] }
+      : ep
   }
 
   start(): Promise<McpHttpEndpoint> {
@@ -88,7 +97,10 @@ export class ViviMcpHttpServer {
       })
     })
     const { port } = server.address() as AddressInfo
-    this.endpoint = { url: `http://127.0.0.1:${port}/mcp`, headers: [{ name: 'Authorization', value: `Bearer ${this.token}` }] }
+    this.endpoint = {
+      url: `http://127.0.0.1:${port}/mcp`,
+      headers: [{ name: 'Authorization', value: `Bearer ${this.token}` }],
+    }
     this.deps.log?.debug(`vivi MCP endpoint listening on ${this.endpoint.url}`)
     this.sweepTimer = setInterval(() => void this.sweepIdleSessions(), SESSION_SWEEP_INTERVAL_MS)
     this.sweepTimer.unref?.()
@@ -139,7 +151,10 @@ export class ViviMcpHttpServer {
   private originAllowed(req: IncomingMessage): boolean {
     if (req.headers.origin !== undefined) return false
     const host = req.headers.host
-    return typeof host === 'string' && host === `127.0.0.1:${(this.server?.address() as AddressInfo | null)?.port}`
+    return (
+      typeof host === 'string' &&
+      host === `127.0.0.1:${(this.server?.address() as AddressInfo | null)?.port}`
+    )
   }
 
   private async readBody(req: IncomingMessage): Promise<unknown> {
@@ -164,11 +179,15 @@ export class ViviMcpHttpServer {
         return
       }
       if (!this.originAllowed(req)) {
-        res.writeHead(403, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'forbidden' }))
+        res
+          .writeHead(403, { 'content-type': 'application/json' })
+          .end(JSON.stringify({ error: 'forbidden' }))
         return
       }
       if (!this.authorized(req)) {
-        res.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'unauthorized' }))
+        res
+          .writeHead(401, { 'content-type': 'application/json' })
+          .end(JSON.stringify({ error: 'unauthorized' }))
         return
       }
       const sessionId = req.headers['mcp-session-id']
@@ -195,7 +214,13 @@ export class ViviMcpHttpServer {
           await transport.handleRequest(req, res, body)
           return
         }
-        res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Bad request: no valid session' }, id: null }))
+        res.writeHead(400, { 'content-type': 'application/json' }).end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Bad request: no valid session' },
+            id: null,
+          }),
+        )
         return
       }
       if ((req.method === 'GET' || req.method === 'DELETE') && existing) {
@@ -205,12 +230,18 @@ export class ViviMcpHttpServer {
       res.writeHead(existing ? 405 : 400).end()
     } catch (err) {
       if (err instanceof PayloadTooLargeError) {
-        if (!res.headersSent) res.writeHead(413, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'payload too large' }))
+        if (!res.headersSent)
+          res
+            .writeHead(413, { 'content-type': 'application/json' })
+            .end(JSON.stringify({ error: 'payload too large' }))
         else res.end()
         return
       }
       this.deps.log?.warn('vivi MCP http error', err)
-      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' }).end(JSON.stringify({ error: (err as Error).message }))
+      if (!res.headersSent)
+        res
+          .writeHead(500, { 'content-type': 'application/json' })
+          .end(JSON.stringify({ error: (err as Error).message }))
       else res.end()
     }
   }

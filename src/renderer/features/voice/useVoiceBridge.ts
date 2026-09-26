@@ -4,7 +4,12 @@ import { useSettingsStore } from '../../stores/settings'
 import { useVoiceStore } from '../../stores/voice'
 import { MicCapture } from '../../audio/capture'
 import { TtsPlayer } from '../../audio/player'
-import { isSelectedDeviceStillPresent, MIC_ERROR_DISPLAY_MS, micWatchdogTimeoutMs, shouldFlagMicSilence } from './mic-watchdog'
+import {
+  isSelectedDeviceStillPresent,
+  MIC_ERROR_DISPLAY_MS,
+  micWatchdogTimeoutMs,
+  shouldFlagMicSilence,
+} from './mic-watchdog'
 
 /** How often the "no microphone input" watchdog re-checks the heartbeat while listening (VO-02). */
 const MIC_WATCHDOG_POLL_MS = 1000
@@ -19,7 +24,8 @@ function reportMicError(reason: string): void {
   useVoiceStore.setState({ state: 'error', detail: reason })
   setTimeout(() => {
     const cur = useVoiceStore.getState()
-    if (cur.state === 'error' && cur.detail === reason) useVoiceStore.setState({ state: 'armed', detail: undefined })
+    if (cur.state === 'error' && cur.detail === reason)
+      useVoiceStore.setState({ state: 'armed', detail: undefined })
   }, MIC_ERROR_DISPLAY_MS)
 }
 
@@ -44,7 +50,8 @@ export function useVoiceBridge(enabled: boolean): void {
     const onMessage = (e: MessageEvent): void => {
       if (e.data === 'voice:port' && e.ports[0]) {
         cap.setPort(e.ports[0])
-        if (voiceEnabled) cap.start(inputDeviceId).catch((err) => console.warn('mic start failed', err))
+        if (voiceEnabled)
+          cap.start(inputDeviceId).catch((err) => console.warn('mic start failed', err))
       }
     }
     window.addEventListener('message', onMessage)
@@ -94,7 +101,8 @@ export function useVoiceBridge(enabled: boolean): void {
     const onDeviceChange = (): void => {
       md?.enumerateDevices()
         .then((devices) => {
-          if (!isSelectedDeviceStillPresent(devices, inputDeviceId)) reportMicError('microphone disconnected')
+          if (!isSelectedDeviceStillPresent(devices, inputDeviceId))
+            reportMicError('microphone disconnected')
         })
         .catch(() => undefined)
     }

@@ -23,7 +23,9 @@ export function resolveAcpBootstrap(): string | null {
 
 export function acpAdapterVersion(): string {
   try {
-    const pkg = JSON.parse(readFileSync(join(app.getAppPath(), 'node_modules', PKG, 'package.json'), 'utf8')) as { version?: string }
+    const pkg = JSON.parse(
+      readFileSync(join(app.getAppPath(), 'node_modules', PKG, 'package.json'), 'utf8'),
+    ) as { version?: string }
     return pkg.version ?? 'unknown'
   } catch {
     return 'missing'

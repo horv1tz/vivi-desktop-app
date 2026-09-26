@@ -24,7 +24,26 @@ type RobotJs = {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 /** robotjs 0.9 keys differ slightly from our canonical names. */
-const KEY_MAP: Record<string, string> = { escape: 'escape', pageup: 'pageup', pagedown: 'pagedown', printscreen: 'printscreen', plus: '+', minus: '-', equals: '=', comma: ',', period: '.', slash: '/', backslash: '\\', semicolon: ';', quote: "'", grave: '`', bracketleft: '[', bracketright: ']', command: 'command', control: 'control' }
+const KEY_MAP: Record<string, string> = {
+  escape: 'escape',
+  pageup: 'pageup',
+  pagedown: 'pagedown',
+  printscreen: 'printscreen',
+  plus: '+',
+  minus: '-',
+  equals: '=',
+  comma: ',',
+  period: '.',
+  slash: '/',
+  backslash: '\\',
+  semicolon: ';',
+  quote: "'",
+  grave: '`',
+  bracketleft: '[',
+  bracketright: ']',
+  command: 'command',
+  control: 'control',
+}
 
 /**
  * Mouse/keyboard driver on top of robotjs (N-API prebuilds). Coordinates are logical screen
@@ -85,7 +104,8 @@ export class RobotJsDriver implements InputDriver {
     try {
       const robotPos = r.getMousePos()
       const electronPos = screen.getCursorScreenPoint()
-      const matches = Math.abs(robotPos.x - electronPos.x) <= 1 && Math.abs(robotPos.y - electronPos.y) <= 1
+      const matches =
+        Math.abs(robotPos.x - electronPos.x) <= 1 && Math.abs(robotPos.y - electronPos.y) <= 1
       this.scaleMode = matches ? 'none' : 'perDisplayScale'
     } catch {
       this.scaleMode = 'perDisplayScale'
@@ -93,14 +113,22 @@ export class RobotJsDriver implements InputDriver {
     return this.scaleMode
   }
 
-  private toPhysical(x: number, y: number, mode: 'none' | 'perDisplayScale'): { x: number; y: number } {
+  private toPhysical(
+    x: number,
+    y: number,
+    mode: 'none' | 'perDisplayScale',
+  ): { x: number; y: number } {
     if (mode === 'none') return { x: Math.round(x), y: Math.round(y) }
     const display = screen.getDisplayNearestPoint({ x, y })
     const f = display.scaleFactor || 1
     return { x: Math.round(x * f), y: Math.round(y * f) }
   }
 
-  private toLogical(x: number, y: number, mode: 'none' | 'perDisplayScale'): { x: number; y: number } {
+  private toLogical(
+    x: number,
+    y: number,
+    mode: 'none' | 'perDisplayScale',
+  ): { x: number; y: number } {
     if (mode === 'none') return { x, y }
     const display = screen.getDisplayNearestPoint({ x, y })
     const f = display.scaleFactor || 1
@@ -123,7 +151,12 @@ export class RobotJsDriver implements InputDriver {
     await sleep(40)
   }
 
-  async click(x: number | undefined, y: number | undefined, button: MouseButton, double: boolean): Promise<void> {
+  async click(
+    x: number | undefined,
+    y: number | undefined,
+    button: MouseButton,
+    double: boolean,
+  ): Promise<void> {
     const r = await this.load()
     if (x !== undefined && y !== undefined) await this.moveMouse(x, y, true)
     r.mouseClick(button, double)
@@ -140,7 +173,11 @@ export class RobotJsDriver implements InputDriver {
     r.mouseToggle('up', button)
   }
 
-  async drag(from: { x: number; y: number }, to: { x: number; y: number }, button: MouseButton): Promise<void> {
+  async drag(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    button: MouseButton,
+  ): Promise<void> {
     const r = await this.load()
     await this.moveMouse(from.x, from.y, false)
     r.mouseToggle('down', button)
@@ -190,11 +227,21 @@ export class RobotJsDriver implements InputDriver {
     await sleep(50)
   }
 
-  async focusWindow(target: { id?: number; title?: string; app?: string; pid?: number }): Promise<boolean> {
+  async focusWindow(target: {
+    id?: number
+    title?: string
+    app?: string
+    pid?: number
+  }): Promise<boolean> {
     return focusWindowNative(target, listWindows)
   }
 
-  async minimizeWindow(target: { id?: number; title?: string; app?: string; pid?: number }): Promise<boolean> {
+  async minimizeWindow(target: {
+    id?: number
+    title?: string
+    app?: string
+    pid?: number
+  }): Promise<boolean> {
     const ok = await this.focusWindow(target)
     if (!ok) return false
     if (process.platform === 'darwin') await this.pressKeys(['command', 'm'])

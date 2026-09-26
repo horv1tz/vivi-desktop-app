@@ -12,15 +12,39 @@ export function PermissionsSection() {
 
   return (
     <>
-      <Section title={t('settings.permissionsUi.categories')} description={t('settings.permissionsUi.categoriesHint')}>
-        <Field label={t('settings.permissionsUi.autoAllowReadOnly')} hint={t('settings.permissionsUi.readOnlyHint')} inline>
-          <Switch checked={s.autoAllowReadOnly} onCheckedChange={(v) => set({ autoAllowReadOnly: v })} />
+      <Section
+        title={t('settings.permissionsUi.categories')}
+        description={t('settings.permissionsUi.categoriesHint')}
+      >
+        <Field
+          label={t('settings.permissionsUi.autoAllowReadOnly')}
+          hint={t('settings.permissionsUi.readOnlyHint')}
+          inline
+        >
+          <Switch
+            checked={s.autoAllowReadOnly}
+            onCheckedChange={(v) => set({ autoAllowReadOnly: v })}
+          />
         </Field>
-        <Field label={t('settings.permissionsUi.autoAllowScreenshot')} hint={t('settings.permissionsUi.autoAllowScreenshotHint')} inline>
-          <Switch checked={s.autoAllowScreenshot} onCheckedChange={(v) => set({ autoAllowScreenshot: v })} />
+        <Field
+          label={t('settings.permissionsUi.autoAllowScreenshot')}
+          hint={t('settings.permissionsUi.autoAllowScreenshotHint')}
+          inline
+        >
+          <Switch
+            checked={s.autoAllowScreenshot}
+            onCheckedChange={(v) => set({ autoAllowScreenshot: v })}
+          />
         </Field>
-        <Field label={t('settings.permissionsUi.autoAllowClipboardRead')} hint={t('settings.permissionsUi.autoAllowClipboardReadHint')} inline>
-          <Switch checked={s.autoAllowClipboardRead} onCheckedChange={(v) => set({ autoAllowClipboardRead: v })} />
+        <Field
+          label={t('settings.permissionsUi.autoAllowClipboardRead')}
+          hint={t('settings.permissionsUi.autoAllowClipboardReadHint')}
+          inline
+        >
+          <Switch
+            checked={s.autoAllowClipboardRead}
+            onCheckedChange={(v) => set({ autoAllowClipboardRead: v })}
+          />
         </Field>
         <Field label={t('settings.permissionsUi.askForEdits')} inline>
           <Switch checked={s.askForEdits} onCheckedChange={(v) => set({ askForEdits: v })} />
@@ -36,12 +60,28 @@ export function PermissionsSection() {
         </Field>
         <p className="text-xs text-faint">{t('settings.permissionsUi.dangerNote')}</p>
       </Section>
-      <Section title={t('settings.permissionsUi.rules')} description={t('settings.permissionsUi.rulesHint')}>
-        {s.alwaysAllowRules.length === 0 ? <p className="text-sm text-faint">{t('settings.permissionsUi.noRules')}</p> : null}
+      <Section
+        title={t('settings.permissionsUi.rules')}
+        description={t('settings.permissionsUi.rulesHint')}
+      >
+        {s.alwaysAllowRules.length === 0 ? (
+          <p className="text-sm text-faint">{t('settings.permissionsUi.noRules')}</p>
+        ) : null}
         {s.alwaysAllowRules.map((r, i) => (
-          <div key={`${r.toolName}-${r.ruleContent ?? ''}-${i}`} className="flex items-center gap-2 rounded-lg bg-sunken px-3 py-1.5 font-mono text-[12px]">
-            <span className="min-w-0 flex-1 truncate">{r.ruleContent ? `${r.toolName}(${r.ruleContent})` : r.toolName}</span>
-            <button className="text-faint hover:text-danger" title={t('common.remove')} onClick={() => set({ alwaysAllowRules: s.alwaysAllowRules.filter((_, j) => j !== i) })}>
+          <div
+            key={`${r.toolName}-${r.ruleContent ?? ''}-${i}`}
+            className="flex items-center gap-2 rounded-lg bg-sunken px-3 py-1.5 font-mono text-[12px]"
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {r.ruleContent ? `${r.toolName}(${r.ruleContent})` : r.toolName}
+            </span>
+            <button
+              className="text-faint hover:text-danger"
+              title={t('common.remove')}
+              onClick={() =>
+                set({ alwaysAllowRules: s.alwaysAllowRules.filter((_, j) => j !== i) })
+              }
+            >
               <X size={14} />
             </button>
           </div>

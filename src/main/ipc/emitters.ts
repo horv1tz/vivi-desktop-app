@@ -8,6 +8,10 @@ export function emit<K extends EventChannel>(channel: K, payload: EventMap[K]): 
   }
 }
 
-export function emitTo<K extends EventChannel>(win: BrowserWindow | null, channel: K, payload: EventMap[K]): void {
+export function emitTo<K extends EventChannel>(
+  win: BrowserWindow | null,
+  channel: K,
+  payload: EventMap[K],
+): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }

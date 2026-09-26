@@ -44,6 +44,7 @@ jobs:
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

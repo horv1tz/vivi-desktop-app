@@ -18,7 +18,11 @@ export function QuestionDialog() {
   const toggle = (q: string, label: string, multi: boolean): void => {
     setAnswers((prev) => {
       const cur = prev[q] ?? []
-      if (multi) return { ...prev, [q]: cur.includes(label) ? cur.filter((x) => x !== label) : [...cur, label] }
+      if (multi)
+        return {
+          ...prev,
+          [q]: cur.includes(label) ? cur.filter((x) => x !== label) : [...cur, label],
+        }
       return { ...prev, [q]: [label] }
     })
   }
@@ -40,7 +44,11 @@ export function QuestionDialog() {
       <div className="flex flex-col gap-5">
         {req.questions.map((q) => (
           <div key={q.question}>
-            {q.header ? <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{q.header}</div> : null}
+            {q.header ? (
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">
+                {q.header}
+              </div>
+            ) : null}
             <div className="mb-2 text-sm font-medium">{q.question}</div>
             <div className="flex flex-wrap gap-2">
               {q.options.map((o) => {
@@ -50,19 +58,33 @@ export function QuestionDialog() {
                     key={o.label}
                     title={o.description}
                     onClick={() => toggle(q.question, o.label, !!q.multiSelect)}
-                    className={cn('rounded-xl border px-3 py-1.5 text-left text-sm transition-colors', active ? 'border-accent bg-accent/15 text-fg' : 'border-line bg-sunken text-muted hover:text-fg')}
+                    className={cn(
+                      'rounded-xl border px-3 py-1.5 text-left text-sm transition-colors',
+                      active
+                        ? 'border-accent bg-accent/15 text-fg'
+                        : 'border-line bg-sunken text-muted hover:text-fg',
+                    )}
                   >
                     <div>{o.label}</div>
-                    {o.description ? <div className="text-[11px] text-faint">{o.description}</div> : null}
+                    {o.description ? (
+                      <div className="text-[11px] text-faint">{o.description}</div>
+                    ) : null}
                   </button>
                 )
               })}
             </div>
-            <Input className="mt-2" placeholder={t('question.otherPlaceholder')} value={other[q.question] ?? ''} onChange={(e) => setOther({ ...other, [q.question]: e.target.value })} />
+            <Input
+              className="mt-2"
+              placeholder={t('question.otherPlaceholder')}
+              value={other[q.question] ?? ''}
+              onChange={(e) => setOther({ ...other, [q.question]: e.target.value })}
+            />
           </div>
         ))}
         <div className="flex justify-end">
-          <Button variant="primary" onClick={submit}>{t('question.submit')}</Button>
+          <Button variant="primary" onClick={submit}>
+            {t('question.submit')}
+          </Button>
         </div>
       </div>
     </Modal>

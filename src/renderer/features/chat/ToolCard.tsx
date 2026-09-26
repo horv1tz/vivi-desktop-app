@@ -52,32 +52,93 @@ export function ToolCard({ block }: { block: UiToolUseBlock }) {
   const [open, setOpen] = useState(false)
   const done = !!block.result
   const error = block.result?.isError
-  const label = t(`tools.${block.name}`, { defaultValue: '' }) || `${t('tools.generic')} ${block.name.replace(/^mcp__vivi__/, '')}`
+  const label =
+    t(`tools.${block.name}`, { defaultValue: '' }) ||
+    `${t('tools.generic')} ${block.name.replace(/^mcp__vivi__/, '')}`
   const summary = summarize(block.name, block.input)
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className={cn('my-1.5 overflow-hidden rounded-xl border bg-sunken/70 text-[13px]', error ? 'border-danger/40' : 'border-line')}>
-      <button className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={() => setOpen((v) => !v)}>
-        <span className={cn('grid h-5 w-5 shrink-0 place-items-center rounded-md', error ? 'text-danger' : done ? 'text-success' : 'text-accent')}>
-          {!done ? <Loader2 size={15} className="animate-spin" /> : error ? <CircleAlert size={15} /> : <CheckCircle2 size={15} />}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        'my-1.5 overflow-hidden rounded-xl border bg-sunken/70 text-[13px]',
+        error ? 'border-danger/40' : 'border-line',
+      )}
+    >
+      <button
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span
+          className={cn(
+            'grid h-5 w-5 shrink-0 place-items-center rounded-md',
+            error ? 'text-danger' : done ? 'text-success' : 'text-accent',
+          )}
+        >
+          {!done ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : error ? (
+            <CircleAlert size={15} />
+          ) : (
+            <CheckCircle2 size={15} />
+          )}
         </span>
         <span className="shrink-0 font-medium text-fg">{label}</span>
-        {summary ? <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">{summary}</span> : <span className="flex-1" />}
-        {block.result?.durationMs ? <span className="text-[11px] text-faint">{(block.result.durationMs / 1000).toFixed(1)}s</span> : null}
-        <ChevronDown size={14} className={cn('shrink-0 text-faint transition-transform', open && 'rotate-180')} />
+        {summary ? (
+          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">
+            {summary}
+          </span>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {block.result?.durationMs ? (
+          <span className="text-[11px] text-faint">
+            {(block.result.durationMs / 1000).toFixed(1)}s
+          </span>
+        ) : null}
+        <ChevronDown
+          size={14}
+          className={cn('shrink-0 text-faint transition-transform', open && 'rotate-180')}
+        />
       </button>
       <AnimatePresence initial={false}>
         {open ? (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
             <div className="border-t border-line px-3 py-2">
-              <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-wide text-faint"><Wrench size={11} /> input</div>
-              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-2 font-mono text-[12px] selectable">{JSON.stringify(block.input, null, 2)}</pre>
+              <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-wide text-faint">
+                <Wrench size={11} /> input
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-2 font-mono text-[12px] selectable">
+                {JSON.stringify(block.input, null, 2)}
+              </pre>
               {block.result ? (
                 <>
-                  <div className="mb-1 mt-2 text-[11px] uppercase tracking-wide text-faint">{error ? t('chat.toolError') : t('chat.toolDone')}</div>
-                  <pre className={cn('max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-2 font-mono text-[12px] selectable', error && 'text-danger')}>{block.result.content || '—'}</pre>
+                  <div className="mb-1 mt-2 text-[11px] uppercase tracking-wide text-faint">
+                    {error ? t('chat.toolError') : t('chat.toolDone')}
+                  </div>
+                  <pre
+                    className={cn(
+                      'max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-2 font-mono text-[12px] selectable',
+                      error && 'text-danger',
+                    )}
+                  >
+                    {block.result.content || '—'}
+                  </pre>
                   {block.result.images?.map((img, i) => (
-                    <img key={i} src={`data:${img.mimeType};base64,${img.data}`} alt="tool output" className="mt-2 max-h-72 rounded-lg border border-line" />
+                    <img
+                      key={i}
+                      src={`data:${img.mimeType};base64,${img.data}`}
+                      alt="tool output"
+                      className="mt-2 max-h-72 rounded-lg border border-line"
+                    />
                   ))}
                 </>
               ) : null}

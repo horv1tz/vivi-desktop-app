@@ -9,11 +9,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 function crc32(buf) {
   let c
-  const table = crc32.table || (crc32.table = Array.from({ length: 256 }, (_, n) => {
-    c = n
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-    return c >>> 0
-  }))
+  const table =
+    crc32.table ||
+    (crc32.table = Array.from({ length: 256 }, (_, n) => {
+      c = n
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+      return c >>> 0
+    }))
   let crc = 0xffffffff
   for (let i = 0; i < buf.length; i++) crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8)
   return (crc ^ 0xffffffff) >>> 0
@@ -59,7 +61,10 @@ function render(size, { tile = true } = {}) {
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4
-      let r = 0, g = 0, b = 0, a = 0
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0
       if (tile) {
         // rounded square tile
         const dx = Math.max(Math.abs(x - c) - (c - tileRadius), 0)
@@ -68,25 +73,38 @@ function render(size, { tile = true } = {}) {
         const inside = Math.min(Math.max(1 - d, 0), 1)
         if (inside > 0) {
           const t = y / size
-          r = mix(18, 12, t); g = mix(20, 14, t); b = mix(36, 24, t); a = 255 * inside
+          r = mix(18, 12, t)
+          g = mix(20, 14, t)
+          b = mix(36, 24, t)
+          a = 255 * inside
         }
       }
       // orb with radial gradient + highlight
-      const ox = x - c, oy = y - c
+      const ox = x - c,
+        oy = y - c
       const dist = Math.sqrt(ox * ox + oy * oy)
       if (dist < radius + 1) {
         const t = Math.min(dist / radius, 1)
         const edge = Math.min(Math.max(radius + 1 - dist, 0), 1)
-        const hx = ox + radius * 0.35, hy = oy + radius * 0.4
+        const hx = ox + radius * 0.35,
+          hy = oy + radius * 0.4
         const h = Math.max(0, 1 - Math.sqrt(hx * hx + hy * hy) / (radius * 0.9))
         let or = mix(124, 56, t) + 120 * h * h
         let og = mix(92, 140, t) + 90 * h * h
         let ob = mix(255, 220, t) + 40 * h * h
-        or = Math.min(255, or); og = Math.min(255, og); ob = Math.min(255, ob)
+        or = Math.min(255, or)
+        og = Math.min(255, og)
+        ob = Math.min(255, ob)
         const oa = edge
-        r = mix(r, or, oa); g = mix(g, og, oa); b = mix(b, ob, oa); a = Math.max(a, 255 * oa)
+        r = mix(r, or, oa)
+        g = mix(g, og, oa)
+        b = mix(b, ob, oa)
+        a = Math.max(a, 255 * oa)
       }
-      px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = a
+      px[i] = r
+      px[i + 1] = g
+      px[i + 2] = b
+      px[i + 3] = a
     }
   }
   return encodePng(size, size, px)

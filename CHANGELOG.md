@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   click, screenshot, and so on — is now recorded with its time, arguments, and result, survives a
   restart, and can be cleared or exported to a file. Works the same for both the built-in Agent
   SDK backend and ACP-hosted agents.
+- CI now runs `prettier --check` (previously only available as a local `npm run format:check`, and
+  not enforced anywhere), which had let real formatting drift build up across the repo over time.
 
 ### Fixed
 

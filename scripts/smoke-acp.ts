@@ -13,7 +13,15 @@ const cwd = process.env.VIVI_SMOKE_CWD ?? process.cwd()
 
 async function main(): Promise<void> {
   const env: Record<string, string | undefined> = { ...process.env }
-  for (const k of ['CLAUDE_SESSION_ID', 'CLAUDECODE', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_PROJECT_DIR', 'CLAUDE_CODE_REMOTE']) delete env[k]
+  for (const k of [
+    'CLAUDE_SESSION_ID',
+    'CLAUDECODE',
+    'CLAUDE_CODE_SSE_PORT',
+    'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_PROJECT_DIR',
+    'CLAUDE_CODE_REMOTE',
+  ])
+    delete env[k]
   if (claude) env.CLAUDE_CODE_EXECUTABLE = claude
   const proc = spawnAcpProcess({
     command: process.execPath,
@@ -23,11 +31,17 @@ async function main(): Promise<void> {
     onStderr: (l) => console.error('[acp-stderr]', l),
     onExit: (i) => console.error('[acp] exited', i),
   })
-  const translator = new AcpTranslator({ emit: (e) => console.log('[event]', JSON.stringify(e).slice(0, 300)) })
+  const translator = new AcpTranslator({
+    emit: (e) => console.log('[event]', JSON.stringify(e).slice(0, 300)),
+  })
   let sessionId = ''
   const client: Client = {
     requestPermission: async (params) => {
-      console.log('[permission]', params.toolCall.title, params.options.map((o) => `${o.kind}:${o.optionId}`).join(','))
+      console.log(
+        '[permission]',
+        params.toolCall.title,
+        params.options.map((o) => `${o.kind}:${o.optionId}`).join(','),
+      )
       const allow = params.options.find((o) => o.kind === 'allow_once') ?? params.options[0]!
       return { outcome: { outcome: 'selected', optionId: allow.optionId } }
     },
@@ -35,26 +49,85 @@ async function main(): Promise<void> {
       if (params.sessionId === sessionId) translator.handle(params)
     },
     createElicitation: async () => ({ action: 'cancel' }),
-    extNotification: async (method, params) => console.log('[ext]', method, JSON.stringify(params).slice(0, 200)),
+    extNotification: async (method, params) =>
+      console.log('[ext]', method, JSON.stringify(params).slice(0, 200)),
   }
   const conn = new ClientSideConnection(() => client, proc.stream)
-  const init = await conn.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false, elicitation: { form: {} } }, clientInfo: { name: 'vivi-smoke', version: '0.0.0' } })
-  console.log('[init]', JSON.stringify({ agent: init.agentInfo, caps: init.agentCapabilities, auth: init.authMethods?.map((a) => a.id) }))
+  const init = await conn.initialize({
+    protocolVersion: PROTOCOL_VERSION,
+    clientCapabilities: {
+      fs: { readTextFile: false, writeTextFile: false },
+      terminal: false,
+      elicitation: { form: {} },
+    },
+    clientInfo: { name: 'vivi-smoke', version: '0.0.0' },
+  })
+  console.log(
+    '[init]',
+    JSON.stringify({
+      agent: init.agentInfo,
+      caps: init.agentCapabilities,
+      auth: init.authMethods?.map((a) => a.id),
+    }),
+  )
   const t0 = Date.now()
   const session = await conn.newSession({
     cwd,
     mcpServers: [],
-    _meta: { claudeCode: { options: { settingSources: [], maxTurns: 4, allowDangerouslySkipPermissions: false, systemPrompt: 'You are a terse test assistant.', allowedTools: ['Read', 'Glob', 'Bash'] } } },
+    _meta: {
+      claudeCode: {
+        options: {
+          settingSources: [],
+          maxTurns: 4,
+          allowDangerouslySkipPermissions: false,
+          systemPrompt: 'You are a terse test assistant.',
+          allowedTools: ['Read', 'Glob', 'Bash'],
+        },
+      },
+    },
   })
   sessionId = session.sessionId
-  console.log('[session]', sessionId, 'modes:', session.modes?.availableModes.map((m) => m.id).join(','), 'current:', session.modes?.currentModeId, `(${Date.now() - t0} ms)`)
-  console.log('[config]', (session.configOptions ?? []).map((o) => `${o.id}=${o.type === 'select' ? o.currentValue : o.currentValue}`).join(' '))
+  console.log(
+    '[session]',
+    sessionId,
+    'modes:',
+    session.modes?.availableModes.map((m) => m.id).join(','),
+    'current:',
+    session.modes?.currentModeId,
+    `(${Date.now() - t0} ms)`,
+  )
+  console.log(
+    '[config]',
+    (session.configOptions ?? [])
+      .map((o) => `${o.id}=${o.type === 'select' ? o.currentValue : o.currentValue}`)
+      .join(' '),
+  )
   translator.beginTurn()
-  const res = await conn.prompt({ sessionId, prompt: [{ type: 'text', text: 'Run `ls` in the working directory with the Bash tool, then reply with exactly one line: "pong: <number of entries>".' }] })
+  const res = await conn.prompt({
+    sessionId,
+    prompt: [
+      {
+        type: 'text',
+        text: 'Run `ls` in the working directory with the Bash tool, then reply with exactly one line: "pong: <number of entries>".',
+      },
+    ],
+  })
   const result = translator.finishTurn(res)
-  console.log('[prompt done]', res.stopReason, JSON.stringify(res.usage), 'text:', result.resultText)
+  console.log(
+    '[prompt done]',
+    res.stopReason,
+    JSON.stringify(res.usage),
+    'text:',
+    result.resultText,
+  )
   const list = await conn.listSessions({ cwd })
-  console.log('[list]', list.sessions.slice(0, 3).map((s) => `${s.sessionId.slice(0, 8)} ${s.title ?? ''}`).join(' | '))
+  console.log(
+    '[list]',
+    list.sessions
+      .slice(0, 3)
+      .map((s) => `${s.sessionId.slice(0, 8)} ${s.title ?? ''}`)
+      .join(' | '),
+  )
   await proc.stop()
   if (!/pong/i.test(result.resultText ?? '')) {
     console.error('FAIL: unexpected reply')

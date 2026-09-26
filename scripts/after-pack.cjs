@@ -44,6 +44,8 @@ module.exports = async function afterPack(context) {
     fs.copyFileSync(src, dest)
     if (platform !== 'win32') fs.chmodSync(dest, 0o755)
     const size = fs.statSync(dest).size
-    console.log(`  • after-pack: copied ${pkg}/${binaryName} → ${path.relative(context.appOutDir, dest)} (${(size / 1e6).toFixed(1)} MB)`)
+    console.log(
+      `  • after-pack: copied ${pkg}/${binaryName} → ${path.relative(context.appOutDir, dest)} (${(size / 1e6).toFixed(1)} MB)`,
+    )
   }
 }

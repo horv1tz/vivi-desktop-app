@@ -67,7 +67,8 @@ export function buildDynamicPrompt(ctx: PromptContext): string {
   const now = ctx.now ?? new Date()
   let memory = ''
   try {
-    if (existsSync(ctx.memoryFile)) memory = readFileSync(ctx.memoryFile, 'utf8').trim().slice(0, 12_000)
+    if (existsSync(ctx.memoryFile))
+      memory = readFileSync(ctx.memoryFile, 'utf8').trim().slice(0, 12_000)
   } catch {
     memory = ''
   }
@@ -80,7 +81,8 @@ export function buildDynamicPrompt(ctx: PromptContext): string {
     `- Interface language: ${ctx.locale === 'ru' ? 'Russian' : 'English'}`,
     `- Current date/time: ${now.toISOString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
   ]
-  if (ctx.customInstructions?.trim()) lines.push('', '## User instructions', ctx.customInstructions.trim())
+  if (ctx.customInstructions?.trim())
+    lines.push('', '## User instructions', ctx.customInstructions.trim())
   if (memory) lines.push('', '## Memory (VIVI.md)', memory)
   return lines.join('\n')
 }

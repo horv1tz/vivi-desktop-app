@@ -2,7 +2,7 @@ type Level = 'debug' | 'info' | 'warn' | 'error'
 
 export function logger(scope: string): Record<Level, (...args: unknown[]) => void> {
   const write = (level: Level, args: unknown[]): void => {
-    const line = `[${new Date().toISOString()}] [${scope}] ${args.map((a) => (a instanceof Error ? a.stack ?? a.message : typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
+    const line = `[${new Date().toISOString()}] [${scope}] ${args.map((a) => (a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
     if (level === 'error' || level === 'warn') process.stderr.write(line + '\n')
     else process.stdout.write(line + '\n')
   }

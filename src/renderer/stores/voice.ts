@@ -17,6 +17,10 @@ export const useVoiceStore = create<VoiceStoreState>(() => ({
   transcriptFinal: false,
 }))
 
-vivi.on('voice:state', (e) => useVoiceStore.setState({ state: e.state, detail: e.detail, level: e.level ?? 0 }))
-vivi.on('voice:transcript', (e) => useVoiceStore.setState({ transcript: e.text, transcriptFinal: e.final }))
+vivi.on('voice:state', (e) =>
+  useVoiceStore.setState({ state: e.state, detail: e.detail, level: e.level ?? 0 }),
+)
+vivi.on('voice:transcript', (e) =>
+  useVoiceStore.setState({ transcript: e.text, transcriptFinal: e.final }),
+)
 vivi.on('voice:level', (level) => useVoiceStore.setState({ level }))

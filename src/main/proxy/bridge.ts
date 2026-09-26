@@ -24,7 +24,10 @@ export class ProxyBridge {
       port: 0,
       host: '127.0.0.1',
       verbose: false,
-      prepareRequestFunction: () => ({ upstreamProxyUrl: upstreamUrl, requestAuthentication: false }),
+      prepareRequestFunction: () => ({
+        upstreamProxyUrl: upstreamUrl,
+        requestAuthentication: false,
+      }),
     })
     await server.listen()
     this.server = server

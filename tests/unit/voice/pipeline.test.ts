@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { VoicePipeline, type SttEngine, type VadEngine, type WakeEngine } from '../../../src/voice-worker/pipeline'
+import {
+  VoicePipeline,
+  type SttEngine,
+  type VadEngine,
+  type WakeEngine,
+} from '../../../src/voice-worker/pipeline'
 
 class FakeVad implements VadEngine {
   speech = false
@@ -51,7 +56,18 @@ function setup(opts: Partial<ConstructorParameters<typeof VoicePipeline>[1]> = {
   const finals: string[] = []
   const pipeline = new VoicePipeline(
     { wake, vad, stt },
-    { sampleRate: 16000, silenceMs: 800, noSpeechTimeoutMs: 6000, maxUtteranceMs: 30_000, preRollMs: 1500, wakeWordEnabled: true, bargeInMs: 300, bargeInGraceMs: 400, now: () => now, ...opts },
+    {
+      sampleRate: 16000,
+      silenceMs: 800,
+      noSpeechTimeoutMs: 6000,
+      maxUtteranceMs: 30_000,
+      preRollMs: 1500,
+      wakeWordEnabled: true,
+      bargeInMs: 300,
+      bargeInGraceMs: 400,
+      now: () => now,
+      ...opts,
+    },
     {
       onState: (s) => events.push(`state:${s}`),
       onWake: () => events.push('wake'),

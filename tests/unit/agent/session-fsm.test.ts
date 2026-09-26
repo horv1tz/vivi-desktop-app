@@ -3,9 +3,28 @@ import type { Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-age
 import { AgentSession, type QueryFn } from '../../../src/main/agent/session'
 import type { AgentUiEvent } from '../../../src/shared/events'
 
-const initMsg: SDKMessage = { type: 'system', subtype: 'init', session_id: 's', uuid: 'u', apiKeySource: 'none', claude_code_version: 'x', cwd: '/', tools: [], mcp_servers: [], model: 'm', permissionMode: 'default', slash_commands: [], output_style: 'd', skills: [], plugins: [] } as unknown as SDKMessage
+const initMsg: SDKMessage = {
+  type: 'system',
+  subtype: 'init',
+  session_id: 's',
+  uuid: 'u',
+  apiKeySource: 'none',
+  claude_code_version: 'x',
+  cwd: '/',
+  tools: [],
+  mcp_servers: [],
+  model: 'm',
+  permissionMode: 'default',
+  slash_commands: [],
+  output_style: 'd',
+  skills: [],
+  plugins: [],
+} as unknown as SDKMessage
 
-function fakeQuery(script: (input: AsyncIterable<SDKUserMessage>, emit: (m: SDKMessage) => void) => Promise<void>, opts: { throwAtEnd?: string } = {}): { queryFn: QueryFn; interrupted: () => boolean } {
+function fakeQuery(
+  script: (input: AsyncIterable<SDKUserMessage>, emit: (m: SDKMessage) => void) => Promise<void>,
+  opts: { throwAtEnd?: string } = {},
+): { queryFn: QueryFn; interrupted: () => boolean } {
   let interrupted = false
   const queryFn: QueryFn = ({ prompt }) => {
     const buffer: SDKMessage[] = []
@@ -74,10 +93,37 @@ describe('AgentSession FSM', () => {
     const { queryFn } = fakeQuery(async (input, emit) => {
       emit(initMsg)
       for await (const msg of input) {
-        emit({ type: 'system', subtype: 'session_state_changed', state: 'running', session_id: 's', uuid: 'u' } as unknown as SDKMessage)
+        emit({
+          type: 'system',
+          subtype: 'session_state_changed',
+          state: 'running',
+          session_id: 's',
+          uuid: 'u',
+        } as unknown as SDKMessage)
         const text = typeof msg.message.content === 'string' ? msg.message.content : 'x'
-        emit({ type: 'assistant', parent_tool_use_id: null, session_id: 's', uuid: 'a', message: { role: 'assistant', content: [{ type: 'text', text: `echo ${text}` }] } } as unknown as SDKMessage)
-        emit({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, duration_api_ms: 1, num_turns: 1, result: 'ok', stop_reason: 'end_turn', total_cost_usd: 0.01, usage: {}, modelUsage: {}, permission_denials: [], session_id: 's', uuid: 'r' } as unknown as SDKMessage)
+        emit({
+          type: 'assistant',
+          parent_tool_use_id: null,
+          session_id: 's',
+          uuid: 'a',
+          message: { role: 'assistant', content: [{ type: 'text', text: `echo ${text}` }] },
+        } as unknown as SDKMessage)
+        emit({
+          type: 'result',
+          subtype: 'success',
+          is_error: false,
+          duration_ms: 1,
+          duration_api_ms: 1,
+          num_turns: 1,
+          result: 'ok',
+          stop_reason: 'end_turn',
+          total_cost_usd: 0.01,
+          usage: {},
+          modelUsage: {},
+          permission_denials: [],
+          session_id: 's',
+          uuid: 'r',
+        } as unknown as SDKMessage)
       }
     })
     const session = new AgentSession({ options: {}, queryFn, emit: (e) => events.push(e) })
@@ -104,7 +150,9 @@ describe('AgentSession FSM', () => {
     await session.start().catch(() => undefined)
     await new Promise((r) => setTimeout(r, 20))
     expect(session.state).toBe('failed')
-    expect(events.find((e) => e.type === 'error')).toMatchObject({ error: { code: 'process_exited' } })
+    expect(events.find((e) => e.type === 'error')).toMatchObject({
+      error: { code: 'process_exited' },
+    })
     await expect(session.send({ text: 'x' })).rejects.toThrow()
   })
 
@@ -117,12 +165,20 @@ describe('AgentSession FSM', () => {
     })
     const q: QueryFn = (p) => {
       const g = queryFn(p)
-      ;(g as unknown as { initializationResult: () => Promise<never> }).initializationResult = () => new Promise(() => undefined)
+      ;(g as unknown as { initializationResult: () => Promise<never> }).initializationResult = () =>
+        new Promise(() => undefined)
       return g
     }
-    const session = new AgentSession({ options: {}, queryFn: q, emit: (e) => events.push(e), initTimeoutMs: 30 })
+    const session = new AgentSession({
+      options: {},
+      queryFn: q,
+      emit: (e) => events.push(e),
+      initTimeoutMs: 30,
+    })
     await expect(session.start()).rejects.toThrow(/timeout/)
-    expect(events.find((e) => e.type === 'error')).toMatchObject({ error: { code: 'startup_failed' } })
+    expect(events.find((e) => e.type === 'error')).toMatchObject({
+      error: { code: 'startup_failed' },
+    })
   })
 
   it('forwards interrupt to the query', async () => {
@@ -142,7 +198,10 @@ describe('AgentSession FSM', () => {
 
 describe('AgentSession.userMessageFromArgs (AG-01)', () => {
   it('marks the SDK-bound text as spoken but keeps the UI-facing block clean', () => {
-    const { sdk, ui } = AgentSession.userMessageFromArgs({ text: 'what time is it', fromVoice: true })
+    const { sdk, ui } = AgentSession.userMessageFromArgs({
+      text: 'what time is it',
+      fromVoice: true,
+    })
     expect(sdk.message).toMatchObject({ content: '[voice message] what time is it' })
     expect(ui.blocks).toEqual([{ type: 'text', text: 'what time is it' }])
   })

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { autoAllowedTools, categorize, makePolicy } from '../../../src/main/agent/permissions/policy'
+import {
+  autoAllowedTools,
+  categorize,
+  makePolicy,
+} from '../../../src/main/agent/permissions/policy'
 import { defaultSettings } from '../../../src/shared/settings'
 
 describe('policy', () => {
@@ -20,11 +24,19 @@ describe('policy', () => {
   })
 
   it('screenshot and clipboard read have their own auto-allow toggle, independent of autoAllowReadOnly', () => {
-    const s = { ...defaultSettings().permissions, autoAllowReadOnly: false, autoAllowScreenshot: true, autoAllowClipboardRead: false }
+    const s = {
+      ...defaultSettings().permissions,
+      autoAllowReadOnly: false,
+      autoAllowScreenshot: true,
+      autoAllowClipboardRead: false,
+    }
     expect(autoAllowedTools(s)).toContain('mcp__vivi__screenshot')
     expect(autoAllowedTools(s)).not.toContain('mcp__vivi__clipboard_read')
     expect(autoAllowedTools(s)).not.toContain('Read')
-    const state = { sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(), turnGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>() }
+    const state = {
+      sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(),
+      turnGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(),
+    }
     const policy = makePolicy(() => s, state)
     expect(policy('mcp__vivi__screenshot', {}).verdict).toBe('allow')
     expect(policy('mcp__vivi__clipboard_read', {}).verdict).toBe('ask')
@@ -33,7 +45,10 @@ describe('policy', () => {
 
   it('asks for exec, allows after session grant, always asks for dangerous', () => {
     const s = defaultSettings().permissions
-    const state = { sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(), turnGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>() }
+    const state = {
+      sessionGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(),
+      turnGrants: new Set<'read' | 'edit' | 'exec' | 'input' | 'system' | 'unknown'>(),
+    }
     const policy = makePolicy(() => s, state)
     expect(policy('Bash', { command: 'ls' }).verdict).toBe('ask')
     state.sessionGrants.add('exec')

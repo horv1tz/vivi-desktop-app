@@ -39,50 +39,117 @@ export function ProxySection() {
           <>
             <div className="grid grid-cols-[110px_1fr_110px] gap-2">
               <Field label={t('proxy.scheme')}>
-                <Select value={s.scheme} onChange={(e) => set({ scheme: e.target.value as typeof s.scheme })}>
+                <Select
+                  value={s.scheme}
+                  onChange={(e) => set({ scheme: e.target.value as typeof s.scheme })}
+                >
                   <option value="http">HTTP</option>
                   <option value="https">HTTPS</option>
                   <option value="socks5">SOCKS5</option>
                 </Select>
               </Field>
               <Field label={t('proxy.host')}>
-                <Input key={s.host} defaultValue={s.host} placeholder="proxy.example.com" onBlur={(e) => { const v = e.target.value.trim(); if (v !== s.host) set({ host: v }) }} />
+                <Input
+                  key={s.host}
+                  defaultValue={s.host}
+                  placeholder="proxy.example.com"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim()
+                    if (v !== s.host) set({ host: v })
+                  }}
+                />
               </Field>
               <Field label={t('proxy.port')}>
-                <Input type="number" min={1} max={65535} key={s.port} defaultValue={s.port || ''} onBlur={(e) => { const v = Number(e.target.value) || 0; if (v !== s.port) set({ port: v }) }} />
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  key={s.port}
+                  defaultValue={s.port || ''}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value) || 0
+                    if (v !== s.port) set({ port: v })
+                  }}
+                />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label={t('proxy.username')}>
-                <Input key={s.username} defaultValue={s.username} autoComplete="off" onBlur={(e) => e.target.value !== s.username && set({ username: e.target.value })} />
+                <Input
+                  key={s.username}
+                  defaultValue={s.username}
+                  autoComplete="off"
+                  onBlur={(e) => e.target.value !== s.username && set({ username: e.target.value })}
+                />
               </Field>
-              <Field label={t('proxy.password')} hint={s.hasPassword ? t('proxy.passwordSaved') : undefined}>
+              <Field
+                label={t('proxy.password')}
+                hint={s.hasPassword ? t('proxy.passwordSaved') : undefined}
+              >
                 <div className="flex gap-2">
-                  <Input type="password" value={password} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
-                  <Button size="sm" disabled={!password && !s.hasPassword} onClick={async () => { await invoke('proxy:setPassword', password); setPassword('') }}>{password ? t('settings.save') : t('common.remove')}</Button>
+                  <Input
+                    type="password"
+                    value={password}
+                    autoComplete="new-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!password && !s.hasPassword}
+                    onClick={async () => {
+                      await invoke('proxy:setPassword', password)
+                      setPassword('')
+                    }}
+                  >
+                    {password ? t('settings.save') : t('common.remove')}
+                  </Button>
                 </div>
               </Field>
             </div>
             <Field label={t('proxy.bypass')} hint={t('proxy.bypassHint')}>
-              <Input key={s.bypass} defaultValue={s.bypass} onBlur={(e) => e.target.value !== s.bypass && set({ bypass: e.target.value })} />
+              <Input
+                key={s.bypass}
+                defaultValue={s.bypass}
+                onBlur={(e) => e.target.value !== s.bypass && set({ bypass: e.target.value })}
+              />
             </Field>
-            {s.scheme === 'socks5' || s.username ? <p className="text-xs text-faint">{t('proxy.bridgeNote')}</p> : null}
+            {s.scheme === 'socks5' || s.username ? (
+              <p className="text-xs text-faint">{t('proxy.bridgeNote')}</p>
+            ) : null}
           </>
         ) : null}
         <Field label={t('proxy.caCert')} hint={t('proxy.caCertHint')}>
           <div className="flex gap-2">
-            <Input key={s.caCertPath} defaultValue={s.caCertPath} placeholder="/path/to/ca.pem" onBlur={(e) => e.target.value !== s.caCertPath && set({ caCertPath: e.target.value })} />
-            <Button onClick={async () => { const f = await invoke('settings:pickFile', undefined); if (f) set({ caCertPath: f }) }}><FolderOpen size={16} /></Button>
+            <Input
+              key={s.caCertPath}
+              defaultValue={s.caCertPath}
+              placeholder="/path/to/ca.pem"
+              onBlur={(e) => e.target.value !== s.caCertPath && set({ caCertPath: e.target.value })}
+            />
+            <Button
+              onClick={async () => {
+                const f = await invoke('settings:pickFile', undefined)
+                if (f) set({ caCertPath: f })
+              }}
+            >
+              <FolderOpen size={16} />
+            </Button>
           </div>
         </Field>
       </Section>
       <Section title={t('proxy.testTitle')}>
         <div className="flex items-center gap-3">
-          <Button variant="primary" disabled={testing} onClick={() => void runTest()}>{testing ? <Loader2 size={16} className="animate-spin" /> : null} {t('common.test')}</Button>
+          <Button variant="primary" disabled={testing} onClick={() => void runTest()}>
+            {testing ? <Loader2 size={16} className="animate-spin" /> : null} {t('common.test')}
+          </Button>
           {result ? (
-            <span className={`inline-flex items-center gap-1.5 text-sm ${result.ok ? 'text-success' : 'text-danger'}`}>
+            <span
+              className={`inline-flex items-center gap-1.5 text-sm ${result.ok ? 'text-success' : 'text-danger'}`}
+            >
               {result.ok ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}
-              {result.ok ? `${t('proxy.ok')} (${result.status}, ${result.latencyMs} ms)` : result.error ?? `HTTP ${result.status}`}
+              {result.ok
+                ? `${t('proxy.ok')} (${result.status}, ${result.latencyMs} ms)`
+                : (result.error ?? `HTTP ${result.status}`)}
               <span className="text-faint">· {result.via}</span>
             </span>
           ) : null}

@@ -1,5 +1,13 @@
 import { app } from 'electron'
-import { deleteSession, getSessionMessages, listSessions, query, renameSession, type McpServerConfig, type Options } from '@anthropic-ai/claude-agent-sdk'
+import {
+  deleteSession,
+  getSessionMessages,
+  listSessions,
+  query,
+  renameSession,
+  type McpServerConfig,
+  type Options,
+} from '@anthropic-ai/claude-agent-sdk'
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
 import type { AgentUiEvent, PermissionCategory, SessionSummary, UiMessage } from '@shared/events'
 import type { Settings } from '@shared/settings'
@@ -15,7 +23,9 @@ const log = logger('sdk-backend')
 
 export interface SdkBackendDeps {
   getSettings: () => Settings
-  updateSettings: (patch: { permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] } }) => void
+  updateSettings: (patch: {
+    permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
+  }) => void
   /** Env pieces for auth + proxy, resolved at spawn time. */
   getExtraEnv: () => Promise<Record<string, string | undefined>>
   isolateConfig: () => boolean
@@ -48,7 +58,10 @@ export class SdkBackend implements AgentBackend {
   private totalCost = 0
   private starting: Promise<AgentSession> | null = null
   private cachedModels: { id: string; name: string; description?: string }[] = []
-  private policyState: PolicyState = { sessionGrants: new Set<PermissionCategory>(), turnGrants: new Set<PermissionCategory>() }
+  private policyState: PolicyState = {
+    sessionGrants: new Set<PermissionCategory>(),
+    turnGrants: new Set<PermissionCategory>(),
+  }
   readonly broker: PermissionBroker
   private disposed = false
 
@@ -59,7 +72,9 @@ export class SdkBackend implements AgentBackend {
       onAlwaysAllow: (rules) => {
         const cur = deps.getSettings().permissions.alwaysAllowRules
         const next = [...cur]
-        for (const r of rules) if (!next.some((x) => x.toolName === r.toolName && x.ruleContent === r.ruleContent)) next.push(r)
+        for (const r of rules)
+          if (!next.some((x) => x.toolName === r.toolName && x.ruleContent === r.ruleContent))
+            next.push(r)
         deps.updateSettings({ permissions: { alwaysAllowRules: next } })
       },
       onSessionAllow: (category) => this.policyState.sessionGrants.add(category),
@@ -73,7 +88,8 @@ export class SdkBackend implements AgentBackend {
   }
 
   private emit(e: AgentUiEvent): void {
-    if (e.type === 'result' && e.result.totalCostUsd !== undefined) this.totalCost = e.result.totalCostUsd
+    if (e.type === 'result' && e.result.totalCostUsd !== undefined)
+      this.totalCost = e.result.totalCostUsd
     if (e.type === 'result') this.policyState.turnGrants.clear()
     if (e.type === 'session') this.selectedSessionId = e.sessionId
     for (const l of this.listeners) l(e)
@@ -88,7 +104,12 @@ export class SdkBackend implements AgentBackend {
           this.selectedSessionId = last.sessionId
           this.selectedTitle = last.customTitle ?? last.summary
           const messages = await this.loadHistory(last.sessionId)
-          this.emit({ type: 'session', sessionId: last.sessionId, state: 'idle', title: this.selectedTitle })
+          this.emit({
+            type: 'session',
+            sessionId: last.sessionId,
+            state: 'idle',
+            title: this.selectedTitle,
+          })
           this.emit({ type: 'history', messages })
           return
         }
@@ -203,7 +224,12 @@ export class SdkBackend implements AgentBackend {
   async listSessions(): Promise<SessionSummary[]> {
     try {
       const list = await listSessions({ dir: this.deps.cwd(), limit: 100 })
-      return list.map((s) => ({ sessionId: s.sessionId, title: s.customTitle ?? s.summary ?? '', lastModified: s.lastModified, firstPrompt: s.firstPrompt }))
+      return list.map((s) => ({
+        sessionId: s.sessionId,
+        title: s.customTitle ?? s.summary ?? '',
+        lastModified: s.lastModified,
+        firstPrompt: s.firstPrompt,
+      }))
     } catch (err) {
       log.warn('listSessions failed', err)
       return []
@@ -211,12 +237,16 @@ export class SdkBackend implements AgentBackend {
   }
 
   private async loadHistory(sessionId: string): Promise<UiMessage[]> {
-    const entries = await getSessionMessages(sessionId, { dir: this.deps.cwd(), includeSystemMessages: false })
+    const entries = await getSessionMessages(sessionId, {
+      dir: this.deps.cwd(),
+      includeSystemMessages: false,
+    })
     return historyToUi(entries)
   }
 
   async resumeSession(sessionId: string): Promise<UiMessage[]> {
-    if (this.session?.sessionId === sessionId && this.session.isAlive) return this.loadHistory(sessionId)
+    if (this.session?.sessionId === sessionId && this.session.isAlive)
+      return this.loadHistory(sessionId)
     await this.stopSession()
     this.selectedSessionId = sessionId
     this.policyState.sessionGrants.clear()
@@ -245,7 +275,11 @@ export class SdkBackend implements AgentBackend {
     return this.cachedModels.length ? this.cachedModels : FALLBACK_MODELS
   }
 
-  async accountInfo(): Promise<{ email?: string; organization?: string; subscriptionType?: string } | null> {
+  async accountInfo(): Promise<{
+    email?: string
+    organization?: string
+    subscriptionType?: string
+  } | null> {
     return this.session?.accountInfo() ?? null
   }
 
@@ -261,10 +295,16 @@ export class SdkBackend implements AgentBackend {
     // allowDangerouslySkipPermissions is a process-start-only Option; setPermissionMode alone can't
     // be trusted to add or remove that shortcut on an already-running process, so treat any
     // transition into or out of bypassPermissions as requiring a real restart.
-    if (previous.agent.permissionMode === 'bypassPermissions' || next.agent.permissionMode === 'bypassPermissions') return false
+    if (
+      previous.agent.permissionMode === 'bypassPermissions' ||
+      next.agent.permissionMode === 'bypassPermissions'
+    )
+      return false
     try {
-      if (previous.agent.model !== next.agent.model) await this.session.setModel(next.agent.model || undefined)
-      if (previous.agent.permissionMode !== next.agent.permissionMode) await this.session.setPermissionMode(next.agent.permissionMode)
+      if (previous.agent.model !== next.agent.model)
+        await this.session.setModel(next.agent.model || undefined)
+      if (previous.agent.permissionMode !== next.agent.permissionMode)
+        await this.session.setPermissionMode(next.agent.permissionMode)
       return true
     } catch (err) {
       log.warn('live model/permission-mode update failed, falling back to restart', err)

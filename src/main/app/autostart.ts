@@ -18,7 +18,11 @@ export function applyAutostart(enabled: boolean, hidden: boolean): void {
       }
       const exec = process.env.APPIMAGE ?? process.execPath
       mkdirSync(dir, { recursive: true })
-      writeFileSync(file, `[Desktop Entry]\nType=Application\nName=Vivi\nExec=${JSON.stringify(exec)}${hidden ? ' --hidden' : ''}\nX-GNOME-Autostart-enabled=true\nTerminal=false\n`, 'utf8')
+      writeFileSync(
+        file,
+        `[Desktop Entry]\nType=Application\nName=Vivi\nExec=${JSON.stringify(exec)}${hidden ? ' --hidden' : ''}\nX-GNOME-Autostart-enabled=true\nTerminal=false\n`,
+        'utf8',
+      )
       return
     }
     if (!app.isPackaged) return

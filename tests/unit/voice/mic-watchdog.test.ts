@@ -6,7 +6,11 @@
 // checking), so the test still runs for real against the actual renderer module at runtime — only
 // static type-checking of *this* file is skipped.
 import { describe, expect, it } from 'vitest'
-import { isSelectedDeviceStillPresent, micWatchdogTimeoutMs, shouldFlagMicSilence } from '../../../src/renderer/features/voice/mic-watchdog'
+import {
+  isSelectedDeviceStillPresent,
+  micWatchdogTimeoutMs,
+  shouldFlagMicSilence,
+} from '../../../src/renderer/features/voice/mic-watchdog'
 
 describe('micWatchdogTimeoutMs', () => {
   it('scales the configured silence window but clamps to a sane range', () => {
@@ -18,20 +22,43 @@ describe('micWatchdogTimeoutMs', () => {
 
 describe('shouldFlagMicSilence', () => {
   it('does not flag while merely armed and waiting for the wake word, however long the silence', () => {
-    expect(shouldFlagMicSilence({ voiceState: 'armed', now: 1_000_000, lastHeartbeatAt: 0, timeoutMs: 8000 })).toBe(false)
+    expect(
+      shouldFlagMicSilence({
+        voiceState: 'armed',
+        now: 1_000_000,
+        lastHeartbeatAt: 0,
+        timeoutMs: 8000,
+      }),
+    ).toBe(false)
   })
 
   it('does not flag while listening if a heartbeat arrived recently', () => {
-    expect(shouldFlagMicSilence({ voiceState: 'listening', now: 10_000, lastHeartbeatAt: 9_000, timeoutMs: 8000 })).toBe(false)
+    expect(
+      shouldFlagMicSilence({
+        voiceState: 'listening',
+        now: 10_000,
+        lastHeartbeatAt: 9_000,
+        timeoutMs: 8000,
+      }),
+    ).toBe(false)
   })
 
   it('flags once actively listening with no heartbeat for longer than the timeout', () => {
-    expect(shouldFlagMicSilence({ voiceState: 'listening', now: 9_000, lastHeartbeatAt: 0, timeoutMs: 8000 })).toBe(true)
+    expect(
+      shouldFlagMicSilence({
+        voiceState: 'listening',
+        now: 9_000,
+        lastHeartbeatAt: 0,
+        timeoutMs: 8000,
+      }),
+    ).toBe(true)
   })
 
   it('ignores other states such as speaking/thinking/transcribing', () => {
     for (const voiceState of ['speaking', 'thinking', 'transcribing', 'off', 'error'] as const) {
-      expect(shouldFlagMicSilence({ voiceState, now: 100_000, lastHeartbeatAt: 0, timeoutMs: 8000 })).toBe(false)
+      expect(
+        shouldFlagMicSilence({ voiceState, now: 100_000, lastHeartbeatAt: 0, timeoutMs: 8000 }),
+      ).toBe(false)
     }
   })
 })

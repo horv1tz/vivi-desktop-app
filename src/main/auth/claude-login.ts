@@ -14,7 +14,10 @@ const URL_RE = /(https:\/\/[^\s'"<>]+oauth[^\s'"<>]*)/i
 export function parseLoginOutput(chunk: string): LoginParse {
   const url = URL_RE.exec(chunk)?.[1]
   const waitingForCode = /paste code here|enter (the )?code|authorization code/i.test(chunk)
-  const error = /error|failed|invalid|denied/i.test(chunk) && !url && !waitingForCode ? chunk.trim().split('\n').at(-1) : undefined
+  const error =
+    /error|failed|invalid|denied/i.test(chunk) && !url && !waitingForCode
+      ? chunk.trim().split('\n').at(-1)
+      : undefined
   return { url, waitingForCode, error }
 }
 
@@ -44,7 +47,16 @@ export class ClaudeLoginRunner extends EventEmitter {
     const args = ['auth', 'login', this.opts.method === 'console' ? '--console' : '--claudeai']
     this.emitEvent({ phase: 'starting' })
     // BROWSER=/bin/true style suppression is not portable; the CLI opens the browser itself, the app opens it too.
-    this.child = spawn(this.opts.claudeBinary, args, { env: { ...this.opts.env, NO_COLOR: '1', TERM: 'dumb', BROWSER: process.platform === 'win32' ? 'cmd /c exit' : 'true' }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    this.child = spawn(this.opts.claudeBinary, args, {
+      env: {
+        ...this.opts.env,
+        NO_COLOR: '1',
+        TERM: 'dumb',
+        BROWSER: process.platform === 'win32' ? 'cmd /c exit' : 'true',
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     this.child.stdout.setEncoding('utf8')
     this.child.stderr.setEncoding('utf8')
     const onData = (data: string): void => {
@@ -62,7 +74,12 @@ export class ClaudeLoginRunner extends EventEmitter {
     this.child.on('close', (code) => {
       if (this.done) return
       if (code === 0) this.finish({ phase: 'success' })
-      else this.finish({ phase: 'error', message: this.buffer.trim().split('\n').slice(-3).join('\n') || `login exited with code ${code}` })
+      else
+        this.finish({
+          phase: 'error',
+          message:
+            this.buffer.trim().split('\n').slice(-3).join('\n') || `login exited with code ${code}`,
+        })
     })
     this.timer = setTimeout(() => this.cancel('timeout'), this.opts.timeoutMs ?? 10 * 60_000)
   }

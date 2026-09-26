@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { VOICE_MESSAGE_MARKER, buildSystemPrompt, markVoiceText } from '../../../src/main/agent/prompt'
+import {
+  VOICE_MESSAGE_MARKER,
+  buildSystemPrompt,
+  markVoiceText,
+} from '../../../src/main/agent/prompt'
 
 describe('markVoiceText', () => {
   it('prefixes the marker only when the message came from voice', () => {
@@ -10,7 +14,13 @@ describe('markVoiceText', () => {
 })
 
 describe('buildSystemPrompt (AG-01)', () => {
-  const ctx = { platform: 'linux', locale: 'en' as const, workspaceDir: '/w', homeDir: '/h', memoryFile: '/w/memory/VIVI.md' }
+  const ctx = {
+    platform: 'linux',
+    locale: 'en' as const,
+    workspaceDir: '/w',
+    homeDir: '/h',
+    memoryFile: '/w/memory/VIVI.md',
+  }
 
   it('explains the voice marker in the static part instead of a frozen process-level flag', () => {
     const { staticPart } = buildSystemPrompt(ctx)

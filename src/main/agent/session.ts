@@ -6,13 +6,21 @@ import { AsyncQueue } from './async-queue'
 import { markVoiceText } from './prompt'
 import { SessionReducer, makeError } from './reducer'
 
-export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options?: Options }) => Query
+export type QueryFn = (params: {
+  prompt: AsyncIterable<SDKUserMessage>
+  options?: Options
+}) => Query
 
 export interface AgentSessionDeps {
   options: Options
   queryFn: QueryFn
   emit: (event: AgentUiEvent) => void
-  log?: { info: (...a: unknown[]) => void; warn: (...a: unknown[]) => void; error: (...a: unknown[]) => void; debug: (...a: unknown[]) => void }
+  log?: {
+    info: (...a: unknown[]) => void
+    warn: (...a: unknown[]) => void
+    error: (...a: unknown[]) => void
+    debug: (...a: unknown[]) => void
+  }
   initTimeoutMs?: number
   stderrTailSize?: number
 }
@@ -92,7 +100,13 @@ export class AgentSession {
     if (outcome === 'ok') return
     if (outcome === 'timeout') {
       this.deps.log?.error('agent init timeout', this.lastStderr)
-      this.deps.emit({ type: 'error', error: makeError('startup_failed', `Claude Code did not initialize within ${Math.round(timeoutMs / 1000)}s\n${this.lastStderr}`) })
+      this.deps.emit({
+        type: 'error',
+        error: makeError(
+          'startup_failed',
+          `Claude Code did not initialize within ${Math.round(timeoutMs / 1000)}s\n${this.lastStderr}`,
+        ),
+      })
       await this.dispose()
       throw new Error('agent init timeout')
     }
@@ -114,7 +128,10 @@ export class AgentSession {
         return
       }
       this.deps.log?.error('agent process error', message, this.lastStderr)
-      this.deps.emit({ type: 'error', error: makeError('process_exited', `${message}\n${this.lastStderr}`.trim()) })
+      this.deps.emit({
+        type: 'error',
+        error: makeError('process_exited', `${message}\n${this.lastStderr}`.trim()),
+      })
       this.finish('failed')
     }
   }
@@ -130,20 +147,37 @@ export class AgentSession {
   static userMessageFromArgs(args: SendArgs): { sdk: SDKUserMessage; ui: UiMessage } {
     const uuid = randomUUID()
     const blocks: UiBlock[] = []
-    const content: ({ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'; data: string } })[] = []
+    const content: (
+      | { type: 'text'; text: string }
+      | {
+          type: 'image'
+          source: {
+            type: 'base64'
+            media_type: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+            data: string
+          }
+        }
+    )[] = []
     if (args.text.trim()) {
       // The marker is sent to the agent only (AG-01); the UI keeps showing the user's own words.
       content.push({ type: 'text', text: markVoiceText(args.text, args.fromVoice) })
       blocks.push({ type: 'text', text: args.text })
     }
     for (const img of args.images ?? []) {
-      const media = (['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(img.mimeType) ? img.mimeType : 'image/png') as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+      const media = (
+        ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(img.mimeType)
+          ? img.mimeType
+          : 'image/png'
+      ) as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
       content.push({ type: 'image', source: { type: 'base64', media_type: media, data: img.data } })
       blocks.push({ type: 'image', mimeType: media, data: img.data })
     }
     const sdk: SDKUserMessage = {
       type: 'user',
-      message: { role: 'user', content: content.length === 1 && content[0]?.type === 'text' ? content[0].text : content },
+      message: {
+        role: 'user',
+        content: content.length === 1 && content[0]?.type === 'text' ? content[0].text : content,
+      },
       parent_tool_use_id: null,
       uuid: uuid as SDKUserMessage['uuid'],
     }

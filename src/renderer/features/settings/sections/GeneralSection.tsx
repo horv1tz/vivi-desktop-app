@@ -13,14 +13,20 @@ export function GeneralSection() {
     <>
       <Section title={t('settings.sections.general')}>
         <Field label={t('settings.general.theme')} inline>
-          <Select value={s.theme} onChange={(e) => set({ theme: e.target.value as typeof s.theme })}>
+          <Select
+            value={s.theme}
+            onChange={(e) => set({ theme: e.target.value as typeof s.theme })}
+          >
             <option value="system">{t('settings.general.themeSystem')}</option>
             <option value="dark">{t('settings.general.themeDark')}</option>
             <option value="light">{t('settings.general.themeLight')}</option>
           </Select>
         </Field>
         <Field label={t('settings.general.language')} inline>
-          <Select value={s.language} onChange={(e) => set({ language: e.target.value as typeof s.language })}>
+          <Select
+            value={s.language}
+            onChange={(e) => set({ language: e.target.value as typeof s.language })}
+          >
             <option value="ru">Русский</option>
             <option value="en">English</option>
           </Select>
@@ -35,12 +41,29 @@ export function GeneralSection() {
           <Switch checked={s.startMinimized} onCheckedChange={(v) => set({ startMinimized: v })} />
         </Field>
       </Section>
-      <Section title={t('settings.general.overlayHotkey')} description={t('settings.general.hotkeyHint')}>
+      <Section
+        title={t('settings.general.overlayHotkey')}
+        description={t('settings.general.hotkeyHint')}
+      >
         <Field label={t('settings.general.overlayHotkey')}>
-          <Input key={s.overlayHotkey} defaultValue={s.overlayHotkey} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.overlayHotkey) set({ overlayHotkey: v }) }} />
+          <Input
+            key={s.overlayHotkey}
+            defaultValue={s.overlayHotkey}
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              if (v && v !== s.overlayHotkey) set({ overlayHotkey: v })
+            }}
+          />
         </Field>
         <Field label={t('settings.general.killSwitchHotkey')}>
-          <Input key={s.killSwitchHotkey} defaultValue={s.killSwitchHotkey} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.killSwitchHotkey) set({ killSwitchHotkey: v }) }} />
+          <Input
+            key={s.killSwitchHotkey}
+            defaultValue={s.killSwitchHotkey}
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              if (v && v !== s.killSwitchHotkey) set({ killSwitchHotkey: v })
+            }}
+          />
         </Field>
       </Section>
     </>

@@ -39,13 +39,24 @@ export function VoiceSection() {
           <div className="flex-1 text-sm">
             <div className="font-medium">{t(`voice.states.${voice.state}`)}</div>
             {voice.detail ? <div className="text-xs text-muted">{voice.detail}</div> : null}
-            {voice.transcript ? <div className="text-xs text-faint">«{voice.transcript}»</div> : null}
+            {voice.transcript ? (
+              <div className="text-xs text-faint">«{voice.transcript}»</div>
+            ) : null}
           </div>
-          <Button onClick={() => invoke('voice:pushToTalk', voice.state !== 'listening')}><Mic size={16} /> {voice.state === 'listening' ? t('composer.stop') : t('voice.testMic')}</Button>
+          <Button onClick={() => invoke('voice:pushToTalk', voice.state !== 'listening')}>
+            <Mic size={16} />{' '}
+            {voice.state === 'listening' ? t('composer.stop') : t('voice.testMic')}
+          </Button>
         </div>
         <div className="flex gap-2">
-          <Input placeholder={t('voice.testTtsPlaceholder')} value={testText} onChange={(e) => setTestText(e.target.value)} />
-          <Button onClick={() => invoke('voice:speak', testText || t('voice.testTtsDefault'))}><Volume2 size={16} /> {t('voice.testTts')}</Button>
+          <Input
+            placeholder={t('voice.testTtsPlaceholder')}
+            value={testText}
+            onChange={(e) => setTestText(e.target.value)}
+          />
+          <Button onClick={() => invoke('voice:speak', testText || t('voice.testTtsDefault'))}>
+            <Volume2 size={16} /> {t('voice.testTts')}
+          </Button>
         </div>
       </Section>
       <Section title={t('settings.sections.voice')}>
@@ -53,7 +64,10 @@ export function VoiceSection() {
           <Switch checked={s.enabled} onCheckedChange={(v) => set({ enabled: v })} />
         </Field>
         <Field label={t('voice.language')} inline>
-          <Select value={s.language} onChange={(e) => set({ language: e.target.value as typeof s.language })}>
+          <Select
+            value={s.language}
+            onChange={(e) => set({ language: e.target.value as typeof s.language })}
+          >
             <option value="ru">Русский</option>
             <option value="en">English</option>
             <option value="auto">{t('voice.auto')}</option>
@@ -63,45 +77,102 @@ export function VoiceSection() {
           <Switch checked={s.speakReplies} onCheckedChange={(v) => set({ speakReplies: v })} />
         </Field>
         <Field label={t('voice.silence')} hint={t('voice.silenceHint')} inline>
-          <Input type="number" className="w-28" min={300} max={3000} step={100} value={s.silenceMs} onChange={(e) => set({ silenceMs: Math.min(3000, Math.max(300, Number(e.target.value) || 800)) })} />
+          <Input
+            type="number"
+            className="w-28"
+            min={300}
+            max={3000}
+            step={100}
+            value={s.silenceMs}
+            onChange={(e) =>
+              set({ silenceMs: Math.min(3000, Math.max(300, Number(e.target.value) || 800)) })
+            }
+          />
         </Field>
         <Field label={t('voice.inputDevice')} inline>
           <Select value={s.inputDeviceId} onChange={(e) => set({ inputDeviceId: e.target.value })}>
             <option value="">{t('voice.defaultDevice')}</option>
-            {inputs.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId}</option>)}
+            {inputs.map((d) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || d.deviceId}
+              </option>
+            ))}
           </Select>
         </Field>
         <Field label={t('voice.outputDevice')} inline>
-          <Select value={s.outputDeviceId} onChange={(e) => set({ outputDeviceId: e.target.value })}>
+          <Select
+            value={s.outputDeviceId}
+            onChange={(e) => set({ outputDeviceId: e.target.value })}
+          >
             <option value="">{t('voice.defaultDevice')}</option>
-            {outputs.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId}</option>)}
+            {outputs.map((d) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || d.deviceId}
+              </option>
+            ))}
           </Select>
         </Field>
       </Section>
       <Section title={t('voice.wakeWord')} description={t('voice.wakeWordHint')}>
         <Field label={t('voice.wakeWordEnabled')} inline>
-          <Switch checked={s.wakeWordEnabled} onCheckedChange={(v) => set({ wakeWordEnabled: v })} />
+          <Switch
+            checked={s.wakeWordEnabled}
+            onCheckedChange={(v) => set({ wakeWordEnabled: v })}
+          />
         </Field>
         <Field label={t('voice.wakeWordStrategy')} inline>
-          <Select value={s.wakeWordStrategy} onChange={(e) => set({ wakeWordStrategy: e.target.value as typeof s.wakeWordStrategy })}>
+          <Select
+            value={s.wakeWordStrategy}
+            onChange={(e) => set({ wakeWordStrategy: e.target.value as typeof s.wakeWordStrategy })}
+          >
             <option value="kws">{t('voice.strategies.kws')}</option>
             <option value="transcript">{t('voice.strategies.transcript')}</option>
           </Select>
         </Field>
         <Field label={t('voice.sensitivity')} inline>
-          <input type="range" min={0} max={1} step={0.05} value={s.wakeWordSensitivity} onChange={(e) => set({ wakeWordSensitivity: Number(e.target.value) })} className="w-40 accent-[var(--accent)]" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={s.wakeWordSensitivity}
+            onChange={(e) => set({ wakeWordSensitivity: Number(e.target.value) })}
+            className="w-40 accent-[var(--accent)]"
+          />
         </Field>
       </Section>
       <Section title={t('voice.models')} description={t('voice.modelsHint')}>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('voice.sttModel')}>
             <Select value={s.sttModel} onChange={(e) => set({ sttModel: e.target.value })}>
-              {['stt-zipformer-small-ru', 'stt-zipformer-ru', 'stt-gigaam-v2-ru', 'stt-zipformer-en', 'stt-whisper-base', 'stt-whisper-turbo'].map((id) => <option key={id} value={id}>{id.replace('stt-', '')}</option>)}
+              {[
+                'stt-zipformer-small-ru',
+                'stt-zipformer-ru',
+                'stt-gigaam-v2-ru',
+                'stt-zipformer-en',
+                'stt-whisper-base',
+                'stt-whisper-turbo',
+              ].map((id) => (
+                <option key={id} value={id}>
+                  {id.replace('stt-', '')}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label={t('voice.ttsVoice')}>
             <Select value={s.ttsVoice} onChange={(e) => set({ ttsVoice: e.target.value })}>
-              {['tts-piper-ru-irina', 'tts-piper-ru-denis', 'tts-piper-ru-dmitri', 'tts-piper-ru-ruslan', 'tts-piper-en-lessac', 'tts-piper-en-amy'].map((id) => <option key={id} value={id}>{id.replace('tts-piper-', '')}</option>)}
+              {[
+                'tts-piper-ru-irina',
+                'tts-piper-ru-denis',
+                'tts-piper-ru-dmitri',
+                'tts-piper-ru-ruslan',
+                'tts-piper-en-lessac',
+                'tts-piper-en-amy',
+              ].map((id) => (
+                <option key={id} value={id}>
+                  {id.replace('tts-piper-', '')}
+                </option>
+              ))}
             </Select>
           </Field>
         </div>
@@ -109,26 +180,48 @@ export function VoiceSection() {
       </Section>
       <Section title={t('voice.cloud')} description={t('voice.cloudHint')}>
         <Field label={t('voice.cloudEnabled')} inline>
-          <Switch checked={features.cloudVoice} onCheckedChange={(v) => update({ features: { cloudVoice: v } })} />
+          <Switch
+            checked={features.cloudVoice}
+            onCheckedChange={(v) => update({ features: { cloudVoice: v } })}
+          />
         </Field>
         {features.cloudVoice ? (
           <>
             <Field label={t('voice.sttProvider')} inline>
-              <Select value={s.sttProvider} onChange={(e) => set({ sttProvider: e.target.value as typeof s.sttProvider })}>
+              <Select
+                value={s.sttProvider}
+                onChange={(e) => set({ sttProvider: e.target.value as typeof s.sttProvider })}
+              >
                 <option value="local">{t('voice.local')}</option>
                 <option value="openai">OpenAI</option>
               </Select>
             </Field>
             <Field label={t('voice.ttsProvider')} inline>
-              <Select value={s.ttsProvider} onChange={(e) => set({ ttsProvider: e.target.value as typeof s.ttsProvider })}>
+              <Select
+                value={s.ttsProvider}
+                onChange={(e) => set({ ttsProvider: e.target.value as typeof s.ttsProvider })}
+              >
                 <option value="local">{t('voice.local')}</option>
                 <option value="openai">OpenAI</option>
               </Select>
             </Field>
             <Field label="OpenAI API key">
               <div className="flex gap-2">
-                <Input type="password" placeholder="sk-…" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
-                <Button disabled={!openaiKey} onClick={async () => { await invoke('voice:setCloudKey', 'openai', openaiKey); setOpenaiKey('') }}>{t('settings.save')}</Button>
+                <Input
+                  type="password"
+                  placeholder="sk-…"
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                />
+                <Button
+                  disabled={!openaiKey}
+                  onClick={async () => {
+                    await invoke('voice:setCloudKey', 'openai', openaiKey)
+                    setOpenaiKey('')
+                  }}
+                >
+                  {t('settings.save')}
+                </Button>
               </div>
             </Field>
           </>

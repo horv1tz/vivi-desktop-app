@@ -1,9 +1,23 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
-export function Field({ label, hint, children, className, inline }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string; inline?: boolean }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className,
+  inline,
+}: {
+  label: ReactNode
+  hint?: ReactNode
+  children: ReactNode
+  className?: string
+  inline?: boolean
+}) {
   return (
-    <label className={cn('flex gap-3', inline ? 'items-center justify-between' : 'flex-col', className)}>
+    <label
+      className={cn('flex gap-3', inline ? 'items-center justify-between' : 'flex-col', className)}
+    >
       <span className="flex flex-col gap-0.5">
         <span className="text-sm font-medium text-fg">{label}</span>
         {hint ? <span className="text-xs text-faint">{hint}</span> : null}
@@ -25,7 +39,10 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   )
 }
 
-export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({
+  className,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       className={cn(
@@ -37,7 +54,11 @@ export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<H
   )
 }
 
-export function Select({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({
+  className,
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       className={cn(
@@ -51,7 +72,15 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
   )
 }
 
-export function Section({ title, description, children }: { title: ReactNode; description?: ReactNode; children: ReactNode }) {
+export function Section({
+  title,
+  description,
+  children,
+}: {
+  title: ReactNode
+  description?: ReactNode
+  children: ReactNode
+}) {
   return (
     <section className="rounded-card border border-line bg-elev p-5 shadow-[0_1px_0_var(--border)]">
       <header className="mb-4">

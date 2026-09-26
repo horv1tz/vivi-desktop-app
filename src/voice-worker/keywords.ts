@@ -15,7 +15,8 @@ export function loadTokens(tokensTxt: string): Set<string> {
 /** Greedy longest-match tokenization of one word into BPE pieces (`▁` marks a word start). */
 export function tokenizeWord(word: string, vocab: Set<string>): string[] | null {
   const upper = word.toUpperCase()
-  const cased = vocab.has('▁THE') || [...vocab].some((p) => /^▁[A-Z]+$/.test(p)) ? upper : word.toLowerCase()
+  const cased =
+    vocab.has('▁THE') || [...vocab].some((p) => /^▁[A-Z]+$/.test(p)) ? upper : word.toLowerCase()
   const target = `▁${cased}`
   const pieces: string[] = []
   let i = 0
@@ -57,11 +58,17 @@ export function tokenizePhrase(phrase: string, vocab: Set<string>): string[] | n
 export function keywordVariants(keyword: string): string[] {
   const k = keyword.trim().toLowerCase()
   if (k === 'vivi' || k === 'виви') return ['vivi', 'vee vee', 'veevee', 'vivie', 'vivvy', 'wivi']
-  if (k === 'hey vivi' || k === 'эй виви') return ['hey vivi', 'hey vee vee', 'hey veevee', 'hey vivie']
+  if (k === 'hey vivi' || k === 'эй виви')
+    return ['hey vivi', 'hey vee vee', 'hey veevee', 'hey vivie']
   return [k]
 }
 
-export function buildKeywordsFile(keywords: string[], tokensTxt: string, boost = 1.5, threshold = 0.25): { content: string; unresolved: string[] } {
+export function buildKeywordsFile(
+  keywords: string[],
+  tokensTxt: string,
+  boost = 1.5,
+  threshold = 0.25,
+): { content: string; unresolved: string[] } {
   const vocab = loadTokens(tokensTxt)
   const lines: string[] = []
   const unresolved: string[] = []
@@ -86,7 +93,11 @@ export function buildKeywordsFile(keywords: string[], tokensTxt: string, boost =
 
 /** Transcript-based wake detection: normalized fuzzy match of the wake word inside partial text. */
 export function matchesWakeWord(text: string, keywords: string[] = ['виви', 'vivi']): boolean {
-  const norm = text.toLowerCase().replace(/[^a-zа-яё\s]/gi, ' ').replace(/\s+/g, ' ').trim()
+  const norm = text
+    .toLowerCase()
+    .replace(/[^a-zа-яё\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (!norm) return false
   const words = norm.split(' ')
   for (const kw of keywords) {
