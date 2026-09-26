@@ -291,5 +291,28 @@
         "unknown": "Unknown"
       }
     }
+  },
+  "proxy": {
+    "title": "Proxy for Claude and the internet",
+    "hint": "Applies to Claude Code (HTTPS_PROXY), the embedded browser engine and voice model downloads.",
+    "mode": "Mode",
+    "modes": {
+      "none": "No proxy (direct)",
+      "system": "System proxy",
+      "manual": "Manual"
+    },
+    "scheme": "Type",
+    "host": "Host",
+    "port": "Port",
+    "username": "Username",
+    "password": "Password",
+    "passwordSaved": "Password saved in the secure store",
+    "bypass": "Bypass list",
+    "bypassHint": "Comma-separated: localhost, 127.0.0.1, *.local, <local>",
+    "bridgeNote": "For SOCKS5 and authenticated proxies Vivi runs a local HTTP bridge (127.0.0.1): Claude Code only speaks HTTP proxies, and the password stays out of the process environment.",
+    "caCert": "Custom CA certificate (PEM)",
+    "caCertHint": "Needed when the proxy re-signs TLS certificates (corporate MITM).",
+    "testTitle": "Connection test",
+    "ok": "api.anthropic.com is reachable"
   }
 }

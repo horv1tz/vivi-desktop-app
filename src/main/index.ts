@@ -13,6 +13,7 @@ import { AuthManager } from './auth/manager'
 import { registerAuthHandlers } from './auth/register'
 import { resolveClaudeCliPath } from './util/claude-bin'
 import { emit } from './ipc/emitters'
+import { ProxyManager } from './proxy/manager'
 
 const log = logger('main')
 
@@ -35,6 +36,10 @@ async function bootstrap(): Promise<void> {
   nativeTheme.themeSource = store.get().appearance.theme
   paths.workspace(store.get().agent.workspaceDir)
 
+  const proxy = new ProxyManager()
+  await proxy.apply()
+  proxy.registerIpc()
+
   // eslint-disable-next-line prefer-const -- assigned after auth, which references it lazily
   let agent: AgentController
   const auth: AuthManager = new AuthManager({
@@ -47,7 +52,7 @@ async function bootstrap(): Promise<void> {
   })
   agent = new AgentController({
     mock: mockAgent,
-    getExtraEnv: async () => auth.envForAgent(),
+    getExtraEnv: async () => ({ ...proxy.envForAgent(), ...(await auth.envForAgent()) }),
     isolateConfig: () => auth.isolateConfig(),
     speak: async () => undefined,
     stopSpeaking: async () => undefined,
@@ -80,7 +85,7 @@ async function bootstrap(): Promise<void> {
     if (fp !== agentFingerprint) {
       agentFingerprint = fp
       log.info('agent-affecting settings changed; restarting agent process')
-      void agent.restart()
+      void proxy.apply().then(() => agent.restart())
     }
   })
 
@@ -100,6 +105,7 @@ async function bootstrap(): Promise<void> {
     unregisterShortcuts()
     destroyTray()
     void agent.dispose()
+    void proxy.dispose()
   })
   app.on('window-all-closed', () => {
     // Keep running in the tray on every platform; quitting is explicit.
