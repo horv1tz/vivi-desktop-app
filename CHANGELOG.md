@@ -7,7 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+
+- **Auto-update**: checks for updates on startup and on demand (`electron-updater` against the
+  GitHub release feed), with a toggle, status line, and restart-to-install button in
+  Settings > About.
+- **Diagnostics export**: a one-click "Export diagnostics" button in Settings > About writes app
+  info, settings (never contains secrets — those live in the OS keychain), OS permission status,
+  and a log tail to a single JSON file for support requests; a local (never uploaded) crash
+  reporter is also enabled.
+- **macOS Automation permission**: onboarding now shows and can request Automation (Apple Events)
+  status alongside microphone/screen/accessibility, so a denial is visible before it causes a
+  confusing failure in a computer-control action.
+- CI now runs on Windows and macOS in addition to Linux, and gates every release: a tag push or
+  release dispatch runs the full lint/typecheck/test/build/verify-dist suite before a GitHub
+  Release is created or an installer is uploaded.
+- A version with a SemVer pre-release tag (e.g. `0.2.0-beta.1`) now publishes as a GitHub
+  pre-release, and electron-builder's own update-channel files follow the same tag.
+- `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/RELEASING.md`, issue/PR templates,
+  `.nvmrc`, and CI/release badges on the README.
+- Dependabot (npm + GitHub Actions), a CodeQL workflow, an informational `npm audit` step in CI,
+  and SHA-256 checksums uploaded alongside every release installer.
+
+### Fixed
+
+- **Voice**: the default (transcript-match) wake-word strategy only ever recognized the Latin
+  spelling "vivi", so it never reliably triggered on the Russian "Виви" a default install's speech
+  model would actually transcribe.
+- **Voice**: a single failed TTS synthesis for one sentence permanently stalled the rest of a
+  reply's playback instead of just skipping that sentence; added watchdog timeouts so a
+  never-finishing "thinking" or "speaking" state recovers instead of leaving the orb stuck, and
+  surfaced microphone silence/device removal instead of staying silently armed.
+- **Settings**: typing in a text field no longer restarts the Claude process or re-registers
+  global hotkeys on every keystroke — changes commit on blur (or when a hotkey actually changes).
+  Changing the model or permission mode also no longer restarts an in-flight response; it applies
+  live to the running session instead.
+- **Settings**: a corrupted settings file is now restored from an automatically kept backup
+  instead of silently resetting every setting to defaults.
+- **Computer control**: an unreadable cursor position was reported as a fake `(0,0)`, which the
+  fail-safe corner-detector misread as "cursor parked in the corner" and tripped on every action;
+  it's now correctly treated as "position unknown". Also fixes Windows multi-monitor DPI scaling,
+  `ydotool` key combinations (were using X11 keysym names instead of evdev keycodes), previously
+  missing Windows `mouseDown`/`mouseUp` and window-minimize support in the fallback input driver,
+  and excludes Vivi's own windows from the screenshot tool so its chat/overlay never shows up in
+  its own "here's what I see" capture.
+- **ACP mode**: the chat cost line always showed `$0.00` regardless of actual spend; it now tracks
+  the agent-reported cumulative cost and shows nothing (instead of a misleading $0.00) when no
+  agent has reported one yet.
+- **Voice mode**: a long-running session that mixed voice and text turns could get stuck always
+  answering with (or without) voice-style brevity, because that state was a frozen flag set once
+  at session start; each turn's origin is now marked on the message itself.
+
+### Security
+
+- Commands built from model-provided strings (PowerShell, AppleScript, `sh`) are now passed via
+  environment variables or argv instead of interpolated into script text, closing several command
+  injection paths; the Linux app-launch fallback no longer goes through a shell at all.
+- Dangerous commands (`rm -rf`, `sudo`, force-push, etc.) now require confirmation even in
+  "no permissions" (`bypassPermissions`) mode; `$HOME` is no longer automatically granted
+  filesystem access, and screenshot/clipboard-read auto-allow are now separate opt-outs.
+- The local MCP HTTP endpoint used by ACP mode now validates `Origin`/`Host` (DNS-rebinding
+  guard), caps request body size, bounds request/header timeouts, and reaps abandoned sessions
+  after a TTL instead of only on full shutdown.
 
 ## [0.1.1] - 2026-09-26
 
