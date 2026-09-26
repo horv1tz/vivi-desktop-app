@@ -699,7 +699,7 @@ gantt
 - **Зависит от:** решение владельца (раздел 12).
 - **Оценка:** M · **P0** · **0.1.x**
 
-#### DIST-03 · Бета-канал и релизная автоматизация
+#### DIST-03 · Бета-канал и релизная автоматизация · ⚠️ Partially done (CI now gates release via a reusable-workflow call; -beta.N versions publish as a GitHub pre-release, and electron-builder's own channel files follow the same tag. Conventional-commits changelog generation is still open)
 - **Объём:** pre-release с суффиксом `-beta.N`, changelog из conventional commits (`git-cliff`), заметки по версии вместо статичного файла, CI как гейт релиза (`needs: test`), тег-пуш запускает CI.
 - **Оценка:** S · **P1** · **0.2**
 
@@ -1004,7 +1004,7 @@ SemVer; до 1.0 минорные версии могут менять наст�
 | SCH-02 | Пул сессий | SCH | P2 | L | 0.4 | 📋 |
 | DIST-01 | Автообновление | DIST | P0 | M | 0.1.x | ✅ |
 | DIST-02 | Подпись и нотаризация | DIST | P0 | M | 0.1.x | ⛔ (сертификаты) |
-| DIST-03 | Бета-канал и релизная автоматизация | DIST | P1 | S | 0.2 | 📋 |
+| DIST-03 | Бета-канал и релизная автоматизация | DIST | P1 | S | 0.2 | 🔶 |
 | DIST-04 | Больше платформ | DIST | P2 | M | 0.3 | 📋 |
 | DIST-05 | Пакетные менеджеры | DIST | P2 | M | 0.5 | 📋 |
 | DIST-06 | Уменьшение установщика | DIST | P2 | L | 0.4 | 📋 |

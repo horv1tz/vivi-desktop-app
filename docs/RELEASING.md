@@ -11,10 +11,12 @@ typecheck`, `npm test`, `npm run build`, an Electron smoke-test pass under `xvfb
 (`tests/e2e/smoke.spec.ts`), and a Linux `electron-builder --dir` package that's checked with
 `scripts/verify-dist.mjs` (native modules and the bundled Claude binary present).
 
-Importantly, **`build.yml` (the release workflow) does not itself depend on `ci.yml` passing** —
-there's no `workflow_run` gate between them. The gate is manual: don't tag or trigger a release
-dispatch on a commit whose `ci.yml` run isn't green. In practice, tag from `main` right after CI
-has passed on the commit you're releasing.
+`build.yml` calls `ci.yml` as a reusable workflow (`test: uses: ./.github/workflows/ci.yml`) and
+both the `release` and `build` jobs require it to succeed (`needs: [test, ...]`). A tag push or
+`workflow_dispatch` on a commit whose checks would fail never creates a GitHub Release or uploads
+an installer — the `test` job runs the full `ci.yml` check set (lint, typecheck, unit tests,
+smoke e2e, `electron-builder --dir` + `verify-dist.mjs`) as part of the release run itself, so
+there's nothing to remember to check by hand before tagging.
 
 ## Versioning
 
@@ -27,6 +29,23 @@ npm version patch   # or: minor / major
 
 Vivi is pre-1.0 and follows the `0.1.x` stabilization plan in `docs/ROADMAP.md`, so most releases
 until 1.0 will be `patch` or `minor` bumps.
+
+### Beta / pre-release versions
+
+Give the version a SemVer pre-release tag to cut a beta instead of a stable release, e.g.:
+
+```bash
+npm version 0.2.0-beta.1 --no-git-tag-version   # then commit and tag v0.2.0-beta.1 yourself,
+                                                 # or use `npm version prerelease --preid=beta`
+                                                 # on an existing prerelease version to bump it
+```
+
+`build.yml` detects the `-` in the version and passes `--prerelease` to `gh release create`, so it
+publishes as a GitHub pre-release (not shown as "Latest"). electron-builder's GitHub provider reads
+the same tag to generate `beta*.yml` manifests instead of `latest*.yml`, so `electron-updater`
+naturally keeps beta and stable users on separate update channels without any extra configuration
+here. (Vivi's own updater always checks the stable/`latest*.yml` channel today — opting a build into
+receiving beta updates is a separate, not-yet-implemented setting.)
 
 ## Triggering a release
 
@@ -85,10 +104,12 @@ release as a target.
 The release's notes come from a **single static file**, `.github/release-notes.md`, reused as-is
 for every release regardless of version. It's a fixed bilingual (RU/EN) description of what Vivi
 does, not a per-version changelog. This is a known limitation — per-version, ideally
-auto-generated release notes are tracked as roadmap epic **DIST-03** (`docs/ROADMAP.md`). Until
-that's implemented, update `.github/release-notes.md` by hand if the feature summary it gives has
-drifted from what's actually shipped, and update `CHANGELOG.md` separately with the specific
-per-version entries (move `[Unreleased]` into a new version section there as part of the release).
+auto-generated release notes (e.g. from conventional commits via `git-cliff`) are tracked as the
+remaining scope of roadmap epic **DIST-03** (`docs/ROADMAP.md`; the CI-gating and pre-release/beta
+parts of that epic are already implemented, see above). Until per-version notes are automated,
+update `.github/release-notes.md` by hand if the feature summary it gives has drifted from what's
+actually shipped, and update `CHANGELOG.md` separately with the specific per-version entries (move
+`[Unreleased]` into a new version section there as part of the release).
 
 ## Manual verification checklist
 

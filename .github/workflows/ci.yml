@@ -4,6 +4,9 @@ on:
   push:
     branches: ['**']
   pull_request:
+  # DIST-03: lets build.yml call this workflow as a release gate (a tag push runs the same
+  # lint/typecheck/test/build/verify-dist checks as any branch push, before anything is released).
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
