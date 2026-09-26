@@ -1,6 +1,15 @@
 {
-  "app": { "name": "Vivi", "tagline": "Personal assistant powered by Claude" },
-  "nav": { "chat": "Chat", "settings": "Settings", "newChat": "New chat", "sessions": "Sessions", "activity": "Activity" },
+  "app": {
+    "name": "Vivi",
+    "tagline": "Personal assistant powered by Claude"
+  },
+  "nav": {
+    "chat": "Chat",
+    "settings": "Settings",
+    "newChat": "New chat",
+    "sessions": "Sessions",
+    "activity": "Activity"
+  },
   "state": {
     "starting": "Starting…",
     "idle": "Ready",
@@ -92,7 +101,12 @@
     },
     "inputHint": "Vivi will move the mouse and type. Keep your hands off the keyboard; to stop immediately press {{hotkey}} or move the cursor into a screen corner."
   },
-  "question": { "title": "Vivi asks", "submit": "Answer", "other": "Other…", "otherPlaceholder": "Your own answer" },
+  "question": {
+    "title": "Vivi asks",
+    "submit": "Answer",
+    "other": "Other…",
+    "otherPlaceholder": "Your own answer"
+  },
   "settings": {
     "title": "Settings",
     "sections": {
@@ -153,7 +167,21 @@
     },
     "save": "Save",
     "saved": "Saved",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "permissionsUi": {
+      "categories": "Action categories",
+      "categoriesHint": "What Vivi does without asking and what needs your confirmation.",
+      "autoAllowReadOnly": "Read without asking",
+      "readOnlyHint": "Reading files, search, web, screenshots, window list, clipboard",
+      "askForEdits": "Ask before changing files",
+      "askForExec": "Ask before running commands and launching apps",
+      "askForInput": "Ask before controlling mouse and keyboard",
+      "askForSystem": "Ask before system actions (volume, lock, sleep)",
+      "dangerNote": "Dangerous commands (deleting folders, sudo, shutdown, force push) always require confirmation regardless of these switches.",
+      "rules": "Always allowed",
+      "rulesHint": "Rules added with the “Always allow” button. Remove a rule to be asked again.",
+      "noRules": "No rules yet"
+    }
   },
   "sessions": {
     "title": "Sessions",
@@ -197,5 +225,71 @@
     "off": "Off",
     "remove": "Remove",
     "test": "Test"
+  },
+  "account": {
+    "connected": "Connected",
+    "connect": "Connect Claude",
+    "switch": "Change sign-in method",
+    "ready": "Ready",
+    "logout": "Sign out",
+    "notice": "Signing in with a Claude subscription is for personal use with your own subscription only (it is not a way to distribute the app). For anything else use an Anthropic API key.",
+    "security": "Secrets are stored encrypted in the OS keychain (Keychain / DPAPI / Secret Service).",
+    "tabs": {
+      "claude": "Claude subscription",
+      "token": "setup-token",
+      "apikey": "API key"
+    },
+    "modes": {
+      "none": "Not connected",
+      "claude-login": "Claude subscription (Claude Code sign-in)",
+      "oauth-token": "Claude subscription (token)",
+      "api-key": "Anthropic API key",
+      "existing-claude": "Existing Claude Code sign-in"
+    },
+    "claude": {
+      "desc": "A browser window opens to sign in to your Claude account (Pro/Max). After signing in, paste the confirmation code here.",
+      "login": "Sign in with Claude",
+      "loginConsole": "Sign in with Console",
+      "useExisting": "Use the Claude Code sign-in on this computer",
+      "starting": "Starting sign-in…",
+      "pasteCode": "The sign-in page is open in your browser. Copy the code and paste it here.",
+      "openAgain": "Open the sign-in page again",
+      "codePlaceholder": "Confirmation code",
+      "submit": "Confirm"
+    },
+    "token": {
+      "desc": "Run the command below in a terminal (requires Claude Code and a subscription), copy the token and paste it here."
+    },
+    "apikey": {
+      "desc": "Pay per token via the Anthropic Console. Create a key at:"
+    }
+  },
+  "onboarding": {
+    "welcome": "Hi, I'm Vivi",
+    "welcomeHint": "A personal assistant powered by Claude: text and voice commands, files, the web, your apps. A few setup steps and you're ready.",
+    "accountTitle": "Connect Claude",
+    "permissionsTitle": "System permissions",
+    "permissionsHint": "To hear you and see the screen Vivi needs OS permissions. You can grant them later in system settings.",
+    "voiceTitle": "Voice",
+    "voiceHint": "Voice models run offline. Download speech recognition and synthesis models (you can do this later in settings).",
+    "doneTitle": "All set",
+    "doneHint": "Press the quick-command hotkey or say “Vivi” to start. Settings are in the bottom-left corner.",
+    "start": "Start",
+    "skip": "Skip",
+    "perm": {
+      "microphone": "Microphone",
+      "screen": "Screen recording",
+      "accessibility": "Accessibility (mouse and keyboard control)",
+      "grant": "Grant",
+      "notNeeded": "Not needed on this system",
+      "linuxNote": "On Linux permissions are system-level. For mouse control on Wayland install ydotool; X11 works out of the box.",
+      "status": {
+        "granted": "Granted",
+        "denied": "Denied — open system settings",
+        "not-determined": "Not requested yet",
+        "restricted": "Restricted by policy",
+        "unknown": "Unknown"
+      }
+    }
   }
 }

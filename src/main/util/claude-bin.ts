@@ -35,16 +35,20 @@ export function resolveClaudeBinary(): string | undefined {
   return candidate
 }
 
-export function describeClaudeBinary(): string | null {
+/** Path usable for direct CLI invocations (auth login/status): explicit path or the SDK's platform package in dev. */
+export function resolveClaudeCliPath(): string | undefined {
   const explicit = resolveClaudeBinary()
   if (explicit) return explicit
   try {
-    // Dev mode: report where the SDK's platform package lives, purely informational.
     const pkg = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}`
     const bin = process.platform === 'win32' ? 'claude.exe' : 'claude'
     const p = join(app.getAppPath(), 'node_modules', pkg, bin)
-    return existsSync(p) ? p : null
+    return existsSync(p) ? p : undefined
   } catch {
-    return null
+    return undefined
   }
+}
+
+export function describeClaudeBinary(): string | null {
+  return resolveClaudeCliPath() ?? null
 }

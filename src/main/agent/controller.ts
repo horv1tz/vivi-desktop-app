@@ -10,6 +10,8 @@ import { settings } from '../settings/store'
 import { paths } from '../util/paths'
 import { resolveClaudeBinary } from '../util/claude-bin'
 import { getMainWindow, showMainWindow } from '../app/windows'
+import { createViviMcpServer } from './tools'
+import type { InputDriver } from './tools/input-driver'
 
 const log = logger('agent')
 
@@ -17,6 +19,10 @@ export interface ControllerDeps {
   mock: boolean
   getExtraEnv: () => Promise<Record<string, string | undefined>>
   isolateConfig: () => boolean
+  speak: (text: string) => Promise<void>
+  stopSpeaking: () => Promise<void>
+  inputDriver: () => Promise<InputDriver | null>
+  beforeInputAction?: () => Promise<void>
 }
 
 /**
@@ -50,6 +56,17 @@ export class AgentController {
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
       debugFile: () => (settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined),
+      mcpServers: () => ({
+        vivi: createViviMcpServer({
+          memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+          speak: this.deps.speak,
+          stopSpeaking: this.deps.stopSpeaking,
+          inputDriver: this.deps.inputDriver,
+          beforeInputAction: this.deps.beforeInputAction,
+          appRegistryEnabled: () => settings().get().features.appRegistry,
+          log,
+        }),
+      }),
       ui: {
         requestPermission: (req) => {
           emit('permission:request', req)

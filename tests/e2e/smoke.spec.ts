@@ -1,20 +1,21 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { mainWindow } from './helpers'
 
 let app: ElectronApplication
 let page: Page
 
 test.beforeAll(async () => {
   const userData = mkdtempSync(join(tmpdir(), 'vivi-e2e-'))
+  writeFileSync(join(userData, 'settings.json'), JSON.stringify({ onboardingCompleted: true }))
   app = await electron.launch({
     args: ['.', '--no-sandbox', `--user-data-dir=${userData}`],
     env: { ...process.env, VIVI_MOCK_AGENT: '1', NODE_ENV: 'production' },
     timeout: 60_000,
   })
-  page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
+  page = await mainWindow(app)
 })
 
 test.afterAll(async () => {
@@ -53,4 +54,18 @@ test('overlay window exists and can be toggled via IPC', async () => {
     return overlay?.isVisible() ?? null
   })
   expect(visible).toBe(false)
+})
+
+test('fresh profile starts with onboarding', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'vivi-e2e-fresh-'))
+  const fresh = await electron.launch({ args: ['.', '--no-sandbox', `--user-data-dir=${userData}`], env: { ...process.env, VIVI_MOCK_AGENT: '1' }, timeout: 60_000 })
+  try {
+    const win = await mainWindow(fresh)
+    await expect(win.getByRole('heading', { level: 1 })).toHaveText(/Виви|Vivi/, { timeout: 15_000 })
+    await win.getByRole('button', { name: /Далее|Next/ }).click()
+    await expect(win.getByRole('heading', { level: 2 })).toHaveText(/Claude/)
+    await expect(win.getByRole('button', { name: /Войти через Claude|Sign in with Claude/ })).toBeVisible()
+  } finally {
+    await fresh.close()
+  }
 })

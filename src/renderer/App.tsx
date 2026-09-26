@@ -11,12 +11,14 @@ import { ChatView } from './features/chat/ChatView'
 import { SettingsView } from './features/settings/SettingsView'
 import { PermissionDialog } from './features/permissions/PermissionDialog'
 import { QuestionDialog } from './features/permissions/QuestionDialog'
+import { OnboardingView } from './features/onboarding/OnboardingView'
 
 export function App() {
   const loaded = useSettingsStore((s) => s.loaded)
   const load = useSettingsStore((s) => s.load)
   const hydrate = useChatStore((s) => s.hydrate)
   const view = useUiStore((s) => s.view)
+  const onboardingCompleted = useSettingsStore((s) => s.settings.onboardingCompleted)
   const [info, setInfo] = useState<AppInfo | null>(null)
 
   useEffect(() => {
@@ -26,6 +28,17 @@ export function App() {
   }, [load, hydrate])
 
   if (!loaded) return <div className="h-full bg-bg" />
+
+  if (!onboardingCompleted && view !== 'settings') {
+    return (
+      <div className="flex h-full flex-col bg-bg text-fg">
+        <TitleBar />
+        <OnboardingView />
+        <PermissionDialog />
+        <QuestionDialog />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col bg-bg text-fg">

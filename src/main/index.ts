@@ -9,6 +9,10 @@ import { registerCoreHandlers } from './ipc/register-core'
 import { AgentController } from './agent/controller'
 import { t } from './i18n'
 import { paths } from './util/paths'
+import { AuthManager } from './auth/manager'
+import { registerAuthHandlers } from './auth/register'
+import { resolveClaudeCliPath } from './util/claude-bin'
+import { emit } from './ipc/emitters'
 
 const log = logger('main')
 
@@ -31,13 +35,27 @@ async function bootstrap(): Promise<void> {
   nativeTheme.themeSource = store.get().appearance.theme
   paths.workspace(store.get().agent.workspaceDir)
 
-  const agent = new AgentController({
+  // eslint-disable-next-line prefer-const -- assigned after auth, which references it lazily
+  let agent: AgentController
+  const auth: AuthManager = new AuthManager({
+    claudeBinary: () => resolveClaudeCliPath(),
+    claudeConfigDir: paths.claudeConfigDir,
+    baseEnv: async () => ({ ...process.env }),
+    onStatus: (status) => emit('auth:status', status),
+    onLoginEvent: (e) => emit('auth:loginFlow', e),
+    onCredentialsChanged: async () => agent.restart(),
+  })
+  agent = new AgentController({
     mock: mockAgent,
-    getExtraEnv: async () => ({}),
-    isolateConfig: () => store.get().auth.mode !== 'existing-claude',
+    getExtraEnv: async () => auth.envForAgent(),
+    isolateConfig: () => auth.isolateConfig(),
+    speak: async () => undefined,
+    stopSpeaking: async () => undefined,
+    inputDriver: async () => null,
   })
   registerCoreHandlers({ mockAgent })
   agent.registerIpc()
+  registerAuthHandlers(auth)
 
   const startHidden = store.get().appearance.startMinimized
   createMainWindow({ startHidden })
