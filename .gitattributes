@@ -1,0 +1,18 @@
+# Normalize line endings to LF in the repository and on checkout, regardless of the platform's
+# git config (Windows' git defaults to converting LF -> CRLF on checkout, which then fails
+# `prettier --check` — prettier's default `endOfLine` is "lf" — even though the committed source
+# is untouched; this is the CI-only fix, not a change to any tracked file's content).
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.onnx binary
+*.wav binary
+*.zip binary
