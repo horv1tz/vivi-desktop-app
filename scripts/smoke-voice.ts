@@ -85,6 +85,7 @@ async function main(): Promise<void> {
     },
     {
       silenceMs: 800,
+      followupMs: 0,
       wakeWordEnabled: true,
       wakeWordStrategy: 'kws',
       wakeWordSensitivity: 0.6,
@@ -119,6 +120,7 @@ async function main(): Promise<void> {
       wakeWordEnabled: true,
       bargeInMs: 300,
       bargeInGraceMs: 400,
+      followupMs: 0,
       now: () => now,
     },
     {
@@ -157,6 +159,7 @@ async function main(): Promise<void> {
       wakeWordEnabled: true,
       bargeInMs: 300,
       bargeInGraceMs: 400,
+      followupMs: 0,
       now: () => now,
     },
     {

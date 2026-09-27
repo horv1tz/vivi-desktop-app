@@ -18,6 +18,8 @@ export interface WorkerSettings {
   wakeWordSensitivity: number
   keywords: string[]
   numThreads: number
+  /** VO-03: how long to listen without the wake word after a voice-turn reply finishes speaking. 0 disables it. */
+  followupMs: number
 }
 
 export type MainToWorker =
@@ -26,6 +28,7 @@ export type MainToWorker =
   | { type: 'arm' }
   | { type: 'disarm' }
   | { type: 'ptt'; active: boolean }
+  | { type: 'followup' }
   | { type: 'cancel' }
   | { type: 'set-speaking'; speaking: boolean }
   | { type: 'tts'; generation: number; seq: number; text: string }
@@ -42,7 +45,7 @@ export type WorkerToMain =
       error?: string
       capabilities: { stt: boolean; vad: boolean; kws: boolean; tts: boolean }
     }
-  | { type: 'state'; state: 'off' | 'armed' | 'listening' | 'transcribing' }
+  | { type: 'state'; state: 'off' | 'armed' | 'listening' | 'transcribing' | 'followup' }
   | { type: 'wake' }
   | { type: 'partial'; text: string }
   | { type: 'final'; text: string; durationMs: number }

@@ -104,6 +104,12 @@ const workerClientMock = (await import('../../../src/main/voice/worker-client'))
 }
 
 const flushReal = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+const finalTranscript = (text: string): WorkerToMain => ({ type: 'final', text, durationMs: 300 })
+const spokenText = (client: FakeWorkerClientLike): string =>
+  client.sent
+    .filter((m) => m.type === 'tts')
+    .map((m) => m.text as string)
+    .join(' ')
 
 let agentListener: ((e: AgentUiEvent) => void) | null = null
 let permissionListener: ((req: PermissionRequest) => void) | null = null
@@ -413,12 +419,6 @@ describe('VoiceOrchestrator voice permissions and questions (VO-05)', () => {
       { question: 'Which language?', options: [{ label: 'TypeScript' }, { label: 'Python' }] },
     ],
   }
-  const finalTranscript = (text: string): WorkerToMain => ({ type: 'final', text, durationMs: 300 })
-  const spokenText = (client: FakeWorkerClientLike): string =>
-    client.sent
-      .filter((m) => m.type === 'tts')
-      .map((m) => m.text as string)
-      .join(' ')
 
   it('only speaks/force-listens for a permission request raised during a voice-originated turn', async () => {
     const settings = defaultSettings()
@@ -565,5 +565,94 @@ describe('VoiceOrchestrator voice permissions and questions (VO-05)', () => {
 
     expect(client.sent.some((m) => m.type === 'ptt')).toBe(false)
     expect(spokenText(client)).toBe('')
+  })
+})
+
+describe('VoiceOrchestrator follow-up window (VO-03)', () => {
+  const resultEvent = (): AgentUiEvent => ({
+    type: 'result',
+    result: {
+      turnId: 't1',
+      subtype: 'success',
+      isError: false,
+      costUsd: 0,
+      totalCostUsd: 0,
+      durationMs: 10,
+      numTurns: 1,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+  })
+
+  it('opens a follow-up window once a spoken reply finishes playing, not before', async () => {
+    const settings = defaultSettings()
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('what is the weather'))
+    await flushReal()
+    agentListener?.({
+      type: 'text-delta',
+      messageId: 'm1',
+      blockIndex: 0,
+      text: 'Sunny.',
+      kind: 'text',
+    })
+    agentListener?.(resultEvent())
+    const gen = client.sent.find((m) => m.type === 'tts')!.generation as number
+
+    // Still speaking: no follow-up message sent yet.
+    expect(client.sent.some((m) => m.type === 'followup')).toBe(false)
+
+    orch.playbackEnded(gen)
+    expect(client.sent.some((m) => m.type === 'followup')).toBe(true)
+  })
+
+  it('opens the follow-up window immediately when the reply had nothing to speak', async () => {
+    const settings = defaultSettings()
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('be quiet please'))
+    await flushReal()
+    // No text-delta at all: nothing queued to speak.
+    agentListener?.(resultEvent())
+
+    expect(client.sent.some((m) => m.type === 'followup')).toBe(true)
+  })
+
+  it('does not open a follow-up window while a permission/question is pending', async () => {
+    const settings = defaultSettings()
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('run the tests'))
+    await flushReal()
+    permissionListener?.({
+      requestId: 'p1',
+      toolName: 'Bash',
+      input: {},
+      category: 'exec',
+      dangerous: false,
+      dangerReasons: [],
+      canAlwaysAllow: true,
+      suggestionsCount: 0,
+    })
+    client.sent.length = 0
+
+    agentListener?.({
+      type: 'text-delta',
+      messageId: 'm1',
+      blockIndex: 0,
+      text: 'Done.',
+      kind: 'text',
+    })
+    agentListener?.(resultEvent())
+    const gen = client.sent.find((m) => m.type === 'tts')?.generation as number | undefined
+    if (gen !== undefined) orch.playbackEnded(gen)
+
+    expect(client.sent.some((m) => m.type === 'followup')).toBe(false)
   })
 })

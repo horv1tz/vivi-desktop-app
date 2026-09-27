@@ -408,6 +408,8 @@
     "speakReplies": "Speak replies aloud",
     "silence": "End-of-phrase pause, ms",
     "silenceHint": "How much silence ends a command",
+    "followup": "Follow-up listening window, ms",
+    "followupHint": "After Vivi finishes speaking, keep listening for this long without needing the wake word again. 0 disables it.",
     "inputDevice": "Microphone",
     "outputDevice": "Speakers",
     "defaultDevice": "System default",

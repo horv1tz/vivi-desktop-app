@@ -136,6 +136,7 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
             wakeWordEnabled: msg.settings.wakeWordEnabled && !!engines.wake,
             bargeInMs: 300,
             bargeInGraceMs: 400,
+            followupMs: msg.settings.followupMs,
           },
           {
             onState: (state) =>
@@ -180,6 +181,9 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
         if (pipeline.current === 'off') pipeline.arm()
         pipeline.startListening({ withPreRoll: true })
       } else pipeline.stopListening()
+      break
+    case 'followup':
+      pipeline?.startFollowup()
       break
     case 'cancel':
       pipeline?.cancel()

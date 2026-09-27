@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Action + observe**: the `mouse` and `keyboard` tools accept `observe: true`, which waits for
   the screen to settle (comparing frame hashes, capped at 1.5s by default) and returns a
   screenshot inline — one round trip instead of an action followed by a separate `screenshot` call.
+- **Follow-up listening window**: after Vivi finishes speaking a reply, it now keeps listening for
+  a configurable window (8 seconds by default, adjustable in Settings > Voice, 0 disables it)
+  without needing the wake word again, so a natural back-and-forth doesn't require saying "Vivi"
+  before every follow-up.
 - **Voice permissions and questions**: a permission dialog or `AskUserQuestion` prompt raised
   during a voice-driven turn is now spoken aloud ("Vivi wants to: run a shell command. Say yes,
   no, or always allow.") and the mic starts listening for the answer without needing the wake word

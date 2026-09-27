@@ -59,6 +59,7 @@ function setup(opts: Partial<ConstructorParameters<typeof VoicePipeline>[1]> = {
     {
       sampleRate: 16000,
       silenceMs: 800,
+      followupMs: 0,
       noSpeechTimeoutMs: 6000,
       maxUtteranceMs: 30_000,
       preRollMs: 1500,
@@ -165,5 +166,63 @@ describe('VoicePipeline', () => {
     t.pipeline.startListening({ withPreRoll: false })
     t.pipeline.cancel()
     expect(t.pipeline.current).toBe('armed')
+  })
+})
+
+describe('VoicePipeline follow-up window (VO-03)', () => {
+  it('does nothing when followupMs is 0 (disabled)', () => {
+    const t = setup({ followupMs: 0 })
+    t.pipeline.arm()
+    t.pipeline.startFollowup()
+    expect(t.pipeline.current).toBe('armed')
+  })
+
+  it('starts listening on speech alone, without the wake word firing', () => {
+    const t = setup({ followupMs: 8000 })
+    t.pipeline.arm()
+    t.pipeline.startFollowup()
+    expect(t.pipeline.current).toBe('followup')
+    t.vad.speech = true
+    t.tick()
+    expect(t.pipeline.current).toBe('listening')
+    expect(t.events).not.toContain('wake')
+  })
+
+  it('finalizes a follow-up utterance normally once the VAD segment completes', async () => {
+    const t = setup({ followupMs: 8000 })
+    t.pipeline.arm()
+    t.pipeline.startFollowup()
+    t.vad.speech = true
+    t.tick()
+    expect(t.pipeline.current).toBe('listening')
+    for (let i = 0; i < 10; i++) t.tick()
+    t.vad.speech = false
+    t.vad.segments = [new Float32Array(16000)]
+    t.tick()
+    await t.flush()
+    expect(t.finals).toEqual(['hello world'])
+    expect(t.pipeline.current).toBe('armed')
+  })
+
+  it('falls back to armed (requiring the wake word again) once the window elapses with no speech', () => {
+    const t = setup({ followupMs: 2000 })
+    t.pipeline.arm()
+    t.pipeline.startFollowup()
+    for (let i = 0; i < 99; i++) t.tick() // 1980ms: just under 2000ms
+    expect(t.pipeline.current).toBe('followup')
+    for (let i = 0; i < 2; i++) t.tick() // 2020ms: past the window
+    expect(t.pipeline.current).toBe('armed')
+  })
+
+  it('the wake word still works once the follow-up window has expired back to armed', () => {
+    const t = setup({ followupMs: 2000 })
+    t.pipeline.arm()
+    t.pipeline.startFollowup()
+    for (let i = 0; i < 101; i++) t.tick() // past the 2000ms window
+    expect(t.pipeline.current).toBe('armed')
+    t.wake.fire = true
+    t.tick()
+    expect(t.events).toContain('wake')
+    expect(t.pipeline.current).toBe('listening')
   })
 })

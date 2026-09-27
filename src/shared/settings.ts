@@ -76,6 +76,8 @@ export const VoiceSettingsSchema = z.object({
   inputDeviceId: z.string().default(''),
   outputDeviceId: z.string().default(''),
   silenceMs: z.number().int().min(300).max(3000).default(800),
+  /** VO-03: listen without the wake word for this long after Vivi finishes speaking a reply. 0 disables it. */
+  followupMs: z.number().int().min(0).max(30_000).default(8_000),
   openaiVoice: z.string().default('alloy'),
 })
 

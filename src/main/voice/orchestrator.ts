@@ -92,6 +92,8 @@ export class VoiceOrchestrator {
   private pendingSeq = 0
   private speaking = false
   private currentVoiceTurn = false
+  /** VO-03: set when the reply currently finishing TTS playback came from a voice-originated turn, so playbackEnded knows whether to open a follow-up listening window. */
+  private lastReplyWasVoice = false
   private unsubscribeAgent: (() => void) | null = null
   private unsubscribePermission: (() => void) | null = null
   private unsubscribePermissionResolved: (() => void) | null = null
@@ -373,6 +375,7 @@ export class VoiceOrchestrator {
         // because only the Latin spelling was ever sent to the worker.
         keywords: ['vivi', 'hey vivi', 'виви', 'эй виви', 'вивиан'],
         numThreads: Math.max(1, Math.min(4, Math.floor((cpus().length || 2) / 2))),
+        followupMs: settings.voice.followupMs,
       },
       libDir: sherpaLibDir() ?? undefined,
     })
@@ -513,7 +516,14 @@ export class VoiceOrchestrator {
     } else if (e.type === 'result' || e.type === 'error') {
       for (const chunk of this.chunker.flush()) this.speakChunk(chunk.text)
       this.currentVoiceTurn = false
-      if (!this.speaking) this.setState('armed')
+      if (!this.speaking) {
+        this.setState('armed')
+        // VO-03: nothing was queued to speak, so playbackEnded() will never fire for this turn —
+        // open the follow-up window right away instead of waiting for an event that never comes.
+        this.maybeStartFollowup()
+      } else {
+        this.lastReplyWasVoice = true
+      }
       if (this.pendingSeq > 0)
         emit('voice:audio', {
           generation: this.speakGeneration,
@@ -575,6 +585,16 @@ export class VoiceOrchestrator {
     this.speaking = false
     this.worker?.send({ type: 'set-speaking', speaking: false })
     if (this.state === 'speaking') this.setState(this.workerReady ? 'armed' : 'off')
+    if (this.lastReplyWasVoice) {
+      this.lastReplyWasVoice = false
+      this.maybeStartFollowup()
+    }
+  }
+
+  /** VO-03: opens the wake-word-free follow-up window, unless a permission/question prompt is already forcing listening via push-to-talk. */
+  private maybeStartFollowup(): void {
+    if (this.pendingPermission || this.pendingQuestion) return
+    this.worker?.send({ type: 'followup' })
   }
 
   async speak(text: string): Promise<void> {

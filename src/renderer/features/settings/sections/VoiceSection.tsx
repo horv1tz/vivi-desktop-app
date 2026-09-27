@@ -89,6 +89,19 @@ export function VoiceSection() {
             }
           />
         </Field>
+        <Field label={t('voice.followup')} hint={t('voice.followupHint')} inline>
+          <Input
+            type="number"
+            className="w-28"
+            min={0}
+            max={30_000}
+            step={500}
+            value={s.followupMs}
+            onChange={(e) =>
+              set({ followupMs: Math.min(30_000, Math.max(0, Number(e.target.value) || 0)) })
+            }
+          />
+        </Field>
         <Field label={t('voice.inputDevice')} inline>
           <Select value={s.inputDeviceId} onChange={(e) => set({ inputDeviceId: e.target.value })}>
             <option value="">{t('voice.defaultDevice')}</option>

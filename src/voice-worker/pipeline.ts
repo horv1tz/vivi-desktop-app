@@ -2,7 +2,7 @@
  * Pure voice pipeline state machine (no native code): armed → listening → finalizing → armed.
  * Engines are injected so the logic is unit-testable with synthetic audio.
  */
-export type PipelineState = 'off' | 'armed' | 'listening' | 'finalizing'
+export type PipelineState = 'off' | 'armed' | 'listening' | 'finalizing' | 'followup'
 
 export interface WakeEngine {
   /** Feed a frame; returns true when the wake word fired. */
@@ -51,6 +51,8 @@ export interface PipelineOptions {
   /** Barge-in: speech must persist this long while TTS is playing. */
   bargeInMs: number
   bargeInGraceMs: number
+  /** VO-03: after a voice-turn reply finishes speaking, how long to listen without requiring the wake word again. 0 disables it. */
+  followupMs: number
   now?: () => number
 }
 
@@ -68,6 +70,7 @@ export class VoicePipeline {
   private bargeSpeechStart = 0
   private levelAt = 0
   private finalizing = false
+  private followupSince = 0
   private readonly now: () => number
 
   constructor(
@@ -92,6 +95,14 @@ export class VoicePipeline {
     if (this.state === 'listening' || this.state === 'finalizing') return
     this.engines.wake?.reset()
     this.setState('armed')
+  }
+
+  /** VO-03: called once a voice-turn reply finishes speaking — listens for a follow-up without the wake word for a bounded window. */
+  startFollowup(): void {
+    if (this.opts.followupMs <= 0) return
+    if (this.state === 'listening' || this.state === 'finalizing') return
+    this.followupSince = this.now()
+    this.setState('followup')
   }
 
   disarm(): void {
@@ -177,6 +188,18 @@ export class VoicePipeline {
         this.events.onWake()
         this.startListening({ withPreRoll: false })
       }
+      return
+    }
+    if (this.state === 'followup') {
+      if (this.now() - this.followupSince > this.opts.followupMs) {
+        this.arm()
+        // Re-dispatch this frame as 'armed' instead of dropping it, in case it's the very frame
+        // the wake word or speech starts on.
+        this.feed(frame)
+        return
+      }
+      this.pushPreRoll(frame)
+      if (this.engines.vad.feed(frame)) this.startListening({ withPreRoll: true })
       return
     }
     if (this.state === 'listening') {
