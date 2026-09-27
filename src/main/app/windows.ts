@@ -9,6 +9,8 @@ const log = logger('windows')
 
 let mainWindow: BrowserWindow | null = null
 let overlayWindow: BrowserWindow | null = null
+let hudWindow: BrowserWindow | null = null
+let hudHideTimer: ReturnType<typeof setTimeout> | null = null
 let quitting = false
 
 export function markQuitting(): void {
@@ -17,11 +19,16 @@ export function markQuitting(): void {
 
 const preloadPath = join(import.meta.dirname, '../preload/index.mjs')
 
-function loadRenderer(win: BrowserWindow, file: 'index.html' | 'overlay.html'): void {
+function loadRenderer(
+  win: BrowserWindow,
+  file: 'index.html' | 'overlay.html',
+  hash?: string,
+): void {
+  const suffix = hash ? `#${hash}` : ''
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${file}`)
+    void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${file}${suffix}`)
   } else {
-    void win.loadFile(join(import.meta.dirname, `../renderer/${file}`))
+    void win.loadFile(join(import.meta.dirname, `../renderer/${file}`), hash ? { hash } : undefined)
   }
 }
 
@@ -42,7 +49,7 @@ export function getOverlayWindow(): BrowserWindow | null {
  * screen-share the user is running in another app still sees Vivi normally the rest of the time.
  */
 export async function withOwnWindowsHidden<T>(fn: () => Promise<T>): Promise<T> {
-  const windows = [getMainWindow(), getOverlayWindow()].filter(
+  const windows = [getMainWindow(), getOverlayWindow(), getHudWindow()].filter(
     (w): w is BrowserWindow => w !== null,
   )
   for (const w of windows) w.setContentProtection(true)
@@ -164,6 +171,88 @@ export function createOverlayWindow(): BrowserWindow {
   })
   loadRenderer(win, 'overlay.html')
   return win
+}
+
+export function getHudWindow(): BrowserWindow | null {
+  return hudWindow && !hudWindow.isDestroyed() ? hudWindow : null
+}
+
+const HUD_WIDTH = 460
+const HUD_HEIGHT = 56
+const HUD_AUTO_HIDE_MS = 2_500
+
+/**
+ * CU-07: a small, click-through, always-on-top bar so the user always knows Vivi is currently
+ * moving the mouse or typing — even while focused on a different app — and how to stop it.
+ */
+function createHudWindow(): BrowserWindow {
+  const existing = getHudWindow()
+  if (existing) return existing
+
+  const win = new BrowserWindow({
+    width: HUD_WIDTH,
+    height: HUD_HEIGHT,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    focusable: false,
+    title: 'Vivi Control HUD',
+    ...(process.platform === 'darwin'
+      ? { type: 'panel' as const, hiddenInMissionControl: true }
+      : {}),
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      sandbox: false,
+      nodeIntegration: false,
+      spellcheck: false,
+      backgroundThrottling: false,
+    },
+  })
+  hudWindow = win
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setIgnoreMouseEvents(true, { forward: true })
+  win.on('closed', () => {
+    hudWindow = null
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    log.error('control HUD renderer gone', details)
+    if (details.reason !== 'clean-exit') win.webContents.reload()
+  })
+  loadRenderer(win, 'overlay.html', 'hud')
+  return win
+}
+
+/** Shows (or keeps showing) the "Vivi is controlling your computer" HUD, auto-hiding after a period of no further input actions. */
+export function pingControlHud(): void {
+  const win = getHudWindow() ?? createHudWindow()
+  if (!win.isVisible()) {
+    const cursor = screen.getCursorScreenPoint()
+    const display = screen.getDisplayNearestPoint(cursor)
+    const { x, y, width } = display.workArea
+    win.setPosition(Math.round(x + (width - HUD_WIDTH) / 2), Math.round(y + 24))
+    win.showInactive()
+  }
+  if (hudHideTimer) clearTimeout(hudHideTimer)
+  hudHideTimer = setTimeout(() => win.hide(), HUD_AUTO_HIDE_MS)
+}
+
+/** Hides the control HUD immediately (e.g. on kill switch). */
+export function hideControlHud(): void {
+  if (hudHideTimer) {
+    clearTimeout(hudHideTimer)
+    hudHideTimer = null
+  }
+  getHudWindow()?.hide()
 }
 
 export function showOverlay(): void {

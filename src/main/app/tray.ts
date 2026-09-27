@@ -9,6 +9,7 @@ let tray: Tray | null = null
 
 export interface TrayActions {
   onToggleWakeWord: (enabled: boolean) => void
+  onStop: () => void
   onQuit: () => void
 }
 
@@ -37,6 +38,7 @@ export function refreshTrayMenu(actions: TrayActions): void {
       checked: s.voice.enabled && s.voice.wakeWordEnabled,
       click: (item) => actions.onToggleWakeWord(item.checked),
     },
+    { label: t('tray.stop'), click: () => actions.onStop() },
     { type: 'separator' },
     { label: `Vivi ${app.getVersion()}`, enabled: false },
     { label: t('tray.quit'), click: () => actions.onQuit() },

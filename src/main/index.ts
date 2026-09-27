@@ -6,7 +6,9 @@ import {
   createMainWindow,
   createOverlayWindow,
   destroyAllWindows,
+  hideControlHud,
   markQuitting,
+  pingControlHud,
   showMainWindow,
   toggleOverlay,
 } from './app/windows'
@@ -113,7 +115,11 @@ async function bootstrap(): Promise<void> {
     beforeInputAction: async () => {
       const driver = await resolveInputDriver()
       if (driver) await inputGuard.check(driver)
+      pingControlHud()
     },
+    // CU-07: the kill switch must stay tripped until the user does something that means "resume" —
+    // sending a new message — never silently re-arm itself on a timer with no user in the loop.
+    onUserAction: () => inputGuard.reset(),
   })
   syncConfigDirEnv()
   voice.attachAgent()
@@ -132,10 +138,20 @@ async function bootstrap(): Promise<void> {
   createOverlayWindow()
   mainWin.webContents.on('did-finish-load', () => voice.redeliverAudioPort())
 
+  const triggerKillSwitch = (): void => {
+    inputGuard.trip()
+    hideControlHud()
+    void agent.killSwitch()
+    void voice.stopSpeaking()
+    if (Notification.isSupported())
+      new Notification({ title: 'Vivi', body: t('notify.killSwitch') }).show()
+  }
+
   const trayActions = {
     onToggleWakeWord: (enabled: boolean) => {
       store.update({ voice: { wakeWordEnabled: enabled } })
     },
+    onStop: triggerKillSwitch,
     onQuit: () => {
       markQuitting()
       app.quit()
@@ -185,14 +201,7 @@ async function bootstrap(): Promise<void> {
       toggleOverlay()
       if (store.get().voice.enabled) voice.pushToTalk(!wasVisible)
     },
-    onKillSwitch: () => {
-      inputGuard.trip()
-      setTimeout(() => inputGuard.reset(), 5000)
-      void agent.killSwitch()
-      void voice.stopSpeaking()
-      if (Notification.isSupported())
-        new Notification({ title: 'Vivi', body: t('notify.killSwitch') }).show()
-    },
+    onKillSwitch: triggerKillSwitch,
   }
   registerShortcuts(shortcutActions)
 

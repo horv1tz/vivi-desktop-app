@@ -31,6 +31,8 @@ export interface ControllerDeps {
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
   beforeInputAction?: () => Promise<void>
+  /** CU-07: called whenever the user explicitly sends the agent a new message (text or voice). */
+  onUserAction?: () => void
 }
 
 /**
@@ -139,6 +141,7 @@ export class AgentController {
   }
 
   send(args: SendArgs): Promise<{ messageId: string }> {
+    this.deps.onUserAction?.()
     return this.backend.send(args)
   }
 
@@ -206,7 +209,7 @@ export class AgentController {
   }
 
   registerIpc(): void {
-    handle('agent:send', (_e, args) => this.backend.send(args))
+    handle('agent:send', (_e, args) => this.send(args))
     handle('agent:interrupt', () => this.backend.interrupt())
     handle('agent:getState', () => this.backend.getState())
     handle('agent:newSession', () => this.backend.newSession())

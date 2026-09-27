@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SDK backend and ACP-hosted agents.
 - CI now runs `prettier --check` (previously only available as a local `npm run format:check`, and
   not enforced anywhere), which had let real formatting drift build up across the repo over time.
+- **Control HUD**: a small, click-through "Vivi is controlling your computer" bar now appears
+  whenever the agent is about to move the mouse or type, showing the last input action and the
+  kill-switch hotkey, so it stays visible even when a different app has focus. A "Stop" item was
+  also added to the tray menu, wired to the same emergency stop as the hotkey.
 
 ### Fixed
 
@@ -77,6 +81,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The local MCP HTTP endpoint used by ACP mode now validates `Origin`/`Host` (DNS-rebinding
   guard), caps request body size, bounds request/header timeouts, and reaps abandoned sessions
   after a TTL instead of only on full shutdown.
+- The emergency stop (kill switch) used to silently re-enable mouse/keyboard control 5 seconds
+  after being triggered, regardless of whether the user had done anything — defeating the point of
+  an emergency stop for an agent that can be mid-task. It now stays tripped until the user
+  explicitly sends the agent a new message.
 - The dangerous-command detector no longer goes blind on commands nested inside a shell wrapper
   (`bash -c "rm -rf /"`, `powershell -Command "Remove-Item -Recurse"`, `cmd /c "..."`): its own
   "quoted strings are just data" heuristic used to blank out the wrapped payload along with truly

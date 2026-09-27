@@ -251,6 +251,10 @@
     "expand": "Open in window",
     "close": "Close"
   },
+  "hud": {
+    "controlling": "Vivi is controlling your computer",
+    "stop": "to stop"
+  },
   "errors": {
     "authentication_failed": "Authentication failed. Check your account in Settings.",
     "rate_limit": "Usage limit reached. Try again later.",
