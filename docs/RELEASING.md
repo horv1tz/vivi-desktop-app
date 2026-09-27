@@ -86,7 +86,8 @@ matrix over `ubuntu-latest` / `windows-latest` / `macos-latest`. Each runner:
      runtime and entitlements are already configured in `electron-builder.yml`).
    - When these secrets aren't set, `CSC_IDENTITY_AUTO_DISCOVERY` stays `false` and the build is
      unsigned (Windows SmartScreen / macOS Gatekeeper will warn on first launch — this is called
-     out in `.github/release-notes.md`).
+     out in `.github/release-notes.md`). See [`docs/CODE-SIGNING.md`](CODE-SIGNING.md) for what to
+     buy/obtain if you want to set these up.
 3. Runs `npx electron-builder <--linux|--win|--mac> --publish always` (only `always` when the
    `release` job succeeded; otherwise `--publish never`, e.g. on a run where release creation was
    skipped). `--publish always` is what uploads the built installers and update manifests
@@ -133,3 +134,9 @@ source of truth as it evolves.
 - Update `CHANGELOG.md` if it wasn't already updated as part of the release PR.
 - If the manual checklists surfaced defects, file them before moving on rather than carrying them
   silently into the next release.
+- If Windows Defender (or another antivirus engine) flags the Windows installer, submit that exact
+  build to Microsoft's [file submission portal](https://www.microsoft.com/en-us/wdsi/filesubmission)
+  for analysis, and check [VirusTotal](https://www.virustotal.com) for the current detection
+  landscape before telling anyone it's a false positive. See
+  [`docs/CODE-SIGNING.md`](CODE-SIGNING.md) — this only meaningfully improves with a signed build,
+  but the submission itself is free and doesn't require one.

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Update indicator outside Settings**: a downloaded, ready-to-install update now shows up in the
+  tray menu ("Update ready — restart to install", or a non-clickable "Update available" /
+  "Downloading update…" line while it's still in progress) and triggers a system notification when
+  it finishes downloading — previously the only place this showed up at all was the About tab in
+  Settings, so a background update could sit ready for days with zero visible indication.
+- `docs/CODE-SIGNING.md`: what to buy/obtain for Windows code signing and macOS notarization to
+  reduce SmartScreen/Gatekeeper warnings and antivirus false positives, the exact GitHub secret
+  names the release workflow already reads, and the free Microsoft Defender / VirusTotal
+  false-positive submission process for when a specific build gets flagged.
+
+### Fixed
+
+- **macOS notarization was hardcoded off**: `electron-builder.yml` set `mac.notarize: false`,
+  which unconditionally skips notarization regardless of whether Apple credentials are configured
+  — even after adding real `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` secrets,
+  notarization would never have run. The field is now omitted so electron-builder's own
+  environment-variable auto-detection (already exactly what `build.yml` exports from secrets)
+  decides instead.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added

@@ -75,7 +75,12 @@ mac:
   gatekeeperAssess: false
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
-  notarize: false
+  # Deliberately omitted, not `false`: electron-builder auto-notarizes when APPLE_ID +
+  # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID are present in the environment (exactly what
+  # build.yml already exports from repository secrets when they're configured) and silently skips
+  # it when they aren't — `notarize: false` used to hardcode notarization off unconditionally, so
+  # even a fully-signed build with real Apple credentials configured would never get notarized.
+  # See docs/CODE-SIGNING.md.
   extendInfo:
     NSMicrophoneUsageDescription: Vivi listens to your voice commands.
     NSAppleEventsUsageDescription: Vivi controls other applications on your behalf when you ask it to.

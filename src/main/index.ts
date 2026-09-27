@@ -29,6 +29,7 @@ import { applyAutostart } from './app/autostart'
 import { getMainWindow, isOverlayVisible } from './app/windows'
 import { registerUpdater } from './app/updater'
 import { checkInputPermission } from './app/os-permissions'
+import type { UpdateStatus } from '@shared/events'
 
 const log = logger('main')
 
@@ -133,9 +134,24 @@ async function bootstrap(): Promise<void> {
   syncConfigDirEnv()
   voice.attachAgent()
   voice.registerIpc()
+  // UX: the update UI previously lived only in Settings > About, so a background-downloaded
+  // update could sit ready-to-install with no ambient indication anywhere else. Tracked here so
+  // both the tray menu (refreshTrayMenu) and a one-time "restart to install" notification can
+  // reflect it without the user ever having to open settings.
+  let latestUpdateStatus: UpdateStatus | null = null
   const updater = registerUpdater({
     getSettings: () => store.get(),
-    onStatus: (status) => emit('update:status', status),
+    onStatus: (status) => {
+      emit('update:status', status)
+      latestUpdateStatus = status
+      refreshTrayMenu(trayActions, latestUpdateStatus)
+      if (status.type === 'downloaded' && Notification.isSupported()) {
+        new Notification({
+          title: 'Vivi',
+          body: `${t('notify.updateReady')} ${status.version}`,
+        }).show()
+      }
+    },
   })
   updater.registerIpc()
   registerCoreHandlers({ mockAgent, backend: () => agent.kind })
@@ -161,6 +177,7 @@ async function bootstrap(): Promise<void> {
       store.update({ voice: { wakeWordEnabled: enabled } })
     },
     onStop: triggerKillSwitch,
+    onInstallUpdate: () => updater.updater.quitAndInstall(),
     onQuit: () => {
       markQuitting()
       app.quit()
@@ -171,7 +188,7 @@ async function bootstrap(): Promise<void> {
   let hotkeyFingerprint = hotkeySettingsFingerprint(store.get())
   let previousAgentSettings = store.get()
   store.onChanged((next) => {
-    refreshTrayMenu(trayActions)
+    refreshTrayMenu(trayActions, latestUpdateStatus)
     // Re-registering global shortcuts briefly drops them; only do it when a hotkey actually changed,
     // not on every unrelated settings write (theme, agent text fields, …).
     const hfp = hotkeySettingsFingerprint(next)
