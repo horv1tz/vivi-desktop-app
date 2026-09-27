@@ -67,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Voice**: a new "Interrupt only with the wake word" setting (off by default) makes barge-in
   during Vivi's replies require saying "Vivi" again, instead of any sustained nearby speech (a TV,
   another conversation) cutting her off.
+- **Usage tracking**: a new "Usage" settings tab shows total cost, tokens, and turns, plus a
+  per-day breakdown for the last 14 days, from a local (never uploaded) history of every completed
+  turn's cost and token usage. Includes a CSV export and a way to clear the history. Per-tool cost
+  breakdown isn't included — neither the Agent SDK's nor ACP's usage reporting attributes cost
+  below the level of a whole turn, so there's nothing finer-grained to record.
 
 ### Fixed
 

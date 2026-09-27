@@ -11,6 +11,7 @@ import { AccountSection } from './sections/AccountSection'
 import { ProxySection } from './sections/ProxySection'
 import { VoiceSection } from './sections/VoiceSection'
 import { PermissionsSection } from './sections/PermissionsSection'
+import { UsageSection } from './sections/UsageSection'
 import { Button } from '../../components/ui/Button'
 
 const sections: SettingsSection[] = [
@@ -21,6 +22,7 @@ const sections: SettingsSection[] = [
   'voice',
   'proxy',
   'permissions',
+  'usage',
   'about',
 ]
 
@@ -65,6 +67,7 @@ export function SettingsView() {
           {section === 'voice' ? <VoiceSection /> : null}
           {section === 'proxy' ? <ProxySection /> : null}
           {section === 'permissions' ? <PermissionsSection /> : null}
+          {section === 'usage' ? <UsageSection /> : null}
           {section === 'about' ? <AboutSection /> : null}
         </motion.div>
       </div>

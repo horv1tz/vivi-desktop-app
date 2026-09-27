@@ -276,3 +276,47 @@ export interface JournalEntry {
   parentToolUseId: string | null
   result?: { content: string; isError: boolean; durationMs?: number }
 }
+
+/**
+ * OBS-02: one completed turn's cost/token usage, recorded from `TurnResult`. There is no
+ * per-tool-call cost breakdown to record here — the API only reports cost/tokens per top-level
+ * turn (a single `result` message), not per tool invocation within it.
+ */
+export interface MetricEntry {
+  id: string
+  sessionId: string
+  timestamp: number
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  durationMs: number
+}
+
+export interface MetricsDailyTotal {
+  /** Local calendar date, YYYY-MM-DD. */
+  date: string
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  turns: number
+}
+
+export interface MetricsSessionTotal {
+  sessionId: string
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  turns: number
+  lastTimestamp: number
+}
+
+export interface MetricsSummary {
+  totalCostUsd: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalTurns: number
+  daily: MetricsDailyTotal[]
+  sessions: MetricsSessionTotal[]
+}

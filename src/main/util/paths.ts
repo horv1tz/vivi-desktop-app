@@ -34,6 +34,10 @@ export const paths = {
   get windowStateFile(): string {
     return join(app.getPath('userData'), 'window-state.json')
   },
+  /** OBS-02: per-turn cost/token usage, local only, never uploaded. */
+  get metricsFile(): string {
+    return join(ensureDir(join(app.getPath('userData'), 'metrics')), 'metrics.json')
+  },
   get defaultWorkspace(): string {
     return join(homedir(), 'Vivi')
   },

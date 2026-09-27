@@ -14,6 +14,7 @@ import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
 import { AcpBackend } from './acp-backend'
 import { ActionJournal } from './journal'
+import { MetricsStore } from './metrics'
 import { handle } from '../ipc/handlers'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
@@ -48,6 +49,7 @@ export class AgentController {
   private backend: AgentBackend
   private unsubscribe: (() => void) | null = null
   private journal = new ActionJournal(paths.journalFile)
+  private metrics = new MetricsStore(paths.metricsFile)
 
   constructor(private readonly deps: ControllerDeps) {
     this.backend = this.createBackend()
@@ -176,6 +178,7 @@ export class AgentController {
     this.unsubscribe?.()
     this.unsubscribe = this.backend.onEvent((e: AgentUiEvent) => {
       this.journal.record(e)
+      this.metrics.record(e)
       emit('agent:event', e)
       for (const l of this.eventListeners) l(e)
     })
@@ -227,6 +230,7 @@ export class AgentController {
       const tap = old.onEvent((e) => {
         if (e.type === 'state' || e.type === 'session' || e.type === 'history') return
         this.journal.record(e)
+        this.metrics.record(e)
         emit('agent:event', e)
         for (const l of this.eventListeners) l(e)
       })
@@ -278,6 +282,20 @@ export class AgentController {
       const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
       if (res.canceled || !res.filePath) return null
       writeFileSync(res.filePath, JSON.stringify(this.journal.list(), null, 2), 'utf8')
+      return res.filePath
+    })
+    handle('metrics:summary', () => this.metrics.summary())
+    handle('metrics:clear', () => this.metrics.clear())
+    handle('metrics:exportCsv', async () => {
+      const win = getMainWindow()
+      const defaultPath = join(
+        app.getPath('desktop'),
+        `vivi-usage-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`,
+      )
+      const opts = { defaultPath, filters: [{ name: 'CSV', extensions: ['csv'] }] }
+      const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+      if (res.canceled || !res.filePath) return null
+      writeFileSync(res.filePath, this.metrics.toCsv(), 'utf8')
       return res.filePath
     })
     app.on('will-quit', () => void this.dispose())

@@ -7,6 +7,7 @@ import type {
   JournalEntry,
   LoginFlowEvent,
   MemoryEntry,
+  MetricsSummary,
   ModelDownloadProgress,
   OsPermissionStatus,
   PermissionDecision,
@@ -75,6 +76,10 @@ export interface InvokeMap {
   'memory:list': { args: []; result: MemoryEntry[] }
   'memory:delete': { args: [string]; result: void }
   'memory:clear': { args: []; result: void }
+  /** OBS-02: local, never-uploaded cost/token usage aggregated by day and by session. */
+  'metrics:summary': { args: []; result: MetricsSummary }
+  'metrics:clear': { args: []; result: void }
+  'metrics:exportCsv': { args: []; result: string | null }
 
   'update:check': { args: []; result: void }
   'update:install': { args: []; result: void }

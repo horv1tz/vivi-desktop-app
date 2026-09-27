@@ -63,6 +63,10 @@ test('settings view opens and switches sections', async () => {
   await expect(page.getByText(/0\.3\.283/)).toBeVisible()
   await page.getByRole('button', { name: /^Память$|^Memory$/ }).click()
   await expect(page.getByText(/Пока ничего не запомнено|Nothing remembered yet/)).toBeVisible()
+  // OBS-02: the earlier mock exchange should already have recorded a turn's cost/tokens.
+  await page.getByRole('button', { name: /^Расход$|^Usage$/ }).click()
+  await expect(page.getByText(/Всего потрачено|Total cost/)).toBeVisible()
+  await expect(page.getByText(/^\$0\.00$/)).not.toBeVisible()
 })
 
 test('overlay window exists and can be toggled via IPC', async () => {

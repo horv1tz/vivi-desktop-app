@@ -118,6 +118,7 @@
       "voice": "Voice",
       "proxy": "Proxy",
       "permissions": "Permissions",
+      "usage": "Usage",
       "about": "About"
     },
     "general": {
@@ -189,6 +190,19 @@
         "fact": "Fact",
         "project": "Project"
       }
+    },
+    "usage": {
+      "title": "Usage",
+      "description": "Cost and token usage by day and session, tracked locally from each completed turn. Never uploaded anywhere.",
+      "empty": "No usage recorded yet.",
+      "exportCsv": "Export CSV",
+      "clearAll": "Clear history",
+      "totalCost": "Total cost",
+      "totalTokens": "Total tokens",
+      "totalTurns": "Turns",
+      "byDay": "Last 14 days",
+      "turnsCount_one": "{{count}} turn",
+      "turnsCount_other": "{{count}} turns"
     },
     "about": {
       "version": "Version",

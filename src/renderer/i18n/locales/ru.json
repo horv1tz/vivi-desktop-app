@@ -118,6 +118,7 @@
       "voice": "Голос",
       "proxy": "Прокси",
       "permissions": "Разрешения",
+      "usage": "Расход",
       "about": "О программе"
     },
     "general": {
@@ -189,6 +190,21 @@
         "fact": "Факт",
         "project": "Проект"
       }
+    },
+    "usage": {
+      "title": "Расход",
+      "description": "Стоимость и токены по дням и сессиям, локально по каждому завершённому ходу. Никуда не отправляется.",
+      "empty": "Пока нет данных о расходе.",
+      "exportCsv": "Экспорт в CSV",
+      "clearAll": "Очистить историю",
+      "totalCost": "Всего потрачено",
+      "totalTokens": "Всего токенов",
+      "totalTurns": "Ходов",
+      "byDay": "Последние 14 дней",
+      "turnsCount_one": "{{count}} ход",
+      "turnsCount_few": "{{count}} хода",
+      "turnsCount_many": "{{count}} ходов",
+      "turnsCount_other": "{{count}} хода"
     },
     "about": {
       "version": "Версия",
