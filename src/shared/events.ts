@@ -255,6 +255,16 @@ export interface OsPermissionStatus {
   automation: 'granted' | 'denied' | 'unknown' | 'n/a'
 }
 
+/** AG-03: a structured memory entry the agent recorded about the user. */
+export type MemoryEntryType = 'profile' | 'preference' | 'fact' | 'project'
+
+export interface MemoryEntry {
+  id: string
+  type: MemoryEntryType
+  text: string
+  createdAt: number
+}
+
 /** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
 export interface JournalEntry {
   id: string

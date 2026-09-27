@@ -61,6 +61,8 @@ test('settings view opens and switches sections', async () => {
   await page.getByRole('button', { name: /О программе|About/ }).click()
   await expect(page.getByText(/Claude Agent SDK/)).toBeVisible()
   await expect(page.getByText(/0\.3\.283/)).toBeVisible()
+  await page.getByRole('button', { name: /^Память$|^Memory$/ }).click()
+  await expect(page.getByText(/Пока ничего не запомнено|Nothing remembered yet/)).toBeVisible()
 })
 
 test('overlay window exists and can be toggled via IPC', async () => {

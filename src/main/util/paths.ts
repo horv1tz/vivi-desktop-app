@@ -42,7 +42,8 @@ export const paths = {
   memoryDir(workspace: string): string {
     return ensureDir(join(workspace, 'memory'))
   },
+  /** AG-03: structured memory store (profile/preference/fact/project entries with type + date). */
   memoryFile(workspace: string): string {
-    return join(paths.memoryDir(workspace), 'VIVI.md')
+    return join(paths.memoryDir(workspace), 'memory.json')
   },
 }

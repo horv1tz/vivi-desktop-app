@@ -6,6 +6,7 @@ import type {
   AuthStatus,
   JournalEntry,
   LoginFlowEvent,
+  MemoryEntry,
   ModelDownloadProgress,
   OsPermissionStatus,
   PermissionDecision,
@@ -71,6 +72,9 @@ export interface InvokeMap {
   'journal:list': { args: []; result: JournalEntry[] }
   'journal:clear': { args: []; result: void }
   'journal:export': { args: []; result: string | null }
+  'memory:list': { args: []; result: MemoryEntry[] }
+  'memory:delete': { args: [string]; result: void }
+  'memory:clear': { args: []; result: void }
 
   'update:check': { args: []; result: void }
   'update:install': { args: []; result: void }

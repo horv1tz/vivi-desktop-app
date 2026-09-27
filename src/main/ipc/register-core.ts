@@ -9,10 +9,15 @@ import { acpAdapterVersion } from '../util/acp-adapter'
 import { getMainWindow, hideOverlay, showMainWindow, toggleOverlay } from '../app/windows'
 import { getOsPermissions, requestOsPermission } from '../app/os-permissions'
 import { buildDiagnosticsReport } from '../app/diagnostics'
+import { clearMemoryEntries, deleteMemoryEntry, listMemoryEntries } from '../agent/tools/memory'
 import { handle } from './handlers'
 import { emit } from './emitters'
 
 export const SDK_VERSION = '0.3.283'
+
+function currentMemoryFile(): string {
+  return paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir))
+}
 
 function getAppInfo(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): AppInfo {
   const s = settings().get()
@@ -125,4 +130,8 @@ export function registerCoreHandlers(opts: {
     const err = await shell.openPath(p)
     if (err) throw new Error(err)
   })
+
+  handle('memory:list', () => listMemoryEntries(currentMemoryFile()))
+  handle('memory:delete', (_e, id) => deleteMemoryEntry(currentMemoryFile(), id))
+  handle('memory:clear', () => clearMemoryEntries(currentMemoryFile()))
 }

@@ -113,6 +113,7 @@
       "general": "General",
       "account": "Account",
       "agent": "Agent",
+      "memory": "Memory",
       "voice": "Voice",
       "proxy": "Proxy",
       "permissions": "Permissions",
@@ -174,6 +175,19 @@
         "jpeg": "JPEG (smaller, faster)"
       },
       "screenshotQuality": "JPEG quality (10–100)"
+    },
+    "memory": {
+      "title": "Memory",
+      "description": "Durable facts and preferences Vivi has learned about you. The most recent entries are what actually reach the model — older ones drop off first once the list gets long.",
+      "empty": "Nothing remembered yet.",
+      "delete": "Forget this",
+      "clearAll": "Forget everything",
+      "types": {
+        "profile": "Profile",
+        "preference": "Preference",
+        "fact": "Fact",
+        "project": "Project"
+      }
     },
     "about": {
       "version": "Version",

@@ -8,7 +8,7 @@ import {
 import { captureScreen, listDisplays } from './screen'
 import { listInstalledApps, openTarget } from './apps'
 import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from './system'
-import { rememberFact } from './memory'
+import { rememberEntry } from './memory'
 import { listWindows } from './windows-list'
 import type { InputDriver } from './input-driver'
 import { error, text, image, truncate } from './util'
@@ -379,14 +379,19 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
 
   const remember = tool(
     'remember',
-    'Store a durable fact or preference about the user in the memory file (VIVI.md) so future conversations know it. Not for secrets or temporary task state.',
+    'Store a durable fact or preference about the user in memory so future conversations know it. Not for secrets or temporary task state.',
     {
       fact: z.string().min(3).max(500),
-      category: z.string().max(40).optional().describe('e.g. preference, project, contact, habit'),
+      type: z
+        .enum(['profile', 'preference', 'fact', 'project'])
+        .default('fact')
+        .describe(
+          'profile: who they are (name, role); preference: how they like things done; fact: a durable fact worth keeping; project: context about an ongoing project',
+        ),
     },
-    async ({ fact, category }) => {
+    async ({ fact, type }) => {
       try {
-        return text(rememberFact(deps.memoryFile(), fact, category))
+        return text(rememberEntry(deps.memoryFile(), type, fact))
       } catch (err) {
         return error((err as Error).message)
       }

@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whenever the agent is about to move the mouse or type, showing the last input action and the
   kill-switch hotkey, so it stays visible even when a different app has focus. A "Stop" item was
   also added to the tray menu, wired to the same emergency stop as the hotkey.
+- **Memory v2**: a new "Memory" settings tab lists what Vivi has learned about you (with a type —
+  profile/preference/fact/project — and a date), lets you delete individual entries or clear
+  everything, and replaces the old plain-text `VIVI.md` file with a structured, bounded store.
 
 ### Fixed
 
@@ -69,6 +72,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Voice mode**: a long-running session that mixed voice and text turns could get stuck always
   answering with (or without) voice-style brevity, because that state was a frozen flag set once
   at session start; each turn's origin is now marked on the message itself.
+- **Memory**: the system prompt kept the *first* 12,000 characters of the memory file, so as it
+  grew, old facts (written first) always stayed in context while newer ones (appended at the end)
+  silently fell out of it — e.g. an old address you corrected months ago could keep winning over
+  the current one. Memory is now kept as dated entries and rendered newest-first, so it's the
+  oldest facts that drop off once the budget is spent, not the newest. Note: existing `VIVI.md`
+  files from 0.1.x are not migrated — Vivi now reads from the new store only, starting empty; the
+  old file is left untouched on disk.
 
 ### Security
 

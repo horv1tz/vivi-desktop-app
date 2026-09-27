@@ -5,6 +5,7 @@ import { useUiStore, type SettingsSection } from '../../stores/ui'
 import { cn } from '../../lib/cn'
 import { GeneralSection } from './sections/GeneralSection'
 import { AgentSection } from './sections/AgentSection'
+import { MemorySection } from './sections/MemorySection'
 import { AboutSection } from './sections/AboutSection'
 import { AccountSection } from './sections/AccountSection'
 import { ProxySection } from './sections/ProxySection'
@@ -16,6 +17,7 @@ const sections: SettingsSection[] = [
   'general',
   'account',
   'agent',
+  'memory',
   'voice',
   'proxy',
   'permissions',
@@ -59,6 +61,7 @@ export function SettingsView() {
           {section === 'general' ? <GeneralSection /> : null}
           {section === 'account' ? <AccountSection /> : null}
           {section === 'agent' ? <AgentSection /> : null}
+          {section === 'memory' ? <MemorySection /> : null}
           {section === 'voice' ? <VoiceSection /> : null}
           {section === 'proxy' ? <ProxySection /> : null}
           {section === 'permissions' ? <PermissionsSection /> : null}
