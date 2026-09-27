@@ -98,6 +98,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parser and login runner, `PermissionBroker` (the permission-prompt/AskUserQuestion bridge), and
   the keyboard-combo parsing helpers (`keys.ts`) — 62 new tests.
 
+### Security
+
+- **Prompt injection**: the system prompt previously said nothing about content read from the web,
+  files, or screenshots being untrustworthy — a page or file containing text like "ignore previous
+  instructions" had nothing telling the model not to comply. Added explicit guidance treating such
+  content as data, not instructions, refusing embedded requests to run commands or reveal secrets,
+  and requiring confirmation before sending local data to an external destination. Verified against
+  the real model (not just the prompt text): a file containing an embedded "run this shell command"
+  instruction is read and summarized without the command ever executing.
+
 ### Fixed
 
 - **Computer control**: horizontal scroll (`dx`) was silently dropped by the fallback input driver
