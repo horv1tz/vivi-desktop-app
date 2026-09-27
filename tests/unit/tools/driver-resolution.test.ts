@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// The module under test imports `screen` from 'electron' (used by InputGuard, not by any of the
+// resolution logic these tests exercise). Left unmocked, that `import` resolves to the real
+// `electron` npm package — which, outside an actual Electron process, calls out to a synchronous,
+// network-downloading `getElectronPath()` the moment the binary isn't already on disk at the path
+// it expects. That's slow and platform-dependent (it reliably blew the 5s test timeout on Windows
+// CI, while Linux/macOS happened to already have a matching cached binary) and has nothing to do
+// with what this file is testing, so stub it out like every other test file that touches 'electron'.
+vi.mock('electron', () => ({ screen: { getAllDisplays: () => [] } }))
+
 class FakeRobotJs {
   readonly name = 'robotjs'
   private failWith: string | null
