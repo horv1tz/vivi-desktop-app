@@ -411,6 +411,8 @@
     "silenceHint": "How much silence ends a command",
     "followup": "Follow-up listening window, ms",
     "followupHint": "After Vivi finishes speaking, keep listening for this long without needing the wake word again. 0 disables it.",
+    "bargeInRequiresWakeWord": "Interrupt only with the wake word",
+    "bargeInRequiresWakeWordHint": "While Vivi is speaking, ordinary nearby speech (a TV, another conversation) won't interrupt her — only saying \"Vivi\" again will.",
     "inputDevice": "Microphone",
     "outputDevice": "Speakers",
     "defaultDevice": "System default",

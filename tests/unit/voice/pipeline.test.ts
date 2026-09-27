@@ -66,6 +66,7 @@ function setup(opts: Partial<ConstructorParameters<typeof VoicePipeline>[1]> = {
       wakeWordEnabled: true,
       bargeInMs: 300,
       bargeInGraceMs: 400,
+      bargeInRequiresWakeWord: false,
       now: () => now,
       ...opts,
     },
@@ -166,6 +167,85 @@ describe('VoicePipeline', () => {
     t.pipeline.startListening({ withPreRoll: false })
     t.pipeline.cancel()
     expect(t.pipeline.current).toBe('armed')
+  })
+})
+
+describe('VoicePipeline "interrupt only by wake word" barge-in (VO-04)', () => {
+  it('ordinary sustained speech does not interrupt while enabled', () => {
+    const t = setup({ bargeInRequiresWakeWord: true })
+    t.pipeline.arm()
+    t.pipeline.setSpeaking(true)
+    t.vad.speech = true
+    for (let i = 0; i < 20; i++) t.tick() // clear the grace period
+    for (let i = 0; i < 50; i++) t.tick() // far past the ordinary bargeInMs window
+    expect(t.events).not.toContain('barge-in')
+    expect(t.pipeline.current).toBe('armed')
+  })
+
+  it('the wake word does interrupt while enabled', () => {
+    const t = setup({ bargeInRequiresWakeWord: true })
+    t.pipeline.arm()
+    t.pipeline.setSpeaking(true)
+    for (let i = 0; i < 20; i++) t.tick() // clear the grace period
+    t.wake.fire = true
+    t.tick()
+    expect(t.events).toContain('barge-in')
+    expect(t.pipeline.current).toBe('listening')
+  })
+
+  it('falls back to ordinary VAD-gated barge-in when no wake engine is available', () => {
+    let now = 0
+    const vad = new FakeVad()
+    const events: string[] = []
+    const pipeline = new VoicePipeline(
+      { wake: null, vad, stt: new FakeStt() },
+      {
+        sampleRate: 16000,
+        silenceMs: 800,
+        followupMs: 0,
+        noSpeechTimeoutMs: 6000,
+        maxUtteranceMs: 30_000,
+        preRollMs: 1500,
+        wakeWordEnabled: false,
+        bargeInMs: 300,
+        bargeInGraceMs: 400,
+        bargeInRequiresWakeWord: true,
+        now: () => now,
+      },
+      {
+        onState: () => undefined,
+        onWake: () => undefined,
+        onPartial: () => undefined,
+        onFinal: () => undefined,
+        onTimeout: () => undefined,
+        onLevel: () => undefined,
+        onBargeIn: () => events.push('barge-in'),
+        onError: () => undefined,
+      },
+    )
+    const frame = new Float32Array(320)
+    const tick = (ms = 20): void => {
+      now += ms
+      pipeline.feed(frame)
+    }
+    pipeline.arm()
+    pipeline.setSpeaking(true)
+    vad.speech = true
+    for (let i = 0; i < 20; i++) tick() // clear the grace period
+    for (let i = 0; i < 16; i++) tick() // 320 ms of speech, past bargeInMs
+    expect(events).toContain('barge-in')
+    expect(pipeline.current).toBe('listening')
+  })
+
+  it('unchanged (VAD-gated) behavior when disabled, even with a wake engine present', () => {
+    const t = setup({ bargeInRequiresWakeWord: false })
+    t.pipeline.arm()
+    t.pipeline.setSpeaking(true)
+    t.vad.speech = true
+    for (let i = 0; i < 20; i++) t.tick()
+    for (let i = 0; i < 16; i++) t.tick()
+    expect(t.events).toContain('barge-in')
+    expect(t.pipeline.current).toBe('listening')
   })
 })
 

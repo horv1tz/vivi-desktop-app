@@ -20,6 +20,8 @@ export interface WorkerSettings {
   numThreads: number
   /** VO-03: how long to listen without the wake word after a voice-turn reply finishes speaking. 0 disables it. */
   followupMs: number
+  /** VO-04: only the wake word interrupts TTS playback, instead of any sustained speech. */
+  bargeInRequiresWakeWord: boolean
 }
 
 export type MainToWorker =

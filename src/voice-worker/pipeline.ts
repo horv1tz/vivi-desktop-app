@@ -51,6 +51,8 @@ export interface PipelineOptions {
   /** Barge-in: speech must persist this long while TTS is playing. */
   bargeInMs: number
   bargeInGraceMs: number
+  /** VO-04: only the wake word interrupts TTS playback, instead of any sustained speech. */
+  bargeInRequiresWakeWord: boolean
   /** VO-03: after a voice-turn reply finishes speaking, how long to listen without requiring the wake word again. 0 disables it. */
   followupMs: number
   now?: () => number
@@ -235,6 +237,19 @@ export class VoicePipeline {
   private detectBargeIn(frame: Float32Array): void {
     const t = this.now()
     if (t - this.speakingSince < this.opts.bargeInGraceMs) return
+    // VO-04: "interrupt only by wake word" — while Vivi is speaking, ordinary sustained speech
+    // (someone talking nearby, a TV, a phone call) never counts as an interrupt; only saying the
+    // wake word again does. Falls back to ordinary VAD-gated barge-in if the wake engine isn't
+    // available (wake word itself disabled, or PTT-only setup) — the setting can't silently
+    // disable barge-in entirely.
+    if (this.opts.bargeInRequiresWakeWord && this.engines.wake) {
+      if (!this.engines.wake.feed(frame)) return
+      this.speaking = false
+      this.engines.wake.reset()
+      this.events.onBargeIn()
+      this.startListening({ withPreRoll: false })
+      return
+    }
     const speech = this.engines.vad.feed(frame)
     if (!speech) {
       this.bargeSpeechStart = 0

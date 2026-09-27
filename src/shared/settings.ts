@@ -78,6 +78,8 @@ export const VoiceSettingsSchema = z.object({
   silenceMs: z.number().int().min(300).max(3000).default(800),
   /** VO-03: listen without the wake word for this long after Vivi finishes speaking a reply. 0 disables it. */
   followupMs: z.number().int().min(0).max(30_000).default(8_000),
+  /** VO-04: only the wake word interrupts TTS playback, instead of any sustained nearby speech. */
+  bargeInRequiresWakeWord: z.boolean().default(false),
   openaiVoice: z.string().default('alloy'),
 })
 

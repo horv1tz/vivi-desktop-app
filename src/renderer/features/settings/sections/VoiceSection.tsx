@@ -102,6 +102,16 @@ export function VoiceSection() {
             }
           />
         </Field>
+        <Field
+          label={t('voice.bargeInRequiresWakeWord')}
+          hint={t('voice.bargeInRequiresWakeWordHint')}
+          inline
+        >
+          <Switch
+            checked={s.bargeInRequiresWakeWord}
+            onCheckedChange={(v) => set({ bargeInRequiresWakeWord: v })}
+          />
+        </Field>
         <Field label={t('voice.inputDevice')} inline>
           <Select value={s.inputDeviceId} onChange={(e) => set({ inputDeviceId: e.target.value })}>
             <option value="">{t('voice.defaultDevice')}</option>

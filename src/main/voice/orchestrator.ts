@@ -376,6 +376,7 @@ export class VoiceOrchestrator {
         keywords: ['vivi', 'hey vivi', 'виви', 'эй виви', 'вивиан'],
         numThreads: Math.max(1, Math.min(4, Math.floor((cpus().length || 2) / 2))),
         followupMs: settings.voice.followupMs,
+        bargeInRequiresWakeWord: settings.voice.bargeInRequiresWakeWord,
       },
       libDir: sherpaLibDir() ?? undefined,
     })

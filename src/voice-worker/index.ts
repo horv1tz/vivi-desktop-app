@@ -136,6 +136,7 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
             wakeWordEnabled: msg.settings.wakeWordEnabled && !!engines.wake,
             bargeInMs: 300,
             bargeInGraceMs: 400,
+            bargeInRequiresWakeWord: msg.settings.bargeInRequiresWakeWord,
             followupMs: msg.settings.followupMs,
           },
           {

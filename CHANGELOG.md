@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restarts instead of always reopening at a fixed 1180×780 in the middle of the primary display.
   If the display it was last on has since been disconnected, it re-centers on the current primary
   display with the saved size rather than restoring off-screen and unreachable.
+- **Voice**: a new "Interrupt only with the wake word" setting (off by default) makes barge-in
+  during Vivi's replies require saying "Vivi" again, instead of any sustained nearby speech (a TV,
+  another conversation) cutting her off.
 
 ### Fixed
 
