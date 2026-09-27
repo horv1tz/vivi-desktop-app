@@ -84,6 +84,8 @@ VIVI_MODELS_DIR=<папка с моделями> LD_LIBRARY_PATH=$PWD/node_modul
 - `VIVI_INPUT_DRIVER=native|robotjs` — принудительный драйвер ввода.
 
 Архитектура — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), приватность — в [docs/PRIVACY.md](docs/PRIVACY.md).
+Подробнее об отдельных возможностях: [управление компьютером](docs/COMPUTER-USE.md),
+[голос](docs/VOICE.md), [ACP-режим](docs/ACP.md), [прокси](docs/PROXY.md).
 
 ## План развития
 
@@ -126,6 +128,8 @@ npm run dist:linux|dist:win|dist:mac
 Hotkeys: `Ctrl/Cmd+Shift+Space` quick command, `Ctrl/Cmd+Shift+Esc` emergency stop (or move the
 mouse into a screen corner). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/PRIVACY.md](docs/PRIVACY.md) and the development plan in [docs/ROADMAP.md](docs/ROADMAP.md).
+Feature guides: [computer use](docs/COMPUTER-USE.md), [voice](docs/VOICE.md),
+[ACP mode](docs/ACP.md), [proxy](docs/PROXY.md).
 
 ## License
 

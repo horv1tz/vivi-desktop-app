@@ -93,6 +93,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now also included in the one-click diagnostics export.
 - **Sessions**: past sessions in the sidebar can now be renamed in place (a pencil button next to
   delete) and filtered with a search box, instead of only being resumable or deletable.
+- **User documentation**: four new guides — `docs/COMPUTER-USE.md` (input drivers, permissions by
+  platform, screenshot handling, safety mechanisms), `docs/VOICE.md` (activation modes, wake-word
+  strategies, local/cloud models, barge-in), `docs/ACP.md` (the ACP backend, what it shares with
+  and how it differs from the default SDK backend), and `docs/PROXY.md` (proxy modes, exact
+  settings fields, the CA-certificate limitation) — linked from both the Russian and English
+  sections of the README.
 
 ### Chore
 
