@@ -25,6 +25,7 @@ describe('buildSystemPrompt (AG-01)', () => {
     homeDir: '/h',
     memoryFile: '/w/memory/VIVI.md',
     skillsFile: '/w/skills/skills.json',
+    scenariosFile: '/w/scenarios/scenarios.json',
   }
 
   it('explains the voice marker in the static part instead of a frozen process-level flag', () => {
@@ -49,6 +50,7 @@ describe('buildSystemPrompt untrusted content (SEC-05)', () => {
     homeDir: '/h',
     memoryFile: '/w/memory/VIVI.md',
     skillsFile: '/w/skills/skills.json',
+    scenariosFile: '/w/scenarios/scenarios.json',
   }
 
   it('tells the model that web/file/screenshot content is data, not instructions', () => {
@@ -79,6 +81,7 @@ describe('buildSystemPrompt skills (INT-02)', () => {
     workspaceDir: '/w',
     homeDir: '/h',
     memoryFile: '/w/memory/VIVI.md',
+    scenariosFile: '/w/scenarios/does-not-exist.json',
   }
 
   function writeSkills(entries: SkillEntry[]): string {

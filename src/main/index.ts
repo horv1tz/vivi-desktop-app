@@ -7,10 +7,13 @@ import {
   createOverlayWindow,
   destroyAllWindows,
   hideControlHud,
+  hideLauncherButton,
   markQuitting,
   pingControlHud,
+  showLauncherButton,
   showMainWindow,
   toggleOverlay,
+  watchLauncherDisplays,
 } from './app/windows'
 import { createTray, destroyTray, refreshTrayMenu } from './app/tray'
 import { registerShortcuts, unregisterShortcuts } from './app/shortcuts'
@@ -162,6 +165,8 @@ async function bootstrap(): Promise<void> {
   const mainWin = createMainWindow({ startHidden })
   createOverlayWindow()
   mainWin.webContents.on('did-finish-load', () => voice.redeliverAudioPort())
+  watchLauncherDisplays()
+  if (store.get().appearance.launcherButtonEnabled) showLauncherButton()
 
   const triggerKillSwitch = (): void => {
     inputGuard.trip()
@@ -252,11 +257,18 @@ async function bootstrap(): Promise<void> {
   applyAutostart(store.get().appearance.launchAtLogin, store.get().appearance.startMinimized)
   let voiceFingerprint = JSON.stringify(store.get().voice)
   let autostartFingerprint = `${store.get().appearance.launchAtLogin}:${store.get().appearance.startMinimized}`
+  let launcherButtonFingerprint = `${store.get().appearance.launcherButtonEnabled}`
   store.onChanged((next) => {
     const af = `${next.appearance.launchAtLogin}:${next.appearance.startMinimized}`
     if (af !== autostartFingerprint) {
       autostartFingerprint = af
       applyAutostart(next.appearance.launchAtLogin, next.appearance.startMinimized)
+    }
+    const lf = `${next.appearance.launcherButtonEnabled}`
+    if (lf !== launcherButtonFingerprint) {
+      launcherButtonFingerprint = lf
+      if (next.appearance.launcherButtonEnabled) showLauncherButton()
+      else hideLauncherButton()
     }
     const fp = JSON.stringify(next.voice)
     if (fp !== voiceFingerprint) {

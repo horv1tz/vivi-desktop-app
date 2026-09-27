@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { Activity, MessageSquarePlus, Pencil, Search, Settings, Trash2 } from 'lucide-react'
+import { Activity, MessageSquarePlus, Pencil, Search, Settings, Trash2, Wand2 } from 'lucide-react'
 import type { SessionSummary } from '@shared/events'
 import { invoke, useViviEvent } from '../../lib/bridge'
 import { useUiStore } from '../../stores/ui'
@@ -195,6 +195,13 @@ export function Sidebar() {
               onClick={() => setView('journal')}
             >
               <Activity size={16} /> {t('nav.activity')}
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn('w-full justify-start', view === 'workshop' && 'bg-line/70 text-fg')}
+              onClick={() => setView('workshop')}
+            >
+              <Wand2 size={16} /> {t('nav.workshop')}
             </Button>
             <Button
               variant="ghost"

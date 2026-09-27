@@ -18,6 +18,13 @@ import {
   setSkillEnabled,
   updateSkill,
 } from '../agent/tools/skills'
+import {
+  createScenario,
+  deleteScenario,
+  listScenarios,
+  setScenarioEnabled,
+  updateScenario,
+} from '../agent/tools/scenarios'
 import { handle } from './handlers'
 import { emit } from './emitters'
 
@@ -29,6 +36,10 @@ function currentMemoryFile(): string {
 
 function currentSkillsFile(): string {
   return paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir))
+}
+
+function currentScenariosFile(): string {
+  return paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir))
 }
 
 function getAppInfo(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): AppInfo {
@@ -157,5 +168,13 @@ export function registerCoreHandlers(opts: {
   handle('skills:delete', (_e, id) => deleteSkill(currentSkillsFile(), id))
   handle('skills:setEnabled', (_e, id, enabled) =>
     setSkillEnabled(currentSkillsFile(), id, enabled),
+  )
+
+  handle('scenarios:list', () => listScenarios(currentScenariosFile()))
+  handle('scenarios:create', (_e, input) => createScenario(currentScenariosFile(), input))
+  handle('scenarios:update', (_e, id, input) => updateScenario(currentScenariosFile(), id, input))
+  handle('scenarios:delete', (_e, id) => deleteScenario(currentScenariosFile(), id))
+  handle('scenarios:setEnabled', (_e, id, enabled) =>
+    setScenarioEnabled(currentScenariosFile(), id, enabled),
   )
 }

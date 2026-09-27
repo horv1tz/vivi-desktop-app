@@ -19,6 +19,7 @@ export const READ_ONLY_TOOLS = [
   'mcp__vivi__stop_speaking',
   'mcp__vivi__notify',
   'mcp__vivi__list_skills',
+  'mcp__vivi__list_scenarios',
 ]
 /** Privacy-sensitive read-only tools with their own toggle, separate from the blanket autoAllowReadOnly. */
 export const SCREEN_TOOLS = ['mcp__vivi__screenshot']
@@ -32,7 +33,13 @@ export const EDIT_TOOLS = [
   'mcp__vivi__manage_skill',
 ]
 export const EXEC_TOOLS = ['Bash', 'PowerShell', 'mcp__vivi__open', 'Agent', 'Skill']
-export const INPUT_TOOLS = ['mcp__vivi__mouse', 'mcp__vivi__keyboard', 'mcp__vivi__windows']
+export const INPUT_TOOLS = [
+  'mcp__vivi__mouse',
+  'mcp__vivi__keyboard',
+  'mcp__vivi__windows',
+  // WORK-02: a scenario can type/press keys via its own steps, same risk tier as keyboard directly.
+  'mcp__vivi__run_scenario',
+]
 export const SYSTEM_TOOLS = ['mcp__vivi__system']
 
 export function categorize(toolName: string): PermissionCategory {

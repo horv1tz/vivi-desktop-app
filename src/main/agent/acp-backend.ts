@@ -62,6 +62,7 @@ export interface AcpBackendDeps {
   homeDir: string
   memoryFile: () => string
   skillsFile: () => string
+  scenariosFile: () => string
   claudeConfigDir: string
   /** Explicit Claude Code binary (packaged builds); handed to the adapter as CLAUDE_CODE_EXECUTABLE. */
   claudeBinary?: string
@@ -694,6 +695,7 @@ export class AcpBackend implements AgentBackend {
       homeDir: this.deps.homeDir,
       memoryFile: this.deps.memoryFile(),
       skillsFile: this.deps.skillsFile(),
+      scenariosFile: this.deps.scenariosFile(),
       customInstructions: s.agent.customInstructions,
     })
     const options: Partial<SdkOptions> = {

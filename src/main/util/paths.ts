@@ -61,4 +61,11 @@ export const paths = {
   skillsFile(workspace: string): string {
     return join(paths.skillsDir(workspace), 'skills.json')
   },
+  scenariosDir(workspace: string): string {
+    return ensureDir(join(workspace, 'scenarios'))
+  },
+  /** WORK-02: named, ready-made action sequences the run_scenario tool replays on request. */
+  scenariosFile(workspace: string): string {
+    return join(paths.scenariosDir(workspace), 'scenarios.json')
+  },
 }

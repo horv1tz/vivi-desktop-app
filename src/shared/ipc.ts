@@ -15,6 +15,8 @@ import type {
   PermissionDecision,
   PermissionRequest,
   QuestionRequest,
+  ScenarioEntry,
+  ScenarioStep,
   SessionState,
   SessionSummary,
   UiMessage,
@@ -92,6 +94,21 @@ export interface InvokeMap {
   }
   'skills:delete': { args: [string]; result: void }
   'skills:setEnabled': { args: [string, boolean]; result: void }
+  /** WORK-02: named, ready-made action sequences the run_scenario tool replays on request. */
+  'scenarios:list': { args: []; result: ScenarioEntry[] }
+  'scenarios:create': {
+    args: [{ name: string; description: string; triggerPhrases: string[]; steps: ScenarioStep[] }]
+    result: { scenario?: ScenarioEntry; error?: string }
+  }
+  'scenarios:update': {
+    args: [
+      string,
+      { name: string; description: string; triggerPhrases: string[]; steps: ScenarioStep[] },
+    ]
+    result: { scenario?: ScenarioEntry; error?: string }
+  }
+  'scenarios:delete': { args: [string]; result: void }
+  'scenarios:setEnabled': { args: [string, boolean]; result: void }
   /** OBS-02: local, never-uploaded cost/token usage aggregated by day and by session. */
   'metrics:summary': { args: []; result: MetricsSummary }
   'metrics:clear': { args: []; result: void }

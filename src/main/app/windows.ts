@@ -13,6 +13,8 @@ let mainWindow: BrowserWindow | null = null
 let overlayWindow: BrowserWindow | null = null
 let hudWindow: BrowserWindow | null = null
 let hudHideTimer: ReturnType<typeof setTimeout> | null = null
+let launcherWindow: BrowserWindow | null = null
+let launcherDisplayWatcherStarted = false
 let quitting = false
 
 export function markQuitting(): void {
@@ -51,7 +53,7 @@ export function getOverlayWindow(): BrowserWindow | null {
  * screen-share the user is running in another app still sees Vivi normally the rest of the time.
  */
 export async function withOwnWindowsHidden<T>(fn: () => Promise<T>): Promise<T> {
-  const windows = [getMainWindow(), getOverlayWindow(), getHudWindow()].filter(
+  const windows = [getMainWindow(), getOverlayWindow(), getHudWindow(), getLauncherWindow()].filter(
     (w): w is BrowserWindow => w !== null,
   )
   for (const w of windows) w.setContentProtection(true)
@@ -229,6 +231,10 @@ export function createOverlayWindow(): BrowserWindow {
   overlayWindow = win
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.setAlwaysOnTop(true, 'screen-saver')
+  // overlay.html's own <title> tag would otherwise clobber this via page-title-updated — every
+  // window sharing that file (overlay, HUD, launcher) needs its constructor title to stick so
+  // they stay distinguishable by title (see e.g. the "overlay window exists" e2e check).
+  win.on('page-title-updated', (e) => e.preventDefault())
   win.on('blur', () => {
     if (win.isVisible() && !win.webContents.isDevToolsOpened()) hideOverlay()
   })
@@ -291,6 +297,7 @@ function createHudWindow(): BrowserWindow {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.setAlwaysOnTop(true, 'screen-saver')
   win.setIgnoreMouseEvents(true, { forward: true })
+  win.on('page-title-updated', (e) => e.preventDefault())
   win.on('closed', () => {
     hudWindow = null
   })
@@ -323,6 +330,100 @@ export function hideControlHud(): void {
     hudHideTimer = null
   }
   getHudWindow()?.hide()
+}
+
+const LAUNCHER_SIZE = 56
+const LAUNCHER_MARGIN = 12
+
+/**
+ * WORK-04: bottom-left corner of the primary display's work area — next to where a taskbar's
+ * Start button normally sits. This is the closest a third-party Electron app can get to a
+ * Cortana-style taskbar button: Windows has no API to embed into the real taskbar, so a small
+ * always-on-top floating window pinned to that corner is the honest approximation.
+ */
+function launcherPosition(): { x: number; y: number } {
+  const { x, y, height } = screen.getPrimaryDisplay().workArea
+  return { x: x + LAUNCHER_MARGIN, y: y + height - LAUNCHER_SIZE - LAUNCHER_MARGIN }
+}
+
+export function getLauncherWindow(): BrowserWindow | null {
+  return launcherWindow && !launcherWindow.isDestroyed() ? launcherWindow : null
+}
+
+function createLauncherWindow(): BrowserWindow {
+  const existing = getLauncherWindow()
+  if (existing) return existing
+
+  const { x, y } = launcherPosition()
+  const win = new BrowserWindow({
+    x,
+    y,
+    width: LAUNCHER_SIZE,
+    height: LAUNCHER_SIZE,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    focusable: true,
+    title: 'Vivi Quick Access',
+    ...(process.platform === 'darwin'
+      ? { type: 'panel' as const, hiddenInMissionControl: true }
+      : {}),
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      sandbox: false,
+      nodeIntegration: false,
+      spellcheck: false,
+      backgroundThrottling: false,
+    },
+  })
+  launcherWindow = win
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.on('page-title-updated', (e) => e.preventDefault())
+  win.on('closed', () => {
+    launcherWindow = null
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    log.error('launcher renderer gone', details)
+    if (details.reason !== 'clean-exit') win.webContents.reload()
+  })
+  loadRenderer(win, 'overlay.html', 'launcher')
+  return win
+}
+
+export function showLauncherButton(): void {
+  const win = getLauncherWindow() ?? createLauncherWindow()
+  const { x, y } = launcherPosition()
+  win.setPosition(x, y)
+  win.showInactive()
+}
+
+export function hideLauncherButton(): void {
+  getLauncherWindow()?.hide()
+}
+
+/** Keeps the launcher pinned to its corner if a display is connected/disconnected/rearranged while it's showing. Idempotent — safe to call on every startup. */
+export function watchLauncherDisplays(): void {
+  if (launcherDisplayWatcherStarted) return
+  launcherDisplayWatcherStarted = true
+  const reposition = (): void => {
+    const win = getLauncherWindow()
+    if (!win || !win.isVisible()) return
+    const { x, y } = launcherPosition()
+    win.setPosition(x, y)
+  }
+  screen.on('display-added', reposition)
+  screen.on('display-removed', reposition)
+  screen.on('display-metrics-changed', reposition)
 }
 
 export function showOverlay(): void {

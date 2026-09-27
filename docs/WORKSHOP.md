@@ -1,10 +1,11 @@
-# Skills and integrations
+# Workshop: skills, integrations and scenarios
 
-**Settings → Skills** is where Vivi's behavior can be extended in two different ways: **skills**
-(reusable instructions, plain text) and **integrations** (external tool servers, real programs).
-They're grouped on one screen because they answer the same question — "how do I make Vivi better
-at something specific" — but they work very differently underneath, and only one of them is
-something Vivi can set up herself.
+**Workshop** — a screen of its own in the sidebar, next to Activity and Settings, not buried
+inside Settings — is where Vivi's behavior can be extended in three different ways: **skills**
+(reusable instructions, plain text), **integrations** (external tool servers, real programs) and
+**scenarios** (fixed, ready-made action sequences). They're grouped on one screen because they all
+answer the same question — "how do I make Vivi better at something specific" — but they work very
+differently underneath, and only one of the three is something Vivi can set up herself.
 
 ## Skills
 
@@ -54,6 +55,34 @@ as everything else (read/edit/exec/etc., with the same "always allow" and confir
 through to the ACP-hosted agent — this is a real gap, not a deliberate restriction, tracked for a
 future release.
 
+## Scenarios
+
+A scenario is a named, ready-made sequence of concrete steps — for example "open Spotify, then
+press play." When you ask for something a scenario already covers, Vivi runs it directly instead
+of reasoning through each step from scratch: faster, and it always does exactly what you set up.
+
+Each step is one of a small, fixed set of actions:
+
+- **Open** — an app, file or URL (same as the `open` tool).
+- **Wait** — pause for a number of milliseconds before the next step.
+- **Press keys** — a key combo, e.g. `space` or `ctrl+shift+t`.
+- **Type text** — literal text typed into whatever's focused.
+- **Notify** — show a desktop notification.
+
+Steps run in order and can be reordered or removed while editing. Give the scenario a name, an
+optional description, and a few example phrases (comma-separated) that should trigger it — these
+are shown to Vivi so she can match a request like "play some music" to your "Play music" scenario.
+
+**Scenarios are never something Vivi can create herself**, for the same reason integrations
+aren't: unlike a skill, which is just text, a scenario performs real actions on your computer when
+run. Assembling one is a decision only you make, here in the Workshop screen. Vivi can only ever
+run an existing scenario (via the `run_scenario` tool, after checking `list_scenarios`), never
+create, edit or delete one.
+
+The step vocabulary is deliberately narrow — there's no "run any tool" step. A scenario is meant to
+stay a small, reviewable macro you can read top to bottom and trust, not an open-ended way to chain
+arbitrary actions.
+
 ## Troubleshooting
 
 - **A skill I just saved doesn't seem to apply** — start a *new* chat (not "continue last
@@ -63,4 +92,9 @@ future release.
   isn't actually installed will simply fail to connect); toggle it off and back on, or restart
   Vivi, if you just installed the underlying program.
 - **"a skill named … already exists"** — skill names must be unique (case-insensitive); rename the
-  new one or edit the existing one instead.
+  new one or edit the existing one instead. Scenario names must be unique the same way.
+- **Vivi doesn't run my scenario when I ask for it** — check it's enabled, and that your phrasing
+  is close to one of its example trigger phrases; add a phrase that matches how you actually ask.
+- **A scenario step fails partway through** — `run_scenario` stops at the first failing step (e.g.
+  a "press keys" step with no working input driver) and reports exactly which step failed and what
+  ran before it, rather than silently skipping ahead.

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Workshop screen** (INT-05, UX-11, UX-12): skills and integrations moved out of Settings into
+  their own top-level screen, "Workshop", alongside Chat/Activity/Settings — the same nav pattern
+  Activity already used, not a settings sub-panel.
+- **Scenarios**: a new third tab in Workshop for named, ready-made action sequences (e.g. "open
+  Spotify, then press play") — a small, fixed step vocabulary (open, wait, press keys, type text,
+  notify). Vivi runs an existing scenario directly via a new `run_scenario` tool (after checking
+  `list_scenarios`) instead of reasoning through each step itself. Like integrations, scenarios are
+  never agent-creatable — only assembled by the user in the Workshop screen, since they perform
+  real actions on the computer.
+- **Floating quick-access button**: a small always-on-top button pinned near the bottom-left corner
+  of the screen (the closest a third-party Electron app can get to a Cortana-style taskbar button —
+  there's no OS API to embed into the real Windows taskbar) that opens the overlay on click. New
+  Settings → General toggle to show/hide it.
+
+### Fixed
+
+- The overlay, control HUD and new launcher windows all load the same `overlay.html` file (by
+  hash), which carries its own `<title>` tag; Electron was letting the loaded page's title silently
+  override each window's constructor-set title via `page-title-updated`, so the HUD and launcher
+  windows' real native titles were always "Vivi Overlay", not "Vivi Control HUD" / "Vivi Quick
+  Access" as intended — harmless before (nothing looked up the HUD window by title), but it broke
+  title-based window lookup once a second always-created window shared the collision. Fixed by
+  keeping each window's title fixed on `page-title-updated`.
+
 ## [0.3.0] - 2026-09-27
 
 ### Added

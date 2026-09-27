@@ -11,6 +11,7 @@ import { listInstalledApps, openTarget } from './apps'
 import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from './system'
 import { rememberEntry } from './memory'
 import { createSkill, deleteSkill, listSkills, setSkillEnabled, updateSkill } from './skills'
+import { listScenarios, runScenario } from './scenarios'
 import { listWindows } from './windows-list'
 import type { InputDriver } from './input-driver'
 import { error, text, image, truncate } from './util'
@@ -18,6 +19,7 @@ import { error, text, image, truncate } from './util'
 export interface ViviToolDeps {
   memoryFile: () => string
   skillsFile: () => string
+  scenariosFile: () => string
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
@@ -550,6 +552,53 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
   )
 
+  const listScenariosTool = tool(
+    'list_scenarios',
+    'List ready-made scenarios (name, description, example trigger phrases, enabled state) that run_scenario can execute. A scenario is a fixed, user-assembled sequence of steps (e.g. "open Spotify, then press play") — check here for one matching the user\'s request before doing the steps yourself.',
+    {},
+    async () => {
+      try {
+        const scenarios = listScenarios(deps.scenariosFile())
+        if (!scenarios.length) return text('no scenarios yet')
+        return text(
+          scenarios
+            .map(
+              (s) =>
+                `${s.enabled ? '✓' : '✗'} "${s.name}"${s.enabled ? '' : ' (disabled)'} — ${s.description || `${s.steps.length} step(s)`}${s.triggerPhrases.length ? ` [e.g. ${s.triggerPhrases.map((p) => `"${p}"`).join(', ')}]` : ''}`,
+            )
+            .join('\n'),
+        )
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
+
+  const runScenarioTool = tool(
+    'run_scenario',
+    'Run a ready-made scenario by name or id — a fixed sequence of steps (open an app, wait, press keys, type text, notify) that runs directly instead of you reasoning through each step. Use list_scenarios first to find the right one. Scenarios can only be created/edited by the user in the Workshop screen, never by you.',
+    { name: z.string().min(1).describe('Scenario name or id, from list_scenarios') },
+    async ({ name }) => {
+      try {
+        await deps.beforeInputAction?.('pointer')
+        const result = await runScenario(deps.scenariosFile(), name, {
+          inputDriver: deps.inputDriver,
+        })
+        if (result.error)
+          return error(
+            result.log?.length
+              ? `${result.error} (completed so far: ${result.log.join('; ')})`
+              : result.error,
+          )
+        return text(`ran scenario "${result.ran}": ${result.log?.join('; ') || 'done'}`)
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+    { annotations: { destructiveHint: true } },
+  )
+
   return createSdkMcpServer({
     name: 'vivi',
     version: '1.0.0',
@@ -571,6 +620,8 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       remember,
       listSkillsTool,
       manageSkill,
+      listScenariosTool,
+      runScenarioTool,
     ],
   })
 }

@@ -107,6 +107,12 @@ export const AppearanceSettingsSchema = z.object({
   overlayHotkey: z.string().default('CommandOrControl+Shift+Space'),
   killSwitchHotkey: z.string().default('CommandOrControl+Shift+Escape'),
   reduceMotion: z.boolean().default(false),
+  /**
+   * WORK-04: a small always-on-top floating button pinned near the corner of the screen, for a
+   * one-click way to open the overlay without the hotkey — the closest a third-party Electron app
+   * can get to a Cortana-style taskbar button (there is no OS API to embed into the real taskbar).
+   */
+  launcherButtonEnabled: z.boolean().default(true),
 })
 
 export const AuthModeSchema = z.enum([

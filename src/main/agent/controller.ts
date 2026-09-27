@@ -73,6 +73,8 @@ export class AgentController {
     return createViviMcpServer({
       memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
       skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
+      scenariosFile: () =>
+        paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
       speak: this.deps.speak,
       stopSpeaking: this.deps.stopSpeaking,
       inputDriver: this.deps.inputDriver,
@@ -154,6 +156,8 @@ export class AgentController {
       homeDir: paths.home,
       memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
       skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
+      scenariosFile: () =>
+        paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
       debugFile: () =>

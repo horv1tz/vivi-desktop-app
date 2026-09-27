@@ -40,6 +40,16 @@ export function GeneralSection() {
         <Field label={t('settings.general.startMinimized')} inline>
           <Switch checked={s.startMinimized} onCheckedChange={(v) => set({ startMinimized: v })} />
         </Field>
+        <Field
+          label={t('settings.general.launcherButton')}
+          hint={t('settings.general.launcherButtonHint')}
+          inline
+        >
+          <Switch
+            checked={s.launcherButtonEnabled}
+            onCheckedChange={(v) => set({ launcherButtonEnabled: v })}
+          />
+        </Field>
       </Section>
       <Section
         title={t('settings.general.overlayHotkey')}

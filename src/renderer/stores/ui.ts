@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 
-export type View = 'chat' | 'settings' | 'onboarding' | 'journal'
+export type View = 'chat' | 'settings' | 'onboarding' | 'journal' | 'workshop'
 export type SettingsSection =
   | 'general'
   | 'account'
   | 'agent'
   | 'memory'
-  | 'skills'
   | 'voice'
   | 'proxy'
   | 'permissions'

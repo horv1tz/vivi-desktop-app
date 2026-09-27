@@ -10,6 +10,7 @@ import { Sidebar } from './features/layout/Sidebar'
 import { ChatView } from './features/chat/ChatView'
 import { SettingsView } from './features/settings/SettingsView'
 import { JournalView } from './features/journal/JournalView'
+import { WorkshopView } from './features/workshop/WorkshopView'
 import { PermissionDialog } from './features/permissions/PermissionDialog'
 import { QuestionDialog } from './features/permissions/QuestionDialog'
 import { OnboardingView } from './features/onboarding/OnboardingView'
@@ -64,6 +65,8 @@ export function App() {
                 <SettingsView />
               ) : view === 'journal' ? (
                 <JournalView />
+              ) : view === 'workshop' ? (
+                <WorkshopView />
               ) : (
                 <ChatView mockAgent={info?.mockAgent ?? false} />
               )}

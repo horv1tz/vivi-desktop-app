@@ -22,6 +22,7 @@
 - **Настоящий агент, а не чат.** Внутри — [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) (Claude Code как библиотека): Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch, подзадачи, сессии, память.
 - **Два способа подключения к Claude.** По умолчанию — Agent SDK внутри приложения. Альтернатива — **ACP (Agent Client Protocol)**: Vivi запускает Claude Code как отдельный ACP-агент через официальный адаптер [`claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp) (тот же протокол, что в Zed и JetBrains) и общается с ним по JSON-RPC. В этом режиме можно подключить и любой другой ACP-агент (команда + аргументы в настройках); инструменты Vivi при этом передаются агенту по локальному MCP-серверу.
 - **Управление компьютером.** Встроенный MCP-сервер `vivi`: скриншоты, мышь и клавиатура, окна, запуск приложений/файлов/URL, буфер обмена, уведомления, громкость/блокировка/сон, `remember` (память в `~/Vivi/memory/VIVI.md`).
+- **Мастерская.** Отдельный экран (не в настройках): скилы — переиспользуемые инструкции, которые Vivi может создавать сама; интеграции — внешние MCP-серверы; сценарии — готовые макросы вида «открой Spotify и включи музыку», которые Vivi запускает по запросу напрямую. Интеграции и сценарии — только через явную настройку здесь, агент их сам не создаёт. Кнопка быстрого доступа у угла экрана открывает overlay в один клик.
 - **Разрешения по категориям.** Чтение без вопросов, правки/команды/управление — с подтверждением; опасные команды (`rm -rf`, `sudo`, `shutdown`, force-push) всегда требуют подтверждения. Kill-switch `Ctrl/Cmd+Shift+Esc`, fail-safe «мышь в угол экрана».
 - **Вход через Claude.** Подписка Claude (вход через встроенный Claude Code), долгоживущий токен `claude setup-token` или API-ключ Anthropic. Секреты — в системном хранилище (Keychain/DPAPI/Secret Service).
 - **Прокси.** HTTP/HTTPS/SOCKS5 с логином и паролем, свой CA-сертификат; для SOCKS5 и авторизованных прокси Vivi поднимает локальный HTTP-мост, потому что Claude Code понимает только `HTTPS_PROXY`.
@@ -86,7 +87,7 @@ VIVI_MODELS_DIR=<папка с моделями> LD_LIBRARY_PATH=$PWD/node_modul
 Архитектура — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), приватность — в [docs/PRIVACY.md](docs/PRIVACY.md).
 Подробнее об отдельных возможностях: [управление компьютером](docs/COMPUTER-USE.md),
 [голос](docs/VOICE.md), [ACP-режим](docs/ACP.md), [прокси](docs/PROXY.md),
-[скилы и интеграции](docs/SKILLS.md), [подпись сборок и антивирусы](docs/CODE-SIGNING.md).
+[мастерская: скилы, интеграции и сценарии](docs/WORKSHOP.md), [подпись сборок и антивирусы](docs/CODE-SIGNING.md).
 
 ## План развития
 
@@ -116,6 +117,13 @@ Protocol)**: Vivi spawns Claude Code as a separate ACP agent through the officia
 (the protocol Zed and JetBrains use), and any other ACP agent can be plugged in from Settings → Agent;
 Vivi's own tools reach the agent over a local MCP endpoint.
 
+**Workshop** is a screen of its own (not tucked into Settings) for extending what Vivi can do:
+skills (reusable instructions Vivi can write for herself), integrations (external MCP servers) and
+scenarios (ready-made action sequences, e.g. "open Spotify, then press play", that Vivi runs
+directly on request). Integrations and scenarios are configured here explicitly — the agent never
+creates one on its own. A small floating quick-access button near the corner of the screen opens
+the overlay with one click.
+
 Sign in with a Claude subscription (personal use with your own subscription only — see the note
 above), a `claude setup-token` token, or an Anthropic API key. HTTP/HTTPS/SOCKS5 proxies with
 authentication are supported (a local bridge translates SOCKS5 for Claude Code). Voice runs offline
@@ -130,8 +138,8 @@ Hotkeys: `Ctrl/Cmd+Shift+Space` quick command, `Ctrl/Cmd+Shift+Esc` emergency st
 mouse into a screen corner). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/PRIVACY.md](docs/PRIVACY.md) and the development plan in [docs/ROADMAP.md](docs/ROADMAP.md).
 Feature guides: [computer use](docs/COMPUTER-USE.md), [voice](docs/VOICE.md),
-[ACP mode](docs/ACP.md), [proxy](docs/PROXY.md), [skills &
-integrations](docs/SKILLS.md), [code signing & antivirus](docs/CODE-SIGNING.md).
+[ACP mode](docs/ACP.md), [proxy](docs/PROXY.md), [workshop: skills, integrations &
+scenarios](docs/WORKSHOP.md), [code signing & antivirus](docs/CODE-SIGNING.md).
 
 ## License
 

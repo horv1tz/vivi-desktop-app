@@ -8,7 +8,8 @@
     "settings": "Settings",
     "newChat": "New chat",
     "sessions": "Sessions",
-    "activity": "Activity"
+    "activity": "Activity",
+    "workshop": "Workshop"
   },
   "state": {
     "starting": "Starting…",
@@ -115,7 +116,6 @@
       "account": "Account",
       "agent": "Agent",
       "memory": "Memory",
-      "skills": "Skills",
       "voice": "Voice",
       "proxy": "Proxy",
       "permissions": "Permissions",
@@ -134,7 +134,9 @@
       "overlayHotkey": "Quick command hotkey",
       "killSwitchHotkey": "Emergency stop hotkey",
       "reduceMotion": "Reduce motion",
-      "hotkeyHint": "Electron accelerator format: CommandOrControl+Shift+Space"
+      "hotkeyHint": "Electron accelerator format: CommandOrControl+Shift+Space",
+      "launcherButton": "Show quick-access button",
+      "launcherButtonHint": "A small floating button near the bottom-left corner of the screen that opens the quick command overlay on click — the closest a regular desktop app can get to a Cortana-style taskbar button, since Windows has no API for a third-party app to add one to the real taskbar."
     },
     "agent": {
       "model": "Model",
@@ -196,7 +198,8 @@
     "skills": {
       "tabs": {
         "skills": "Skills",
-        "integrations": "Integrations"
+        "integrations": "Integrations",
+        "scenarios": "Scenarios"
       },
       "title": "Skills",
       "description": "Named, reusable blocks of instructions injected into Vivi's own system prompt when enabled — a repeatable procedure, house style, or preferred approach to a recurring task. Vivi can create and edit these herself when you teach her something worth keeping this way (see the manage_skill tool), or you can write one directly here.",
@@ -223,7 +226,32 @@
       "transport": "Transport",
       "command": "Command",
       "args": "Arguments",
-      "url": "URL"
+      "url": "URL",
+      "scenariosTitle": "Scenarios",
+      "scenariosDescription": "Ready-made action sequences Vivi runs on request instead of reasoning through each step (e.g. \"open Spotify, then press play\"). You assemble these here; Vivi can run one via run_scenario but can never create or edit one herself.",
+      "newScenario": "New scenario",
+      "noScenarios": "No scenarios yet.",
+      "triggerPhrases": "Example trigger phrases",
+      "triggerPhrasesHint": "Comma-separated. Shown to Vivi so she can match a request to this scenario, e.g. \"play music, start Spotify\".",
+      "steps": "Steps",
+      "addStep": "Add step",
+      "noSteps": "No steps yet — add at least one.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeStep": "Remove step",
+      "stepKinds": {
+        "open": "Open app/file/URL",
+        "wait": "Wait",
+        "key": "Press keys",
+        "type": "Type text",
+        "notify": "Show notification"
+      },
+      "stepTarget": "App name, path or URL",
+      "stepMs": "Milliseconds",
+      "stepKeys": "Key combo (e.g. space, ctrl+shift+t)",
+      "stepText": "Text to type",
+      "stepTitle": "Notification title",
+      "stepBody": "Notification body (optional)"
     },
     "usage": {
       "title": "Usage",

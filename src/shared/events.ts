@@ -282,6 +282,48 @@ export interface SkillEntry {
   updatedAt: number
 }
 
+/**
+ * WORK-02: one concrete, executable step of a scenario. Deliberately a small, closed vocabulary
+ * (not "run any tool") — scenarios are meant to be pre-built, reviewable macros the user assembles
+ * once and Vivi replays deterministically, not a way to smuggle in arbitrary tool calls.
+ */
+export type ScenarioStepKind = 'open' | 'wait' | 'key' | 'type' | 'notify'
+
+export interface ScenarioStep {
+  kind: ScenarioStepKind
+  /** 'open': app name, path or URL. */
+  target?: string
+  /** 'wait': milliseconds to pause before the next step. */
+  ms?: number
+  /** 'key': a combo like "space" or "ctrl+shift+t", same syntax as the keyboard tool. */
+  keys?: string
+  /** 'type': literal text to type. */
+  text?: string
+  /** 'notify': notification title. */
+  title?: string
+  /** 'notify': notification body. */
+  body?: string
+}
+
+/**
+ * WORK-02: a named, ready-made sequence of steps Vivi runs on request (e.g. "open Spotify and
+ * press play") via the run_scenario tool, instead of reasoning through each step itself. Unlike a
+ * skill (plain text) or an integration (an external program), a scenario performs real actions on
+ * the user's computer directly — so, like an integration, it is deliberately never
+ * agent-authorable: only the user assembles one, through the Workshop screen.
+ */
+export interface ScenarioEntry {
+  id: string
+  name: string
+  description: string
+  /** Example phrases that should trigger this scenario, shown to the model so it can match intent. */
+  triggerPhrases: string[]
+  steps: ScenarioStep[]
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 /** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
 export interface JournalEntry {
   id: string

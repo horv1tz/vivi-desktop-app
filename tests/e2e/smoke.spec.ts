@@ -113,12 +113,11 @@ test('settings view opens and switches sections', async () => {
   ).toBeVisible({ timeout: 10_000 })
 })
 
-test('Skills settings: create, toggle and delete a skill; add and remove an integration (INT-02)', async () => {
+test('Workshop: create, toggle and delete a skill, an integration and a scenario (INT-02, WORK-01/02)', async () => {
   await page
-    .getByRole('button', { name: /Настройки|Settings/ })
+    .getByRole('button', { name: /Мастерская|Workshop/ })
     .first()
     .click()
-  await page.getByRole('button', { name: /^Скилы$|^Skills$/ }).click()
   await expect(page.getByText(/Пока нет скилов|No skills yet/)).toBeVisible()
 
   await page.getByRole('button', { name: /Новый скил|New skill/ }).click()
@@ -155,6 +154,28 @@ test('Skills settings: create, toggle and delete a skill; add and remove an inte
 
   await integrationRow.getByTitle(/Удалить|Delete/).click()
   await expect(page.getByText(/не настроены|No integrations configured/)).toBeVisible()
+
+  await page.getByRole('button', { name: /^Сценарии$|^Scenarios$/ }).click()
+  await expect(page.getByText(/Пока нет сценариев|No scenarios yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /Новый сценарий|New scenario/ }).click()
+  await page.getByLabel(/^Название$|^Name$/).fill('Play music')
+  await page.getByLabel(/^Описание$|^Description$/).fill('Opens Spotify and starts playback')
+  await page.getByRole('combobox').selectOption('wait')
+  await page.getByPlaceholder(/Миллисекунды|Milliseconds/).fill('500')
+  await page.getByRole('button', { name: /Сохранить|Save/ }).click()
+
+  const scenarioRow = page.getByTestId('scenario-row').filter({ hasText: 'Play music' })
+  await expect(scenarioRow).toBeVisible()
+  await expect(page.getByText('Opens Spotify and starts playback')).toBeVisible()
+
+  const scenarioSwitch = scenarioRow.getByRole('switch')
+  await expect(scenarioSwitch).toHaveAttribute('data-state', 'checked')
+  await scenarioSwitch.click()
+  await expect(scenarioSwitch).toHaveAttribute('data-state', 'unchecked')
+
+  await scenarioRow.getByTitle(/Удалить|Delete/).click()
+  await expect(page.getByText(/Пока нет сценариев|No scenarios yet/)).toBeVisible()
 })
 
 test('overlay window exists and can be toggled via IPC', async () => {
@@ -165,6 +186,48 @@ test('overlay window exists and can be toggled via IPC', async () => {
     return overlay?.isVisible() ?? null
   })
   expect(visible).toBe(false)
+})
+
+test('WORK-04: the floating launcher button exists, shows by default, and toggles the overlay on click', async () => {
+  const shown = await app.evaluate(async ({ BrowserWindow }) => {
+    const launcher = BrowserWindow.getAllWindows().find((w) => w.getTitle() === 'Vivi Quick Access')
+    return launcher?.isVisible() ?? null
+  })
+  expect(shown).toBe(true)
+
+  let launcherPage = app.windows().find((w) => w.url().includes('#launcher'))
+  if (!launcherPage) {
+    launcherPage = await app.waitForEvent('window', {
+      predicate: (w) => w.url().includes('#launcher'),
+    })
+  }
+  await launcherPage.waitForLoadState('domcontentloaded')
+
+  const overlayVisibleBefore = await app.evaluate(async ({ BrowserWindow }) => {
+    const overlay = BrowserWindow.getAllWindows().find((w) => w.getTitle().includes('Overlay'))
+    return overlay?.isVisible() ?? null
+  })
+  expect(overlayVisibleBefore).toBe(false)
+
+  await launcherPage.getByRole('button', { name: 'Vivi' }).click()
+
+  await expect(async () => {
+    const overlayVisibleAfter = await app.evaluate(async ({ BrowserWindow }) => {
+      const overlay = BrowserWindow.getAllWindows().find((w) => w.getTitle().includes('Overlay'))
+      return overlay?.isVisible() ?? null
+    })
+    expect(overlayVisibleAfter).toBe(true)
+  }).toPass({ timeout: 5_000 })
+
+  // Leave things as this spec file's later tests expect: overlay hidden again.
+  await launcherPage.getByRole('button', { name: 'Vivi' }).click()
+  await expect(async () => {
+    const overlayVisibleAfter = await app.evaluate(async ({ BrowserWindow }) => {
+      const overlay = BrowserWindow.getAllWindows().find((w) => w.getTitle().includes('Overlay'))
+      return overlay?.isVisible() ?? null
+    })
+    expect(overlayVisibleAfter).toBe(false)
+  }).toPass({ timeout: 5_000 })
 })
 
 test('fresh profile starts with onboarding', async () => {
