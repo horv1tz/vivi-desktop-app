@@ -30,6 +30,10 @@ export const paths = {
   get journalFile(): string {
     return join(ensureDir(join(app.getPath('userData'), 'journal')), 'journal.json')
   },
+  /** UX-08: saved main-window size/position/maximized state, restored across restarts. */
+  get windowStateFile(): string {
+    return join(app.getPath('userData'), 'window-state.json')
+  },
   get defaultWorkspace(): string {
     return join(homedir(), 'Vivi')
   },

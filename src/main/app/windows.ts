@@ -3,6 +3,8 @@ import { BrowserWindow, app, screen, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
+import { paths } from '../util/paths'
+import { clampToDisplays, loadWindowState, saveWindowState } from './window-state'
 import icon from '../../../resources/icon.png?asset'
 
 const log = logger('windows')
@@ -60,15 +62,51 @@ export async function withOwnWindowsHidden<T>(fn: () => Promise<T>): Promise<T> 
   }
 }
 
+const DEFAULT_WIDTH = 1180
+const DEFAULT_HEIGHT = 780
+const MIN_WIDTH = 880
+const MIN_HEIGHT = 560
+const SAVE_BOUNDS_DEBOUNCE_MS = 500
+
+/**
+ * UX-08: the un-maximized bounds are the only ones meaningful as a "restore to" size — while
+ * maximized, `getBounds()` reports the full-screen rect, which would otherwise clobber the real
+ * saved size the next time the user un-maximizes.
+ */
+function restorableBounds(win: BrowserWindow): {
+  x: number
+  y: number
+  width: number
+  height: number
+} {
+  return win.isMaximized() ? win.getNormalBounds() : win.getBounds()
+}
+
 export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow {
   const existing = getMainWindow()
   if (existing) return existing
 
+  // UX-08: restores the window to wherever the user last left it instead of always reopening at a
+  // fixed size in the middle of the primary display. Falls back to the hardcoded default if
+  // nothing was saved yet or the file is unreadable/corrupt; clamped in case a monitor the window
+  // was saved on has since been disconnected.
+  const saved = loadWindowState(paths.windowStateFile)
+  const { x, y, width, height } = saved
+    ? clampToDisplays(
+        saved,
+        screen.getAllDisplays().map((d) => d.bounds),
+        MIN_WIDTH,
+        MIN_HEIGHT,
+      )
+    : { x: undefined, y: undefined, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }
+
   const win = new BrowserWindow({
-    width: 1180,
-    height: 780,
-    minWidth: 880,
-    minHeight: 560,
+    x,
+    y,
+    width,
+    height,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0b0d14',
@@ -90,11 +128,28 @@ export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow 
     },
   })
   mainWindow = win
+  if (saved?.isMaximized) win.maximize()
+
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  const scheduleSaveBounds = (): void => {
+    if (win.isMinimized()) return
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveWindowState(paths.windowStateFile, {
+        ...restorableBounds(win),
+        isMaximized: win.isMaximized(),
+      })
+    }, SAVE_BOUNDS_DEBOUNCE_MS)
+  }
 
   win.on('ready-to-show', () => {
     if (!opts.startHidden) win.show()
   })
+  win.on('resize', scheduleSaveBounds)
+  win.on('move', scheduleSaveBounds)
   win.on('close', (e) => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveMainWindowState()
     // Vivi lives in the tray: closing the window hides it unless the app is quitting.
     if (!quitting) {
       e.preventDefault()
@@ -115,6 +170,21 @@ export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow 
 
   loadRenderer(win, 'index.html')
   return win
+}
+
+/**
+ * Persists the current main-window bounds immediately. Exposed for the app-quit path
+ * (`BrowserWindow.destroy()`, used when force-closing all windows, skips the 'close' event
+ * entirely) so the last known position/size is still saved even when the window is torn down
+ * without a normal close.
+ */
+export function saveMainWindowState(): void {
+  const win = getMainWindow()
+  if (!win) return
+  saveWindowState(paths.windowStateFile, {
+    ...restorableBounds(win),
+    isMaximized: win.isMaximized(),
+  })
 }
 
 export function showMainWindow(): void {
@@ -287,6 +357,8 @@ export function isOverlayVisible(): boolean {
 
 export function destroyAllWindows(): void {
   markQuitting()
+  // destroy() skips the 'close' event entirely, so the debounced/close-triggered saves never run.
+  saveMainWindowState()
   for (const w of BrowserWindow.getAllWindows()) w.destroy()
 }
 

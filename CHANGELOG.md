@@ -60,6 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   single-select question can be answered by number or by naming the option. Previously these
   prompts were silent from voice mode's perspective — you had to look at the screen to notice one
   was even waiting.
+- **Window state**: the main window now remembers its size, position, and maximized state across
+  restarts instead of always reopening at a fixed 1180×780 in the middle of the primary display.
+  If the display it was last on has since been disconnected, it re-centers on the current primary
+  display with the saved size rather than restoring off-screen and unreachable.
 
 ### Fixed
 
