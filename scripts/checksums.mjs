@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const INSTALLER_EXTENSIONS = ['.AppImage', '.deb', '.exe', '.dmg', '.zip']
 
@@ -27,7 +28,11 @@ export async function writeChecksums(distDir, outFile) {
   return { files, content }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `pathToFileURL` (not a manual `file://${...}` template) handles Windows drive letters and
+// backslashes correctly — a naive string comparison never matches on Windows, so this "am I the
+// CLI entry point, not just imported" check silently stayed false there, and the script exited 0
+// having written nothing at all.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const distDir = process.argv[2] ?? 'dist'
   const outFile = process.argv[3] ?? 'checksums.txt'
   const { files, content } = await writeChecksums(distDir, outFile)
