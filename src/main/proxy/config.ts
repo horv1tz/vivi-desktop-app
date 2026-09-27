@@ -45,6 +45,41 @@ export function resolveProxy(settings: ProxySettings, password: string | null): 
   return { upstreamUrl, proxyRules, proxyBypassRules: settings.bypass, needsBridge, mode: 'manual' }
 }
 
+/**
+ * UX-02: "system" mode only ever configured Electron's own network stack
+ * (`session.setProxy({mode:'system'})`) — the Claude CLI is a separate subprocess that doesn't go
+ * through that session at all and only ever sees a real proxy via HTTPS_PROXY/HTTP_PROXY env vars.
+ * Without this, "system" mode silently left the CLI on a direct connection even on a network that
+ * requires a proxy. `ProxyManager.apply()` resolves the OS/PAC proxy for a real URL via
+ * `session.resolveProxy()` and folds the result into `ResolvedProxy` via this function before
+ * `proxyEnv()` runs, so the same upstream/bridge machinery manual mode already uses just works.
+ */
+export function applySystemProxyResolution(base: ResolvedProxy, raw: string): ResolvedProxy {
+  const parsed = parseResolvedProxyString(raw)
+  if (!parsed) return { ...base, upstreamUrl: null, needsBridge: false }
+  return {
+    ...base,
+    upstreamUrl: `${parsed.scheme}://${parsed.host}:${parsed.port}`,
+    needsBridge: parsed.scheme === 'socks5',
+  }
+}
+
+/**
+ * Parses one entry of Electron's `session.resolveProxy()` result, e.g. "PROXY host:8080",
+ * "SOCKS5 host:1080", or "DIRECT" (and "HTTPS host:443", used by some PAC scripts). Multiple
+ * space/semicolon-free fallback entries are separated by `;`; only the first is used, matching
+ * how a plain HTTP client without failover would behave.
+ */
+export function parseResolvedProxyString(
+  raw: string,
+): { scheme: 'http' | 'socks5'; host: string; port: number } | null {
+  const first = raw.split(';')[0]?.trim() ?? ''
+  const m = /^(PROXY|HTTPS|SOCKS5?|SOCKS4A?)\s+([^\s:]+):(\d+)$/i.exec(first)
+  if (!m) return null
+  const scheme = m[1]!.toUpperCase().startsWith('SOCKS') ? 'socks5' : 'http'
+  return { scheme, host: m[2]!, port: Number(m[3]) }
+}
+
 /** Env vars for the Claude Code subprocess. `bridgeUrl` replaces the upstream when a local bridge runs. */
 export function proxyEnv(
   resolved: ResolvedProxy,
@@ -52,7 +87,7 @@ export function proxyEnv(
   caCertPath: string,
 ): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {}
-  if (resolved.mode === 'manual') {
+  if (resolved.mode === 'manual' || (resolved.mode === 'system' && resolved.upstreamUrl)) {
     const url = bridgeUrl ?? resolved.upstreamUrl ?? undefined
     env.HTTPS_PROXY = url
     env.HTTP_PROXY = url
@@ -60,8 +95,9 @@ export function proxyEnv(
     env.http_proxy = url
     env.NO_PROXY = normalizeNoProxy(resolved.proxyBypassRules)
     env.no_proxy = env.NO_PROXY
-  } else if (resolved.mode === 'none') {
-    // Explicitly clear inherited proxy settings so "none" really means direct.
+  } else if (resolved.mode === 'none' || resolved.mode === 'system') {
+    // Explicitly clear inherited proxy settings: "none" always means direct, and an unresolvable
+    // or DIRECT system result means the OS itself says no proxy is needed for this connection.
     env.HTTPS_PROXY = undefined
     env.HTTP_PROXY = undefined
     env.https_proxy = undefined

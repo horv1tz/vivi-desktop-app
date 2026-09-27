@@ -3,7 +3,7 @@ import { ProxyAgent, type Dispatcher } from 'undici'
 import type { ProxyTestResult } from '@shared/ipc'
 import { settings } from '../settings/store'
 import { secrets } from '../auth/secrets'
-import { proxyEnv, resolveProxy, type ResolvedProxy } from './config'
+import { applySystemProxyResolution, proxyEnv, resolveProxy, type ResolvedProxy } from './config'
 import { ProxyBridge } from './bridge'
 import { handle } from '../ipc/handlers'
 import { logger } from '../logging/log'
@@ -19,8 +19,7 @@ export class ProxyManager {
   async apply(): Promise<void> {
     const s = settings().get().proxy
     const password = s.hasPassword ? await secrets().get('proxyPassword') : null
-    const resolved = resolveProxy(s, password)
-    this.resolved = resolved
+    let resolved = resolveProxy(s, password)
     try {
       if (resolved.mode === 'system') await session.defaultSession.setProxy({ mode: 'system' })
       else if (resolved.mode === 'none') await session.defaultSession.setProxy({ mode: 'direct' })
@@ -34,12 +33,31 @@ export class ProxyManager {
     } catch (err) {
       log.warn('session.setProxy failed', err)
     }
+    // Must run after session.setProxy({mode:'system'}) above: resolveProxy() reports the proxy
+    // for the session's CURRENT mode, so querying it first would reflect whatever mode was
+    // previously active instead of the OS/PAC-resolved system proxy.
+    if (resolved.mode === 'system') resolved = await this.resolveSystemProxy(resolved)
+    this.resolved = resolved
     if (resolved.needsBridge && resolved.upstreamUrl) await this.bridge.ensure(resolved.upstreamUrl)
     else await this.bridge.stop()
     this.installAuthHandler(s.username, password)
     log.info(
       `proxy mode=${resolved.mode} rules=${resolved.proxyRules || '(system)'} bridge=${this.bridge.url ?? 'off'}`,
     )
+  }
+
+  /**
+   * UX-02: "system" mode alone tells Electron's own session to defer to the OS, but the Claude CLI
+   * subprocess needs an actual HTTPS_PROXY value — ask the OS/PAC resolver for the real one.
+   */
+  private async resolveSystemProxy(base: ResolvedProxy): Promise<ResolvedProxy> {
+    try {
+      const raw = await session.defaultSession.resolveProxy('https://api.anthropic.com')
+      return applySystemProxyResolution(base, raw)
+    } catch (err) {
+      log.warn('resolveProxy failed for system mode; the CLI subprocess will connect directly', err)
+      return base
+    }
   }
 
   private installAuthHandler(username: string, password: string | null): void {

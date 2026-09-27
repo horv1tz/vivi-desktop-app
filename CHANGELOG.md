@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Proxy**: "System" proxy mode only ever configured Electron's own network stack — the Claude
+  CLI runs as a separate subprocess that never saw a proxy at all in that mode and silently
+  connected directly, even though the UI showed the mode as active. It now resolves the actual
+  OS/PAC proxy and passes it to the CLI the same way manual mode does (including routing a
+  SOCKS-based system proxy through the existing local bridge).
 - **Voice**: the default (transcript-match) wake-word strategy only ever recognized the Latin
   spelling "vivi", so it never reliably triggered on the Russian "Виви" a default install's speech
   model would actually transcribe.
