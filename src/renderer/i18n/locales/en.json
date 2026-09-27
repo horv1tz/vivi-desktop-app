@@ -29,7 +29,8 @@
     "stop": "Stop",
     "mic": "Voice input",
     "attach": "Attach image",
-    "hint": "Enter to send, Shift+Enter for a new line"
+    "hint": "Enter to send, Shift+Enter for a new line",
+    "rateLimited": "Rate limit reached — resets in {{time}}"
   },
   "chat": {
     "empty": "How can I help?",

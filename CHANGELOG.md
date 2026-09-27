@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Action + observe**: the `mouse` and `keyboard` tools accept `observe: true`, which waits for
   the screen to settle (comparing frame hashes, capped at 1.5s by default) and returns a
   screenshot inline — one round trip instead of an action followed by a separate `screenshot` call.
+- **Rate-limit lockout**: when the account hits a hard rate limit, the composer (text box, send
+  and mic buttons) now actually disables itself with a live countdown to when it resets, instead
+  of staying fully usable and letting you send messages that were always going to fail.
 - **Follow-up listening window**: after Vivi finishes speaking a reply, it now keeps listening for
   a configurable window (8 seconds by default, adjustable in Settings > Voice, 0 disables it)
   without needing the wake word again, so a natural back-and-forth doesn't require saying "Vivi"

@@ -6,6 +6,8 @@ import { useChatStore } from '../../stores/chat'
 import { useVoiceStore } from '../../stores/voice'
 import { invoke } from '../../lib/bridge'
 import { cn } from '../../lib/cn'
+import { formatDuration } from '../../lib/format'
+import { isRateLimited, rateLimitResetsAtMs } from '../../lib/rate-limit'
 
 async function fileToBase64(file: File): Promise<{ mimeType: string; data: string }> {
   const buf = await file.arrayBuffer()
@@ -31,11 +33,24 @@ export function Composer({
   const send = useChatStore((s) => s.send)
   const interrupt = useChatStore((s) => s.interrupt)
   const state = useChatStore((s) => s.sessionState)
+  const rateLimit = useChatStore((s) => s.rateLimit)
   const voiceState = useVoiceStore((s) => s.state)
   const running =
     state === 'running' || state === 'awaiting_permission' || state === 'awaiting_question'
   const ref = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // AG-06: a 'rejected' rate limit means the account is locked out until resetsAt — keep the
+  // composer usable-looking but actually inert until then, with a live countdown, instead of
+  // silently letting the user send messages that will just fail.
+  const resetsAtMs = rateLimitResetsAtMs(rateLimit)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (resetsAtMs === null) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [resetsAtMs])
+  const rateLimited = isRateLimited(rateLimit, now)
 
   useEffect(() => {
     if (autoFocus) ref.current?.focus()
@@ -50,7 +65,7 @@ export function Composer({
 
   const submit = async (): Promise<void> => {
     const value = text.trim()
-    if (!value && images.length === 0) return
+    if ((!value && images.length === 0) || rateLimited) return
     setText('')
     const imgs = images.map(({ mimeType, data }) => ({ mimeType, data }))
     setImages([])
@@ -120,7 +135,14 @@ export function Composer({
           ref={ref}
           value={text}
           rows={1}
-          placeholder={listening ? t('overlay.listening') : t('composer.placeholder')}
+          disabled={rateLimited}
+          placeholder={
+            rateLimited
+              ? t('composer.rateLimited', { time: formatDuration(resetsAtMs! - now) })
+              : listening
+                ? t('overlay.listening')
+                : t('composer.placeholder')
+          }
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
           onPaste={async (e) => {
@@ -139,8 +161,9 @@ export function Composer({
         />
         <motion.button
           whileTap={{ scale: 0.92 }}
+          disabled={rateLimited}
           className={cn(
-            'mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors',
+            'mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors disabled:opacity-40',
             listening ? 'bg-danger text-white' : 'text-muted hover:bg-line/60 hover:text-fg',
           )}
           title={t('composer.mic')}
@@ -160,7 +183,7 @@ export function Composer({
         ) : (
           <motion.button
             whileTap={{ scale: 0.92 }}
-            disabled={!text.trim() && images.length === 0}
+            disabled={rateLimited || (!text.trim() && images.length === 0)}
             className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-accent-fg shadow-[0_6px_18px_-8px_var(--accent)] disabled:opacity-40"
             title={t('composer.send')}
             onClick={() => void submit()}
