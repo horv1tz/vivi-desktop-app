@@ -72,6 +72,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   turn's cost and token usage. Includes a CSV export and a way to clear the history. Per-tool cost
   breakdown isn't included — neither the Agent SDK's nor ACP's usage reporting attributes cost
   below the level of a whole turn, so there's nothing finer-grained to record.
+- **Onboarding**: finishing setup without a working sign-in now requires explicitly acknowledging
+  a warning (a checkbox: "I understand Vivi won't respond until I sign in") instead of the old
+  "Skip" button silently letting you through with no idea the assistant won't actually work yet. A
+  new "Run setup again" button in Settings > About lets you redo onboarding without losing your
+  other settings. The voice step now has its own speech-recognition/voice language choice
+  (separate from the interface language) and a live mic/TTS test widget, so you can actually try
+  the microphone and hear a reply before finishing setup.
 
 ### Fixed
 

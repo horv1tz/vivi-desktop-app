@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mic, Volume2 } from 'lucide-react'
 import { useSettingsStore } from '../../../stores/settings'
-import { useVoiceStore } from '../../../stores/voice'
 import { invoke } from '../../../lib/bridge'
 import { Field, Input, Section, Select } from '../../../components/ui/Field'
 import { Switch } from '../../../components/ui/Switch'
 import { Button } from '../../../components/ui/Button'
 import { VoiceModelsPanel } from '../../voice/VoiceModelsPanel'
-import { Orb } from '../../../components/motion/Orb'
+import { VoiceStatusPanel } from '../../voice/VoiceStatusPanel'
 
 export function VoiceSection() {
   const { t } = useTranslation()
@@ -16,10 +14,8 @@ export function VoiceSection() {
   const features = useSettingsStore((x) => x.settings.features)
   const update = useSettingsStore((x) => x.update)
   const set = (patch: Partial<typeof s>): void => void update({ voice: patch })
-  const voice = useVoiceStore()
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [openaiKey, setOpenaiKey] = useState('')
-  const [testText, setTestText] = useState('')
 
   useEffect(() => {
     navigator.mediaDevices
@@ -34,30 +30,7 @@ export function VoiceSection() {
   return (
     <>
       <Section title={t('voice.status')}>
-        <div className="flex items-center gap-4">
-          <Orb state={voice.state === 'off' ? 'idle' : voice.state} level={voice.level} size={64} />
-          <div className="flex-1 text-sm">
-            <div className="font-medium">{t(`voice.states.${voice.state}`)}</div>
-            {voice.detail ? <div className="text-xs text-muted">{voice.detail}</div> : null}
-            {voice.transcript ? (
-              <div className="text-xs text-faint">«{voice.transcript}»</div>
-            ) : null}
-          </div>
-          <Button onClick={() => invoke('voice:pushToTalk', voice.state !== 'listening')}>
-            <Mic size={16} />{' '}
-            {voice.state === 'listening' ? t('composer.stop') : t('voice.testMic')}
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            placeholder={t('voice.testTtsPlaceholder')}
-            value={testText}
-            onChange={(e) => setTestText(e.target.value)}
-          />
-          <Button onClick={() => invoke('voice:speak', testText || t('voice.testTtsDefault'))}>
-            <Volume2 size={16} /> {t('voice.testTts')}
-          </Button>
-        </div>
+        <VoiceStatusPanel />
       </Section>
       <Section title={t('settings.sections.voice')}>
         <Field label={t('voice.enabled')} inline>

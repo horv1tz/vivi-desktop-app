@@ -96,6 +96,20 @@ test('fresh profile starts with onboarding', async () => {
     await expect(
       win.getByRole('button', { name: /Войти через Claude|Sign in with Claude/ }),
     ).toBeVisible()
+
+    // UX-06: can't finish onboarding unauthenticated without explicitly acknowledging the warning.
+    await win.getByRole('button', { name: /^Пропустить$|^Skip$/ }).click()
+    await win.getByRole('button', { name: /Далее|Next/ }).click()
+    await win.getByRole('button', { name: /Далее|Next/ }).click()
+    const startButton = win.getByRole('button', { name: /^Начать$|^Start$/ })
+    await expect(
+      win.getByText(/рабочего подключения к Claude|working connection to Claude/),
+    ).toBeVisible()
+    await expect(startButton).toBeDisabled()
+    await win.getByRole('checkbox').check()
+    await expect(startButton).toBeEnabled()
+    await startButton.click()
+    await expect(win.getByPlaceholder(/команду|command/i)).toBeVisible()
   } finally {
     await fresh.close()
   }

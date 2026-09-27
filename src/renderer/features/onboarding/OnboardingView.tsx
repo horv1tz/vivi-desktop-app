@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, Check, Mic, MonitorUp, Accessibility, Cog } from 'lucide-react'
+import { ArrowRight, Check, Mic, MonitorUp, Accessibility, Cog, TriangleAlert } from 'lucide-react'
 import type { OsPermissionStatus } from '@shared/events'
 import { useSettingsStore } from '../../stores/settings'
+import { useAuthStore } from '../../stores/auth'
 import { useUiStore } from '../../stores/ui'
 import { invoke, isMac } from '../../lib/bridge'
 import { Button } from '../../components/ui/Button'
+import { Field, Select } from '../../components/ui/Field'
 import { AccountSection } from '../settings/sections/AccountSection'
 import { VoiceModelsPanel } from '../voice/VoiceModelsPanel'
+import { VoiceStatusPanel } from '../voice/VoiceStatusPanel'
 import { cn } from '../../lib/cn'
 
 const steps = ['language', 'account', 'permissions', 'voice', 'done'] as const
@@ -18,9 +21,19 @@ export function OnboardingView() {
   const { t } = useTranslation()
   const update = useSettingsStore((s) => s.update)
   const lang = useSettingsStore((s) => s.settings.appearance.language)
+  const voiceLanguage = useSettingsStore((s) => s.settings.voice.language)
   const setView = useUiStore((s) => s.setView)
+  const authStatus = useAuthStore((s) => s.status)
+  const refreshAuth = useAuthStore((s) => s.refresh)
   const [step, setStep] = useState<Step>('language')
   const [perms, setPerms] = useState<OsPermissionStatus | null>(null)
+  // UX-06: finishing without a working authorization is allowed, but only as an explicit,
+  // acknowledged choice — not the silent default a plain "skip" button would give.
+  const [acceptNoAuth, setAcceptNoAuth] = useState(false)
+
+  useEffect(() => {
+    void refreshAuth()
+  }, [refreshAuth])
 
   useEffect(() => {
     if (step === 'permissions')
@@ -29,8 +42,12 @@ export function OnboardingView() {
         .catch(() => null)
   }, [step])
 
+  const loggedIn = !!authStatus?.loggedIn && authStatus.mode !== 'none'
+  const canFinish = loggedIn || acceptNoAuth
+
   const next = (): void => setStep(steps[Math.min(steps.indexOf(step) + 1, steps.length - 1)]!)
   const finish = async (): Promise<void> => {
+    if (!canFinish) return
     await update({ onboardingCompleted: true })
     setView('chat')
   }
@@ -165,7 +182,23 @@ export function OnboardingView() {
             <>
               <h2 className="text-2xl font-semibold">{t('onboarding.voiceTitle')}</h2>
               <p className="text-sm text-muted">{t('onboarding.voiceHint')}</p>
+              <Field label={t('onboarding.voiceLanguage')} inline>
+                <Select
+                  value={voiceLanguage}
+                  onChange={(e) =>
+                    update({ voice: { language: e.target.value as typeof voiceLanguage } })
+                  }
+                >
+                  <option value="ru">Русский</option>
+                  <option value="en">English</option>
+                  <option value="auto">{t('voice.auto')}</option>
+                </Select>
+              </Field>
               <VoiceModelsPanel />
+              <div className="rounded-xl border border-line bg-elev p-4">
+                <p className="mb-3 text-xs text-muted">{t('onboarding.voiceTestHint')}</p>
+                <VoiceStatusPanel />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={next}>
                   {t('onboarding.skip')}
@@ -184,7 +217,29 @@ export function OnboardingView() {
               </div>
               <h2 className="text-2xl font-semibold">{t('onboarding.doneTitle')}</h2>
               <p className="max-w-md text-sm text-muted">{t('onboarding.doneHint')}</p>
-              <Button variant="primary" size="lg" onClick={finish}>
+              {!loggedIn ? (
+                <div className="flex max-w-md flex-col gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-left">
+                  <div className="flex items-start gap-2">
+                    <TriangleAlert className="mt-0.5 shrink-0 text-warning" size={18} />
+                    <div className="text-sm">
+                      <div className="font-medium text-warning">
+                        {t('onboarding.noAuthWarningTitle')}
+                      </div>
+                      <p className="text-xs text-muted">{t('onboarding.noAuthWarningBody')}</p>
+                    </div>
+                  </div>
+                  <label className="flex items-start gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={acceptNoAuth}
+                      onChange={(e) => setAcceptNoAuth(e.target.checked)}
+                    />
+                    {t('onboarding.noAuthWarningAck')}
+                  </label>
+                </div>
+              ) : null}
+              <Button variant="primary" size="lg" disabled={!canFinish} onClick={finish}>
                 {t('onboarding.start')}
               </Button>
             </div>

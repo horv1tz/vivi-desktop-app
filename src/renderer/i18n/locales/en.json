@@ -214,6 +214,7 @@
       "userData": "App data",
       "notice": "Vivi is a personal assistant for your own use. Signing in with a Claude subscription is meant only for personal use with your own subscription and is not a way to distribute the product; for anything else use an API key.",
       "reset": "Reset settings",
+      "restartOnboarding": "Run setup again",
       "backend": "Claude connection",
       "backends": {
         "mock": "Mock (testing)",
@@ -358,8 +359,13 @@
     "permissionsHint": "To hear you and see the screen Vivi needs OS permissions. You can grant them later in system settings.",
     "voiceTitle": "Voice",
     "voiceHint": "Voice models run offline. Download speech recognition and synthesis models (you can do this later in settings).",
+    "voiceLanguage": "Speech recognition and voice language",
+    "voiceTestHint": "Try it: press the microphone button and say something, or type a phrase and have Vivi speak it back.",
     "doneTitle": "All set",
     "doneHint": "Press the quick-command hotkey or say “Vivi” to start. Settings are in the bottom-left corner.",
+    "noAuthWarningTitle": "No working connection to Claude yet",
+    "noAuthWarningBody": "Without signing in, Vivi can't actually respond to anything. You can finish setup anyway and connect an account later from Settings → Account.",
+    "noAuthWarningAck": "I understand Vivi won't respond until I sign in",
     "start": "Start",
     "skip": "Skip",
     "perm": {

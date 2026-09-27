@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AppInfo, UpdateStatus } from '@shared/events'
 import { invoke, useViviEvent } from '../../../lib/bridge'
 import { useSettingsStore } from '../../../stores/settings'
+import { useUiStore } from '../../../stores/ui'
 import { Field, Section } from '../../../components/ui/Field'
 import { Switch } from '../../../components/ui/Switch'
 import { Button } from '../../../components/ui/Button'
@@ -14,6 +15,7 @@ export function AboutSection() {
   const [diagnosticsPath, setDiagnosticsPath] = useState<string | null>(null)
   const load = useSettingsStore((s) => s.load)
   const update = useSettingsStore((s) => s.update)
+  const setView = useUiStore((s) => s.setView)
   const autoUpdateEnabled = useSettingsStore((s) => s.settings.features.autoUpdate)
   useEffect(() => {
     invoke('app:getInfo')
@@ -84,6 +86,15 @@ export function AboutSection() {
             }}
           >
             {t('settings.about.reset')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              await update({ onboardingCompleted: false })
+              setView('chat')
+            }}
+          >
+            {t('settings.about.restartOnboarding')}
           </Button>
         </div>
         {diagnosticsPath ? (
