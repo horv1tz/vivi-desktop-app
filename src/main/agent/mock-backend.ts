@@ -75,9 +75,21 @@ export class MockBackend implements AgentBackend {
     this.setState('running')
     const started = Date.now()
     const messageId = randomUUID()
-    this.emit({ type: 'assistant-start', messageId, parentToolUseId: null })
 
     const lower = args.text.toLowerCase()
+    // Test-only trigger (UX-04): lets e2e tests exercise the retryable-error banner and its Retry
+    // button without needing a real backend failure.
+    if (/симулируй ошибку|simulate error/.test(lower)) {
+      this.setState('idle')
+      this.emit({
+        type: 'error',
+        error: { code: 'overloaded', message: 'mock: simulated overload', retryable: true },
+      })
+      return
+    }
+
+    this.emit({ type: 'assistant-start', messageId, parentToolUseId: null })
+
     const useTool = /файл|file|папк|folder|list|покажи|скриншот|screenshot/.test(lower)
     let blockIndex = 0
     const blocks: UiMessage['blocks'] = []

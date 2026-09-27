@@ -44,6 +44,19 @@ test('mock agent streams a reply with a tool card', async () => {
   await expect(page.getByText(/Стоимость|Cost/)).toBeVisible()
 })
 
+test('a retryable error shows a Retry button that resends the same message', async () => {
+  const composer = page.getByPlaceholder(/команду|command/i)
+  await composer.fill('симулируй ошибку')
+  await composer.press('Enter')
+  await expect(page.getByText(/перегружен|overloaded/i)).toBeVisible({ timeout: 10_000 })
+  const retryButton = page.getByRole('button', { name: /^Повторить$|^Retry$/ })
+  await expect(retryButton).toBeVisible()
+  await retryButton.click()
+  // The retry resends the exact same text, which the mock backend treats as another error.
+  await expect(page.getByText(/перегружен|overloaded/i)).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: /Закрыть|Close/ }).click()
+})
+
 test('journal records the mock agent tool call', async () => {
   await page.getByRole('button', { name: /Активность|Activity/ }).click()
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(/сделала Vivi|Vivi did/)

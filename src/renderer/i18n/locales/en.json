@@ -287,9 +287,13 @@
   },
   "errors": {
     "authentication_failed": "Authentication failed. Check your account in Settings.",
+    "oauth_org_not_allowed": "This account's organization isn't allowed to sign in this way.",
     "rate_limit": "Usage limit reached. Try again later.",
     "billing_error": "There is a billing problem with the account.",
     "overloaded": "The service is overloaded, retrying…",
+    "invalid_request": "That request wasn't valid.",
+    "model_not_found": "The selected model is unavailable.",
+    "server_error": "A server error occurred.",
     "process_exited": "The Claude Code process exited unexpectedly.",
     "startup_failed": "Claude Code failed to start.",
     "max_turns": "Step limit for this turn reached.",
@@ -297,6 +301,12 @@
     "unknown": "Something went wrong.",
     "retry": "Retry",
     "openSettings": "Open settings"
+  },
+  "errorBoundary": {
+    "title": "Something broke",
+    "body": "A part of the interface hit an unexpected error. You can try to continue, or reload if it keeps happening.",
+    "tryToContinue": "Try to continue",
+    "reload": "Reload"
   },
   "common": {
     "yes": "Yes",

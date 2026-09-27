@@ -79,6 +79,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   other settings. The voice step now has its own speech-recognition/voice language choice
   (separate from the interface language) and a live mic/TTS test widget, so you can actually try
   the microphone and hear a reply before finishing setup.
+- **Chat resilience**: a retryable error (overload, server error, a dropped process) now shows a
+  "Retry" button that resends the exact same message, instead of making you retype it or leaving
+  the turn stuck. An error boundary around both windows now shows a recoverable error screen
+  ("Try to continue" or "Reload") instead of silently going blank if something throws while
+  rendering. Four error codes (`oauth_org_not_allowed`, `invalid_request`, `model_not_found`,
+  `server_error`) previously had no translated message and silently fell back to a generic one.
 
 ### Fixed
 

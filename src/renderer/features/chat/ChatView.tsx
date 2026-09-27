@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertTriangle, Sparkles } from 'lucide-react'
+import { AlertTriangle, RotateCw, Sparkles } from 'lucide-react'
 import { useChatStore } from '../../stores/chat'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
@@ -9,6 +9,7 @@ import { MessageBubble } from './MessageBubble'
 import { Composer } from './Composer'
 import { Button } from '../../components/ui/Button'
 import { formatTokens, formatUsd } from '../../lib/format'
+import { lastUserSendArgs } from '../../lib/chat-retry'
 
 export function ChatView({ mockAgent }: { mockAgent: boolean }) {
   const { t } = useTranslation()
@@ -104,6 +105,17 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
                 {error.code === 'authentication_failed' ? (
                   <Button size="sm" onClick={() => openSettings('account')}>
                     {t('errors.openSettings')}
+                  </Button>
+                ) : null}
+                {error.retryable ? (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const args = lastUserSendArgs(messages)
+                      if (args) void send(args)
+                    }}
+                  >
+                    <RotateCw size={14} /> {t('errors.retry')}
                   </Button>
                 ) : null}
                 <Button size="sm" variant="ghost" onClick={clearError}>

@@ -4,7 +4,10 @@ import './styles/globals.css'
 import './i18n'
 import { OverlayRoot } from './features/overlay/OverlayRoot'
 import { ControlHudRoot } from './features/overlay/ControlHudRoot'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{location.hash === '#hud' ? <ControlHudRoot /> : <OverlayRoot />}</StrictMode>,
+  <StrictMode>
+    <ErrorBoundary>{location.hash === '#hud' ? <ControlHudRoot /> : <OverlayRoot />}</ErrorBoundary>
+  </StrictMode>,
 )
