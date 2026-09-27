@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   notify). Vivi runs an existing scenario directly via a new `run_scenario` tool (after checking
   `list_scenarios`) instead of reasoning through each step itself. Like integrations, scenarios are
   never agent-creatable — only assembled by the user in the Workshop screen, since they perform
-  real actions on the computer.
+  real actions on the computer. Verified against the real model
+  (`tests/e2e/real-agent-scenarios.spec.ts`, `VIVI_E2E_REAL=1`): given a seeded scenario and a
+  matching request, Claude actually called `run_scenario` — confirmed via the action journal, not
+  just the chat reply text.
 - **Floating quick-access button**: a small always-on-top button pinned near the bottom-left corner
   of the screen (the closest a third-party Electron app can get to a Cortana-style taskbar button —
   there's no OS API to embed into the real Windows taskbar) that opens the overlay on click. New
