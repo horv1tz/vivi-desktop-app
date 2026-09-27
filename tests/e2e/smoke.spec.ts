@@ -80,6 +80,13 @@ test('settings view opens and switches sections', async () => {
   await page.getByRole('button', { name: /^Расход$|^Usage$/ }).click()
   await expect(page.getByText(/Всего потрачено|Total cost/)).toBeVisible()
   await expect(page.getByText(/^\$0\.00$/)).not.toBeVisible()
+  // OBS-01: the live Diagnostics panel reports whichever input driver actually resolved in this
+  // environment (varies by sandbox — just check it rendered a real answer, not the loading state).
+  await page.getByRole('button', { name: /^Диагностика$|^Diagnostics$/ }).click()
+  await expect(page.getByText(/Драйвер ввода|Input driver/)).toBeVisible()
+  await expect(
+    page.getByText(/Активен:|Active:|Драйвер недоступен|No driver available/),
+  ).toBeVisible({ timeout: 10_000 })
 })
 
 test('overlay window exists and can be toggled via IPC', async () => {

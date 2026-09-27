@@ -79,4 +79,26 @@ describe('buildDiagnosticsReport (OBS-01)', () => {
     // against regressing) — the whole thing goes in the report unredacted.
     expect(report.settings).toEqual(defaultSettings())
   })
+
+  it('includes null for inputDriver when not provided, and the value verbatim when it is', () => {
+    const logFile = join(dir, 'vivi.log')
+    writeFileSync(logFile, '')
+    const withoutDriver = buildDiagnosticsReport({
+      appInfo,
+      settings: defaultSettings(),
+      osPermissions,
+      logFilePath: logFile,
+    })
+    expect(withoutDriver.inputDriver).toBeNull()
+
+    const inputDriver = { active: 'robotjs', attempts: [{ name: 'robotjs', ok: true }] }
+    const withDriver = buildDiagnosticsReport({
+      appInfo,
+      settings: defaultSettings(),
+      osPermissions,
+      logFilePath: logFile,
+      inputDriver,
+    })
+    expect(withDriver.inputDriver).toEqual(inputDriver)
+  })
 })

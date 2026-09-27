@@ -84,6 +84,11 @@ export class RobotJsDriver implements InputDriver {
     }
   }
 
+  /** OBS-01: why robotjs isn't available, for the Diagnostics panel — null until `available()`/`load()` has actually been tried. */
+  getLoadError(): string | null {
+    return this.loadError
+  }
+
   /**
    * Runs once on Windows: compares robotjs's own idea of the current cursor position against
    * Electron's (both read the SAME physical cursor, no movement involved) to detect whether robotjs

@@ -119,6 +119,7 @@
       "proxy": "Proxy",
       "permissions": "Permissions",
       "usage": "Usage",
+      "diagnostics": "Diagnostics",
       "about": "About"
     },
     "general": {
@@ -203,6 +204,14 @@
       "byDay": "Last 14 days",
       "turnsCount_one": "{{count}} turn",
       "turnsCount_other": "{{count}} turns"
+    },
+    "diagnostics": {
+      "voiceTitle": "Voice",
+      "driverTitle": "Input driver",
+      "driverActive": "Active: {{name}}",
+      "driverNone": "No driver available — mouse/keyboard control is disabled.",
+      "driverOk": "in use",
+      "driverSkipped": "skipped"
     },
     "about": {
       "version": "Version",

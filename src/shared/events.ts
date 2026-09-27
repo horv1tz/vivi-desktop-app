@@ -320,3 +320,9 @@ export interface MetricsSummary {
   daily: MetricsDailyTotal[]
   sessions: MetricsSessionTotal[]
 }
+
+/** OBS-01: which InputDriver (robotjs/native-cli) is active, and what was tried and skipped. */
+export interface InputDriverInfo {
+  active: string | null
+  attempts: { name: string; ok: boolean; reason?: string }[]
+}

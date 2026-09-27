@@ -4,6 +4,7 @@ import type {
   Platform,
   AppInfo,
   AuthStatus,
+  InputDriverInfo,
   JournalEntry,
   LoginFlowEvent,
   MemoryEntry,
@@ -70,6 +71,8 @@ export interface InvokeMap {
   /** OBS-01: writes a diagnostics report (app info, redaction-free settings, OS permissions, log
    *  tail) to a user-chosen file. Returns the saved path, or null if the save dialog was cancelled. */
   'diagnostics:export': { args: []; result: string | null }
+  /** OBS-01: which InputDriver (robotjs/native-cli) is active, for the live Diagnostics panel. */
+  'diagnostics:getInputDriver': { args: []; result: InputDriverInfo }
   'journal:list': { args: []; result: JournalEntry[] }
   'journal:clear': { args: []; result: void }
   'journal:export': { args: []; result: string | null }

@@ -9,6 +9,7 @@ import { acpAdapterVersion } from '../util/acp-adapter'
 import { getMainWindow, hideOverlay, showMainWindow, toggleOverlay } from '../app/windows'
 import { getOsPermissions, requestOsPermission } from '../app/os-permissions'
 import { buildDiagnosticsReport } from '../app/diagnostics'
+import { getInputDriverInfo } from '../agent/tools/drivers'
 import { clearMemoryEntries, deleteMemoryEntry, listMemoryEntries } from '../agent/tools/memory'
 import { handle } from './handlers'
 import { emit } from './emitters'
@@ -51,11 +52,13 @@ export function registerCoreHandlers(opts: {
     app.relaunch()
     app.exit(0)
   })
+  handle('diagnostics:getInputDriver', () => getInputDriverInfo())
   handle('diagnostics:export', async (): Promise<string | null> => {
     const report = buildDiagnosticsReport({
       appInfo: getAppInfo(opts),
       settings: settings().get(),
       osPermissions: await getOsPermissions(),
+      inputDriver: await getInputDriverInfo(),
       logFilePath: join(paths.logsDir, 'vivi.log'),
     })
     const defaultPath = join(

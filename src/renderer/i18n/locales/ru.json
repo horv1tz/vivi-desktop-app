@@ -119,6 +119,7 @@
       "proxy": "Прокси",
       "permissions": "Разрешения",
       "usage": "Расход",
+      "diagnostics": "Диагностика",
       "about": "О программе"
     },
     "general": {
@@ -205,6 +206,14 @@
       "turnsCount_few": "{{count}} хода",
       "turnsCount_many": "{{count}} ходов",
       "turnsCount_other": "{{count}} хода"
+    },
+    "diagnostics": {
+      "voiceTitle": "Голос",
+      "driverTitle": "Драйвер ввода",
+      "driverActive": "Активен: {{name}}",
+      "driverNone": "Драйвер недоступен — управление мышью и клавиатурой отключено.",
+      "driverOk": "используется",
+      "driverSkipped": "пропущен"
     },
     "about": {
       "version": "Версия",

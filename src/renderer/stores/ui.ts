@@ -2,7 +2,16 @@ import { create } from 'zustand'
 
 export type View = 'chat' | 'settings' | 'onboarding' | 'journal'
 export type SettingsSection =
-  'general' | 'account' | 'agent' | 'memory' | 'voice' | 'proxy' | 'permissions' | 'usage' | 'about'
+  | 'general'
+  | 'account'
+  | 'agent'
+  | 'memory'
+  | 'voice'
+  | 'proxy'
+  | 'permissions'
+  | 'usage'
+  | 'diagnostics'
+  | 'about'
 
 interface UiState {
   view: View

@@ -87,6 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `server_error`) previously had no translated message and silently fell back to a generic one.
 - **Computer control**: the `mouse` tool's `down`/`up`/`drag` actions now accept a `button`
   (left/right/middle) instead of always using the left button.
+- **Diagnostics panel**: a new "Diagnostics" settings tab shows live voice pipeline state and
+  levels, the actual input/output devices in use, and which input driver (robotjs or the OS
+  command-line fallback) is active and why the other was skipped. The same driver information is
+  now also included in the one-click diagnostics export.
 
 ### Fixed
 

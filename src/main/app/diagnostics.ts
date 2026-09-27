@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import type { AppInfo, OsPermissionStatus } from '@shared/events'
+import type { AppInfo, InputDriverInfo, OsPermissionStatus } from '@shared/events'
 import type { Settings } from '@shared/settings'
 
 /** Last N bytes of the log file to include — enough for a recent crash, not the whole history. */
@@ -17,6 +17,8 @@ export interface DiagnosticsReportInput {
   settings: Settings
   osPermissions: OsPermissionStatus
   logFilePath: string
+  /** OBS-01: which InputDriver (robotjs/native-cli) is active and why the others were skipped. */
+  inputDriver?: InputDriverInfo
   now?: Date
 }
 
@@ -33,6 +35,7 @@ export function buildDiagnosticsReport(input: DiagnosticsReportInput): Record<st
     app: input.appInfo,
     osPermissions: input.osPermissions,
     settings: input.settings,
+    inputDriver: input.inputDriver ?? null,
     log: { path: input.logFilePath, tail: readLogTail(input.logFilePath) },
   }
 }
