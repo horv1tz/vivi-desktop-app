@@ -5,7 +5,8 @@ import {
   tool,
   type McpSdkServerConfigWithInstance,
 } from '@anthropic-ai/claude-agent-sdk'
-import { captureScreen, listDisplays } from './screen'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import { captureScreen, hashBuffer, listDisplays, waitForStableFrame } from './screen'
 import { listInstalledApps, openTarget } from './apps'
 import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from './system'
 import { rememberEntry } from './memory'
@@ -37,6 +38,31 @@ const KEY_HELP =
   'Key names: letters/digits, enter, tab, escape, backspace, delete, space, up/down/left/right, home, end, pageup, pagedown, f1-f12, and modifiers ctrl, alt, shift, cmd/command/win/super. Combine with "+", e.g. "ctrl+c", "cmd+shift+4", "alt+tab".'
 
 export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithInstance {
+  /**
+   * CU-03: waits for the screen to stop changing (bounded by maxWaitMs) and captures it, so
+   * mouse/keyboard actions with `observe: true` can hand back the settled result inline instead of
+   * the caller needing a separate `screenshot` call right after.
+   */
+  const captureObservation = async (maxWaitMs?: number): Promise<CallToolResult['content']> => {
+    const shot = await waitForStableFrame(
+      async () => {
+        const s = await deps.withOwnWindowsHidden(() =>
+          captureScreen({
+            quality: deps.screenshotFormat(),
+            jpegQuality: deps.screenshotQuality(),
+          }),
+        )
+        return { ...s, hash: hashBuffer(Buffer.from(s.base64, 'base64')) }
+      },
+      maxWaitMs !== undefined ? { maxWaitMs } : {},
+    )
+    const caption = `Screen after the action: image ${shot.width}x${shot.height}px covering logical ${shot.logicalWidth}x${shot.logicalHeight} at origin (${shot.displayBounds.x}, ${shot.displayBounds.y}), scale ${shot.scale.toFixed(4)}.`
+    return [
+      { type: 'image', data: shot.base64, mimeType: shot.mimeType },
+      { type: 'text', text: caption },
+    ]
+  }
+
   const screenshot = tool(
     'screenshot',
     'Capture the screen so you can see it. Returns a downscaled image (PNG or JPEG, per settings) plus its pixel size and the logical size of the display; the mouse/keyboard tools use logical coordinates of that display. Optional: display index (0 = primary) or a region {x,y,width,height} in logical coordinates.',
@@ -80,7 +106,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
 
   const mouse = tool(
     'mouse',
-    'Control the mouse in logical screen coordinates (see screenshot). Actions: move, click, double_click, right_click, middle_click, down, up, drag (from x,y to x2,y2), scroll (dx,dy in lines; positive dy scrolls down), position.',
+    'Control the mouse in logical screen coordinates (see screenshot). Actions: move, click, double_click, right_click, middle_click, down, up, drag (from x,y to x2,y2), scroll (dx,dy in lines; positive dy scrolls down), position. Set observe:true to get a screenshot of the settled result back inline instead of calling screenshot separately afterward.',
     {
       action: z.enum([
         'move',
@@ -100,8 +126,19 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       y2: z.number().optional().describe('drag end y'),
       dx: z.number().optional().describe('scroll horizontal amount'),
       dy: z.number().optional().describe('scroll vertical amount'),
+      observe: z
+        .boolean()
+        .optional()
+        .describe('Wait for the screen to settle and return a screenshot of the result'),
+      waitMs: z
+        .number()
+        .int()
+        .min(0)
+        .max(10_000)
+        .optional()
+        .describe('Max wait for observe, ms (default 1500)'),
     },
-    async ({ action, x, y, x2, y2, dx, dy }) => {
+    async ({ action, x, y, x2, y2, dx, dy, observe, waitMs }) => {
       const driver = await deps.inputDriver()
       if (!driver)
         return error(
@@ -109,15 +146,18 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
         )
       try {
         await deps.beforeInputAction?.()
+        let message: string
         switch (action) {
           case 'position': {
             const p = await driver.getMousePos()
-            return text(`cursor at (${p.x}, ${p.y})`)
+            message = `cursor at (${p.x}, ${p.y})`
+            break
           }
           case 'move':
             if (x === undefined || y === undefined) return error('x and y are required')
             await driver.moveMouse(x, y, true)
-            return text(`moved to (${x}, ${y})`)
+            message = `moved to (${x}, ${y})`
+            break
           case 'click':
           case 'double_click':
           case 'right_click':
@@ -128,36 +168,42 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
               action === 'right_click' ? 'right' : action === 'middle_click' ? 'middle' : 'left',
               action === 'double_click',
             )
-            return text(
-              `${action} at ${x !== undefined && y !== undefined ? `(${x}, ${y})` : 'current position'}`,
-            )
+            message = `${action} at ${x !== undefined && y !== undefined ? `(${x}, ${y})` : 'current position'}`
+            break
           case 'down':
             await driver.mouseDown('left')
-            return text('mouse button down')
+            message = 'mouse button down'
+            break
           case 'up':
             await driver.mouseUp('left')
-            return text('mouse button up')
+            message = 'mouse button up'
+            break
           case 'drag':
             if (x === undefined || y === undefined || x2 === undefined || y2 === undefined)
               return error('x, y, x2, y2 are required for drag')
             await driver.drag({ x, y }, { x: x2, y: y2 }, 'left')
-            return text(`dragged from (${x}, ${y}) to (${x2}, ${y2})`)
+            message = `dragged from (${x}, ${y}) to (${x2}, ${y2})`
+            break
           case 'scroll':
             if (x !== undefined && y !== undefined) await driver.moveMouse(x, y, false)
             await driver.scroll(dx ?? 0, dy ?? 0)
-            return text(`scrolled dx=${dx ?? 0} dy=${dy ?? 0}`)
+            message = `scrolled dx=${dx ?? 0} dy=${dy ?? 0}`
+            break
+          default:
+            return error('unknown action')
         }
+        if (!observe) return text(message)
+        return { content: [{ type: 'text', text: message }, ...(await captureObservation(waitMs))] }
       } catch (err) {
         return error(`mouse ${action} failed: ${(err as Error).message}`)
       }
-      return error('unknown action')
     },
     { annotations: { destructiveHint: true } },
   )
 
   const keyboard = tool(
     'keyboard',
-    `Type text or press keys in the focused window. action=type sends literal text (any language; non-ASCII goes through the clipboard). action=press sends a key combination once, e.g. "enter", "ctrl+s", "cmd+space", "alt+tab". action=hotkey is an alias of press. ${KEY_HELP}`,
+    `Type text or press keys in the focused window. action=type sends literal text (any language; non-ASCII goes through the clipboard). action=press sends a key combination once, e.g. "enter", "ctrl+s", "cmd+space", "alt+tab". action=hotkey is an alias of press. Set observe:true to get a screenshot of the settled result back inline instead of calling screenshot separately afterward. ${KEY_HELP}`,
     {
       action: z.enum(['type', 'press', 'hotkey']),
       text: z.string().optional().describe('Text to type (for action=type)'),
@@ -166,27 +212,42 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
         .optional()
         .describe('Key combo like "ctrl+shift+t" (for action=press/hotkey)'),
       pressEnter: z.boolean().optional().describe('After typing, press Enter'),
+      observe: z
+        .boolean()
+        .optional()
+        .describe('Wait for the screen to settle and return a screenshot of the result'),
+      waitMs: z
+        .number()
+        .int()
+        .min(0)
+        .max(10_000)
+        .optional()
+        .describe('Max wait for observe, ms (default 1500)'),
     },
-    async ({ action, text: t, keys, pressEnter }) => {
+    async ({ action, text: t, keys, pressEnter, observe, waitMs }) => {
       const driver = await deps.inputDriver()
       if (!driver)
         return error('keyboard control is not available on this system (no input driver).')
       try {
         await deps.beforeInputAction?.()
+        let message: string
         if (action === 'type') {
           if (!t) return error('text is required')
           await driver.typeText(t)
           if (pressEnter) await driver.pressKeys(['enter'])
-          return text(`typed ${t.length} chars${pressEnter ? ' + Enter' : ''}`)
+          message = `typed ${t.length} chars${pressEnter ? ' + Enter' : ''}`
+        } else {
+          if (!keys) return error('keys is required')
+          const combo = keys
+            .toLowerCase()
+            .split('+')
+            .map((k) => k.trim())
+            .filter(Boolean)
+          await driver.pressKeys(combo)
+          message = `pressed ${combo.join('+')}`
         }
-        if (!keys) return error('keys is required')
-        const combo = keys
-          .toLowerCase()
-          .split('+')
-          .map((k) => k.trim())
-          .filter(Boolean)
-        await driver.pressKeys(combo)
-        return text(`pressed ${combo.join('+')}`)
+        if (!observe) return text(message)
+        return { content: [{ type: 'text', text: message }, ...(await captureObservation(waitMs))] }
       } catch (err) {
         return error(`keyboard ${action} failed: ${(err as Error).message}`)
       }

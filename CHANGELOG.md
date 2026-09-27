@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Memory v2**: a new "Memory" settings tab lists what Vivi has learned about you (with a type —
   profile/preference/fact/project — and a date), lets you delete individual entries or clear
   everything, and replaces the old plain-text `VIVI.md` file with a structured, bounded store.
+- **Action + observe**: the `mouse` and `keyboard` tools accept `observe: true`, which waits for
+  the screen to settle (comparing frame hashes, capped at 1.5s by default) and returns a
+  screenshot inline — one round trip instead of an action followed by a separate `screenshot` call.
 
 ### Fixed
 

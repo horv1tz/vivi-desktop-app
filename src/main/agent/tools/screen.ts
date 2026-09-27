@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { desktopCapturer, nativeImage, screen } from 'electron'
 
 export interface ScreenshotResult {
@@ -113,6 +114,41 @@ export function imageToLogical(
 
 export function pngDataUrl(base64: string): string {
   return `data:image/png;base64,${base64}`
+}
+
+export function hashBuffer(buf: Buffer): string {
+  return createHash('sha256').update(buf).digest('hex')
+}
+
+/**
+ * CU-03: polls `capture` until two consecutive results hash the same (the screen stopped
+ * changing) or `maxWaitMs` elapses, whichever comes first — so `mouse`/`keyboard` actions with
+ * `observe: true` can return a screenshot of the settled UI instead of a mid-animation frame,
+ * without the caller having to guess a fixed delay. `sleep` is injectable so this is testable
+ * without real timers.
+ */
+export async function waitForStableFrame<T extends { hash: string }>(
+  capture: () => Promise<T>,
+  opts: {
+    maxWaitMs?: number
+    pollMs?: number
+    sleep?: (ms: number) => Promise<void>
+    now?: () => number
+  } = {},
+): Promise<T> {
+  const maxWaitMs = opts.maxWaitMs ?? 1500
+  const pollMs = opts.pollMs ?? 150
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+  const now = opts.now ?? Date.now
+  const start = now()
+  let last = await capture()
+  while (now() - start < maxWaitMs) {
+    await sleep(pollMs)
+    const next = await capture()
+    if (next.hash === last.hash) return next
+    last = next
+  }
+  return last
 }
 
 export { nativeImage }
