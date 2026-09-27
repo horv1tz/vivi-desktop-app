@@ -767,6 +767,7 @@ gantt
 
 #### QA-02 · CI-матрица и гейты · ✅ Done
 - **Объём:** `ci.yml` на ubuntu/windows/macos: lint, format:check, typecheck, unit, smoke e2e (xvfb на Linux), `electron-builder --dir` + `verify-dist` (с проверкой `acp-bootstrap`, `voice-worker`, размеров); релиз только при зелёном CI.
+- **Найденный баг (при реальной попытке релиза 0.2.0):** матрица формально была зелёной раньше, но фактическая комбинация «Windows-раннер + принудительный `prettier --check`» ни разу не была реально прогнана до первого релиза после их одновременного появления — `windows-latest`-джоба CI упала на `npm run format:check` с «Code style issues found in 213 files», при том что тот же коммит был чист на ubuntu/macos. Причина — `git` на Windows-раннерах по умолчанию конвертирует LF в CRLF при чекауте, а у prettier `endOfLine` по умолчанию `"lf"`; исходники в репозитории не менялись. Добавлен `.gitattributes` (`* text=auto eol=lf` + явные бинарные расширения), который фиксирует LF на чекауте независимо от `core.autocrlf` раннера. Проверено без реального Windows-раннера: свежий clone с принудительным `core.autocrlf=true` (эмуляция Windows) — после `.gitattributes` файлы всё равно выходят с LF, `npm run format:check` проходит.
 - **Оценка:** M · **P0** · **0.1.x**
 
 #### QA-03 · Глубина тестов · ⚠️ Частично сделано (auth/claude-login, PermissionBroker, keys — покрыты)
