@@ -91,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   levels, the actual input/output devices in use, and which input driver (robotjs or the OS
   command-line fallback) is active and why the other was skipped. The same driver information is
   now also included in the one-click diagnostics export.
+- **Sessions**: past sessions in the sidebar can now be renamed in place (a pencil button next to
+  delete) and filtered with a search box, instead of only being resumable or deletable.
 
 ### Chore
 

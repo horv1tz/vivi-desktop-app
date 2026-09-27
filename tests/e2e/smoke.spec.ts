@@ -65,6 +65,30 @@ test('journal records the mock agent tool call', async () => {
   await page.getByRole('button', { name: /Чат|Chat/ }).click()
 })
 
+test('sidebar: past sessions can be searched and renamed (AG-09)', async () => {
+  // Starting a new chat archives the current one (from the earlier tests) into the sidebar list.
+  await page.getByRole('button', { name: /Новый чат|New chat/ }).click()
+  const sessionTitle = page.getByText('покажи файлы в папке').first()
+  await expect(sessionTitle).toBeVisible({ timeout: 10_000 })
+
+  const search = page.getByPlaceholder(/Поиск по сессиям|Search sessions/)
+  await search.fill('does-not-exist-xyz')
+  await expect(page.getByText(/Ничего не найдено|No sessions match/)).toBeVisible()
+  await search.fill('')
+  await expect(sessionTitle).toBeVisible()
+
+  const row = page.locator('div.group', { hasText: 'покажи файлы в папке' }).first()
+  await row.hover()
+  await row.getByTitle(/Переименовать|Rename/).click()
+  // The row's text content is gone once editing starts (it's now an <input> value, not text), so
+  // `row` can no longer be re-resolved by its old hasText filter — look the input up globally by
+  // its accessible name instead, which stays unique to whichever session is being edited.
+  const input = page.getByRole('textbox', { name: /Переименовать|Rename/ })
+  await input.fill('Renamed session')
+  await input.press('Enter')
+  await expect(page.getByText('Renamed session')).toBeVisible()
+})
+
 test('settings view opens and switches sections', async () => {
   await page
     .getByRole('button', { name: /Настройки|Settings/ })

@@ -269,6 +269,8 @@
   "sessions": {
     "title": "Sessions",
     "empty": "No saved sessions yet",
+    "search": "Search sessions…",
+    "noMatches": "No sessions match",
     "rename": "Rename",
     "delete": "Delete",
     "current": "current"
