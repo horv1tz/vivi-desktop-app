@@ -92,6 +92,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   command-line fallback) is active and why the other was skipped. The same driver information is
   now also included in the one-click diagnostics export.
 
+### Chore
+
+- Added unit tests for three previously-untested modules: the `claude auth login` CLI output
+  parser and login runner, `PermissionBroker` (the permission-prompt/AskUserQuestion bridge), and
+  the keyboard-combo parsing helpers (`keys.ts`) — 62 new tests.
+
 ### Fixed
 
 - **Computer control**: horizontal scroll (`dx`) was silently dropped by the fallback input driver
