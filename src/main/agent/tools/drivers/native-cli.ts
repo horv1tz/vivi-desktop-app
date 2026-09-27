@@ -298,27 +298,51 @@ export class NativeCliDriver implements InputDriver {
 
   async scroll(dx: number, dy: number): Promise<void> {
     if (process.platform === 'win32') {
+      // MOUSEEVENTF_WHEEL (0x0800, vertical) and MOUSEEVENTF_HWHEEL (0x1000, horizontal) each take
+      // a signed wheel-delta multiple of WHEEL_DELTA (120). Vertical: negative = toward the user
+      // (down), matching the tool's "positive dy scrolls down". Horizontal: positive = right.
+      const calls: string[] = []
+      if (dy !== 0) calls.push(`$m::mouse_event(0x0800,0,0,${Math.round(-dy * 120)},0)`)
+      if (dx !== 0) calls.push(`$m::mouse_event(0x1000,0,0,${Math.round(dx * 120)},0)`)
+      if (calls.length === 0) return
       expect(
         await powershell(
-          `$sig='[DllImport("user32.dll")] public static extern void mouse_event(int f,int x,int y,int d,int e);'; $m=Add-Type -MemberDefinition $sig -Name S -Namespace U -PassThru; $m::mouse_event(0x0800,0,0,${Math.round(-dy * 120)},0)`,
+          `$sig='[DllImport("user32.dll")] public static extern void mouse_event(int f,int x,int y,int d,int e);'; $m=Add-Type -MemberDefinition $sig -Name S -Namespace U -PassThru; ${calls.join('; ')}`,
         ),
         'scroll',
       )
     } else if ((await this.linux()) === 'xdotool') {
-      const btn = dy > 0 ? '5' : '4'
-      expect(
-        await run('xdotool', [
-          'click',
-          '--repeat',
-          String(Math.max(1, Math.abs(Math.round(dy)))),
-          btn,
-        ]),
-        'xdotool scroll',
-      )
+      // X11 convention: button 4/5 = vertical wheel up/down, button 6/7 = horizontal tilt left/right.
+      if (dy !== 0) {
+        const btn = dy > 0 ? '5' : '4'
+        expect(
+          await run('xdotool', [
+            'click',
+            '--repeat',
+            String(Math.max(1, Math.abs(Math.round(dy)))),
+            btn,
+          ]),
+          'xdotool scroll',
+        )
+      }
+      if (dx !== 0) {
+        const btn = dx > 0 ? '7' : '6'
+        expect(
+          await run('xdotool', [
+            'click',
+            '--repeat',
+            String(Math.max(1, Math.abs(Math.round(dx)))),
+            btn,
+          ]),
+          'xdotool scroll',
+        )
+      }
     } else if (process.platform === 'darwin' && (await has('cliclick'))) {
       // cliclick has no scroll; fall back to keyboard arrows.
       for (let i = 0; i < Math.abs(Math.round(dy)); i++)
         await this.pressKeys([dy > 0 ? 'down' : 'up'])
+      for (let i = 0; i < Math.abs(Math.round(dx)); i++)
+        await this.pressKeys([dx > 0 ? 'right' : 'left'])
     } else {
       throw new Error('scrolling needs xdotool (Linux) — no equivalent via ydotool yet')
     }

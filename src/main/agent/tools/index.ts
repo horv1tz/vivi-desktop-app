@@ -106,7 +106,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
 
   const mouse = tool(
     'mouse',
-    'Control the mouse in logical screen coordinates (see screenshot). Actions: move, click, double_click, right_click, middle_click, down, up, drag (from x,y to x2,y2), scroll (dx,dy in lines; positive dy scrolls down), position. Set observe:true to get a screenshot of the settled result back inline instead of calling screenshot separately afterward.',
+    'Control the mouse in logical screen coordinates (see screenshot). Actions: move, click, double_click, right_click, middle_click, down, up, drag (from x,y to x2,y2), scroll (dx,dy in lines; positive dy scrolls down, positive dx scrolls right), position. down/up/drag default to the left button; pass button to use right/middle instead (e.g. to drag with the middle button, or release a button other than the one pressed for a manual drag). Set observe:true to get a screenshot of the settled result back inline instead of calling screenshot separately afterward.',
     {
       action: z.enum([
         'move',
@@ -126,6 +126,10 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       y2: z.number().optional().describe('drag end y'),
       dx: z.number().optional().describe('scroll horizontal amount'),
       dy: z.number().optional().describe('scroll vertical amount'),
+      button: z
+        .enum(['left', 'right', 'middle'])
+        .optional()
+        .describe('Button for down/up/drag (default left)'),
       observe: z
         .boolean()
         .optional()
@@ -138,7 +142,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
         .optional()
         .describe('Max wait for observe, ms (default 1500)'),
     },
-    async ({ action, x, y, x2, y2, dx, dy, observe, waitMs }) => {
+    async ({ action, x, y, x2, y2, dx, dy, button, observe, waitMs }) => {
       const driver = await deps.inputDriver()
       if (!driver)
         return error(
@@ -171,17 +175,17 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
             message = `${action} at ${x !== undefined && y !== undefined ? `(${x}, ${y})` : 'current position'}`
             break
           case 'down':
-            await driver.mouseDown('left')
-            message = 'mouse button down'
+            await driver.mouseDown(button ?? 'left')
+            message = `${button ?? 'left'} mouse button down`
             break
           case 'up':
-            await driver.mouseUp('left')
-            message = 'mouse button up'
+            await driver.mouseUp(button ?? 'left')
+            message = `${button ?? 'left'} mouse button up`
             break
           case 'drag':
             if (x === undefined || y === undefined || x2 === undefined || y2 === undefined)
               return error('x, y, x2, y2 are required for drag')
-            await driver.drag({ x, y }, { x: x2, y: y2 }, 'left')
+            await driver.drag({ x, y }, { x: x2, y: y2 }, button ?? 'left')
             message = `dragged from (${x}, ${y}) to (${x2}, ${y2})`
             break
           case 'scroll':

@@ -142,3 +142,68 @@ describe('NativeCliDriver — Windows mouse button state', () => {
     expect(powershellMock.mock.calls.at(-1)?.[0]).toContain('ShowWindow([IntPtr]42, 6)')
   })
 })
+
+describe('NativeCliDriver — horizontal scroll (CU-12)', () => {
+  it('sends both MOUSEEVENTF_WHEEL and MOUSEEVENTF_HWHEEL on Windows when dx and dy are both set', async () => {
+    setPlatform('win32')
+    powershellMock.mockResolvedValue(ok())
+    const { NativeCliDriver } = await import('../../../src/main/agent/tools/drivers/native-cli')
+    const driver = new NativeCliDriver()
+    await driver.scroll(2, -1)
+    const script = powershellMock.mock.calls[0]![0]
+    expect(script).toContain('mouse_event(0x0800,0,0,120,0)') // dy=-1 -> -(-1*120) = 120
+    expect(script).toContain('mouse_event(0x1000,0,0,240,0)') // dx=2 -> 2*120 = 240
+  })
+
+  it('sends only the horizontal wheel event on Windows when dy is 0', async () => {
+    setPlatform('win32')
+    powershellMock.mockResolvedValue(ok())
+    const { NativeCliDriver } = await import('../../../src/main/agent/tools/drivers/native-cli')
+    const driver = new NativeCliDriver()
+    await driver.scroll(-1, 0)
+    const script = powershellMock.mock.calls[0]![0]
+    expect(script).not.toContain('0x0800')
+    expect(script).toContain('mouse_event(0x1000,0,0,-120,0)')
+  })
+
+  it('uses X11 button 7 (right) / 6 (left) for horizontal scroll on Linux via xdotool', async () => {
+    setPlatform('linux')
+    runMock.mockImplementation(async (cmd: string, args: string[]) => {
+      if (cmd === 'which' && args[0] === 'xdotool') return ok()
+      return ok()
+    })
+    const { NativeCliDriver } = await import('../../../src/main/agent/tools/drivers/native-cli')
+    const driver = new NativeCliDriver()
+    await driver.scroll(3, 0)
+    const call = runMock.mock.calls.find(
+      ([cmd, args]) => cmd === 'xdotool' && args[0] === 'click' && args.includes('7'),
+    )
+    expect(call).toBeTruthy()
+    expect(call![1]).toEqual(['click', '--repeat', '3', '7'])
+
+    await driver.scroll(-2, 0)
+    const leftCall = runMock.mock.calls.find(
+      ([cmd, args]) => cmd === 'xdotool' && args[0] === 'click' && args.includes('6'),
+    )
+    expect(leftCall![1]).toEqual(['click', '--repeat', '2', '6'])
+  })
+
+  it('falls back to left/right arrow key presses on macOS without a native scroll API', async () => {
+    setPlatform('darwin')
+    runMock.mockImplementation(async (cmd: string, args: string[]) => {
+      // has('xdotool'/'ydotool') must fail here — linux() probes by binary presence, not by
+      // platform, so leaving these as ok() would wrongly route scroll() into the Linux branch.
+      if (cmd === 'which' && (args[0] === 'xdotool' || args[0] === 'ydotool')) return fail()
+      if (cmd === 'which' && args[0] === 'cliclick') return ok()
+      // pressKeys() itself goes through osascript, not cliclick, on macOS.
+      return ok()
+    })
+    const { NativeCliDriver } = await import('../../../src/main/agent/tools/drivers/native-cli')
+    const driver = new NativeCliDriver()
+    await driver.scroll(2, 0)
+    const rightPresses = runMock.mock.calls.filter(
+      ([cmd, args]) => cmd === 'osascript' && args.some((a) => a.includes('key code 124')),
+    )
+    expect(rightPresses).toHaveLength(2) // right arrow = key code 124
+  })
+})

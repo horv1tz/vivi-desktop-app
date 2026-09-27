@@ -85,9 +85,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ("Try to continue" or "Reload") instead of silently going blank if something throws while
   rendering. Four error codes (`oauth_org_not_allowed`, `invalid_request`, `model_not_found`,
   `server_error`) previously had no translated message and silently fell back to a generic one.
+- **Computer control**: the `mouse` tool's `down`/`up`/`drag` actions now accept a `button`
+  (left/right/middle) instead of always using the left button.
 
 ### Fixed
 
+- **Computer control**: horizontal scroll (`dx`) was silently dropped by the fallback input driver
+  on every platform (Windows only sent the vertical wheel event, Linux's xdotool path only pressed
+  the vertical wheel buttons, and the macOS arrow-key fallback only pressed up/down) even though
+  the `mouse` tool's schema already documented and accepted it.
 - **Proxy**: "System" proxy mode only ever configured Electron's own network stack — the Claude
   CLI runs as a separate subprocess that never saw a proxy at all in that mode and silently
   connected directly, even though the UI showed the mode as active. It now resolves the actual
