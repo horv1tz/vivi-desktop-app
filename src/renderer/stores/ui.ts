@@ -6,6 +6,7 @@ export type SettingsSection =
   | 'account'
   | 'agent'
   | 'memory'
+  | 'skills'
   | 'voice'
   | 'proxy'
   | 'permissions'

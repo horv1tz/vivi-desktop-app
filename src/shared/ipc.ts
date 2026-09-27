@@ -9,6 +9,7 @@ import type {
   LoginFlowEvent,
   MemoryEntry,
   MetricsSummary,
+  SkillEntry,
   ModelDownloadProgress,
   OsPermissionStatus,
   PermissionDecision,
@@ -79,6 +80,18 @@ export interface InvokeMap {
   'memory:list': { args: []; result: MemoryEntry[] }
   'memory:delete': { args: [string]; result: void }
   'memory:clear': { args: []; result: void }
+  /** INT-02: named, toggleable instruction blocks injected into the system prompt when enabled. */
+  'skills:list': { args: []; result: SkillEntry[] }
+  'skills:create': {
+    args: [{ name: string; description: string; body: string }]
+    result: { skill?: SkillEntry; error?: string }
+  }
+  'skills:update': {
+    args: [string, { name: string; description: string; body: string }]
+    result: { skill?: SkillEntry; error?: string }
+  }
+  'skills:delete': { args: [string]; result: void }
+  'skills:setEnabled': { args: [string, boolean]; result: void }
   /** OBS-02: local, never-uploaded cost/token usage aggregated by day and by session. */
   'metrics:summary': { args: []; result: MetricsSummary }
   'metrics:clear': { args: []; result: void }

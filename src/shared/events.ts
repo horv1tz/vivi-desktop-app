@@ -265,6 +265,23 @@ export interface MemoryEntry {
   createdAt: number
 }
 
+/**
+ * A named, reusable block of instructions injected into the system prompt when enabled — a
+ * "skill" or custom instruction set. `source` distinguishes one the user wrote in Settings from
+ * one the agent authored itself via the manage_skill tool, purely for display (both are treated
+ * identically once saved).
+ */
+export interface SkillEntry {
+  id: string
+  name: string
+  description: string
+  body: string
+  enabled: boolean
+  source: 'user' | 'agent'
+  createdAt: number
+  updatedAt: number
+}
+
 /** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
 export interface JournalEntry {
   id: string

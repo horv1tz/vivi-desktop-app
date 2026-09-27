@@ -113,6 +113,50 @@ test('settings view opens and switches sections', async () => {
   ).toBeVisible({ timeout: 10_000 })
 })
 
+test('Skills settings: create, toggle and delete a skill; add and remove an integration (INT-02)', async () => {
+  await page
+    .getByRole('button', { name: /Настройки|Settings/ })
+    .first()
+    .click()
+  await page.getByRole('button', { name: /^Скилы$|^Skills$/ }).click()
+  await expect(page.getByText(/Пока нет скилов|No skills yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /Новый скил|New skill/ }).click()
+  await page.getByLabel(/^Название$|^Name$/).fill('Commit style')
+  await page.getByLabel(/^Описание$|^Description$/).fill('House style for git commits')
+  await page.getByLabel(/Инструкции|Instructions/).fill('Use imperative mood.')
+  await page.getByRole('button', { name: /Сохранить|Save/ }).click()
+
+  const skillRow = page.getByTestId('skill-row').filter({ hasText: 'Commit style' })
+  await expect(skillRow).toBeVisible()
+  await expect(page.getByText('House style for git commits')).toBeVisible()
+
+  const skillSwitch = skillRow.getByRole('switch')
+  await expect(skillSwitch).toHaveAttribute('data-state', 'checked')
+  await skillSwitch.click()
+  await expect(skillSwitch).toHaveAttribute('data-state', 'unchecked')
+
+  await skillRow.getByTitle(/Удалить|Delete/).click()
+  await expect(page.getByText(/Пока нет скилов|No skills yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /^Интеграции$|^Integrations$/ }).click()
+  await expect(page.getByText(/не настроены|No integrations configured/)).toBeVisible()
+  await expect(page.getByText(/Agent SDK-бэкендом|Agent SDK backend only/)).toBeVisible()
+
+  await page.getByRole('button', { name: /Новая интеграция|New integration/ }).click()
+  await page.getByLabel(/^Название$|^Name$/).fill('local-files')
+  await page.getByLabel(/^Команда$|^Command$/).fill('npx')
+  await page.getByLabel(/^Аргументы$|^Arguments$/).fill('-y @some/mcp-server')
+  await page.getByRole('button', { name: /Сохранить|Save/ }).click()
+
+  const integrationRow = page.getByTestId('integration-row').filter({ hasText: 'local-files' })
+  await expect(integrationRow).toBeVisible()
+  await expect(page.getByText('npx -y @some/mcp-server')).toBeVisible()
+
+  await integrationRow.getByTitle(/Удалить|Delete/).click()
+  await expect(page.getByText(/не настроены|No integrations configured/)).toBeVisible()
+})
+
 test('overlay window exists and can be toggled via IPC', async () => {
   const windows = app.windows()
   expect(windows.length).toBeGreaterThanOrEqual(2)

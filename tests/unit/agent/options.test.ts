@@ -42,6 +42,7 @@ describe('buildOptions', () => {
       cwd: '/work',
       homeDir: '/home/u',
       memoryFile: '/work/memory/VIVI.md',
+      skillsFile: '/work/skills/skills.json',
       claudeConfigDir: '/data/claude',
       extraEnv: {},
       appVersion: '1.0.0',

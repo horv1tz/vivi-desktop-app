@@ -10,12 +10,14 @@ import { captureScreen, hashBuffer, listDisplays, waitForStableFrame } from './s
 import { listInstalledApps, openTarget } from './apps'
 import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from './system'
 import { rememberEntry } from './memory'
+import { createSkill, deleteSkill, listSkills, setSkillEnabled, updateSkill } from './skills'
 import { listWindows } from './windows-list'
 import type { InputDriver } from './input-driver'
 import { error, text, image, truncate } from './util'
 
 export interface ViviToolDeps {
   memoryFile: () => string
+  skillsFile: () => string
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
@@ -467,6 +469,87 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     },
   )
 
+  const listSkillsTool = tool(
+    'list_skills',
+    'List your saved skills (name, description, enabled state, id, source). Check here before creating a new skill, so you update an existing one instead of making a near-duplicate.',
+    {},
+    async () => {
+      try {
+        const skills = listSkills(deps.skillsFile())
+        if (!skills.length) return text('no skills yet')
+        return text(
+          skills
+            .map(
+              (s) =>
+                `${s.enabled ? '✓' : '✗'} "${s.name}" (id ${s.id}, ${s.source}${s.enabled ? '' : ', disabled'}) — ${s.description || '(no description)'}`,
+            )
+            .join('\n'),
+        )
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
+
+  const manageSkill = tool(
+    'manage_skill',
+    'Create, update, delete, or enable/disable a skill — a named, reusable block of instructions injected into your own system prompt (under "## Skills") in every future conversation while enabled. Use for repeatable procedures, house style, or a preferred approach to a recurring kind of task — not one-off facts (use remember) and never for secrets. Like remember, this takes effect starting with a new chat, not in this same conversation.',
+    {
+      action: z.enum(['create', 'update', 'delete', 'set_enabled']),
+      id: z.string().optional().describe('Required for update/delete/set_enabled'),
+      name: z.string().max(80).optional().describe('Required for create/update'),
+      description: z.string().max(300).optional().describe('One-line summary'),
+      body: z
+        .string()
+        .max(8000)
+        .optional()
+        .describe('The instructions themselves, required for create/update'),
+      enabled: z.boolean().optional().describe('Required for set_enabled'),
+    },
+    async ({ action, id, name, description, body, enabled }) => {
+      try {
+        switch (action) {
+          case 'create': {
+            if (!name || !body) return error('name and body are required to create a skill')
+            const result = createSkill(deps.skillsFile(), {
+              name,
+              description: description ?? '',
+              body,
+              source: 'agent',
+            })
+            if (result.error) return error(result.error)
+            return text(`created skill "${result.skill!.name}" (id ${result.skill!.id})`)
+          }
+          case 'update': {
+            if (!id) return error('id is required to update a skill')
+            if (!name || !body) return error('name and body are required to update a skill')
+            const result = updateSkill(deps.skillsFile(), id, {
+              name,
+              description: description ?? '',
+              body,
+            })
+            if (result.error) return error(result.error)
+            return text(`updated skill "${result.skill!.name}"`)
+          }
+          case 'delete': {
+            if (!id) return error('id is required to delete a skill')
+            deleteSkill(deps.skillsFile(), id)
+            return text('deleted')
+          }
+          case 'set_enabled': {
+            if (!id || enabled === undefined)
+              return error('id and enabled are required for set_enabled')
+            setSkillEnabled(deps.skillsFile(), id, enabled)
+            return text(`${enabled ? 'enabled' : 'disabled'} skill ${id}`)
+          }
+        }
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+  )
+
   return createSdkMcpServer({
     name: 'vivi',
     version: '1.0.0',
@@ -486,6 +569,8 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       speak,
       stopSpeaking,
       remember,
+      listSkillsTool,
+      manageSkill,
     ],
   })
 }

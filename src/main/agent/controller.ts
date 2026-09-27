@@ -26,6 +26,7 @@ import { getMainWindow, showMainWindow, withOwnWindowsHidden } from '../app/wind
 import { createViviMcpServer } from './tools'
 import type { InputDriver } from './tools/input-driver'
 import type { BrokerUi } from './permissions/broker'
+import { integrationsToMcpServers } from './integrations'
 
 const log = logger('agent')
 
@@ -71,6 +72,7 @@ export class AgentController {
   private viviTools() {
     return createViviMcpServer({
       memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+      skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
       speak: this.deps.speak,
       stopSpeaking: this.deps.stopSpeaking,
       inputDriver: this.deps.inputDriver,
@@ -151,6 +153,7 @@ export class AgentController {
       cwd: () => paths.workspace(settings().get().agent.workspaceDir),
       homeDir: paths.home,
       memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+      skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
       debugFile: () =>
@@ -170,7 +173,12 @@ export class AgentController {
     }
     return new SdkBackend({
       ...common,
-      mcpServers: () => ({ vivi: this.viviTools() }),
+      // INT-01: user-configured integrations merged alongside Vivi's own tools; a same-named
+      // integration can't shadow 'vivi' since integrationsToMcpServers is spread first.
+      mcpServers: () => ({
+        ...integrationsToMcpServers(settings().get().integrations),
+        vivi: this.viviTools(),
+      }),
     })
   }
 

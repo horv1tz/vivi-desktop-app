@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reduce SmartScreen/Gatekeeper warnings and antivirus false positives, the exact GitHub secret
   names the release workflow already reads, and the free Microsoft Defender / VirusTotal
   false-positive submission process for when a specific build gets flagged.
+- **Skills and integrations** (new "Skills" settings screen): a skill is a named, reusable block
+  of instructions folded into Vivi's own system prompt while enabled — a house style, a checklist,
+  a preferred approach to a recurring kind of task. Vivi can create and update these herself (a new
+  `manage_skill` tool, plus a read-only `list_skills`) when you teach her a procedure worth
+  keeping, not just when you write one directly in Settings; verified end-to-end against the real
+  model, which correctly called the tool and persisted the skill. An integration is a real external
+  MCP server (stdio or http) merged into Vivi's tools — unlike a skill this is never
+  agent-creatable, since it runs an actual program; only the built-in Agent SDK backend supports
+  integrations today (see `docs/SKILLS.md`, including the documented ACP-mode limitation).
 
 ### Fixed
 

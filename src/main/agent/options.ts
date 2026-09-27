@@ -13,6 +13,7 @@ export interface BuildOptionsInput {
   cwd: string
   homeDir: string
   memoryFile: string
+  skillsFile: string
   claudeConfigDir: string
   /** Auth + proxy env pieces (ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, HTTPS_PROXY, …). */
   extraEnv: Record<string, string | undefined>
@@ -84,6 +85,7 @@ export function buildOptions(input: BuildOptionsInput): Options {
     workspaceDir: input.cwd,
     homeDir: input.homeDir,
     memoryFile: input.memoryFile,
+    skillsFile: input.skillsFile,
     customInstructions: s.agent.customInstructions,
   })
 

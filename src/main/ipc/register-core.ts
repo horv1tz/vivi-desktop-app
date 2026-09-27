@@ -11,6 +11,13 @@ import { getOsPermissions, requestOsPermission } from '../app/os-permissions'
 import { buildDiagnosticsReport } from '../app/diagnostics'
 import { getInputDriverInfo } from '../agent/tools/drivers'
 import { clearMemoryEntries, deleteMemoryEntry, listMemoryEntries } from '../agent/tools/memory'
+import {
+  createSkill,
+  deleteSkill,
+  listSkills,
+  setSkillEnabled,
+  updateSkill,
+} from '../agent/tools/skills'
 import { handle } from './handlers'
 import { emit } from './emitters'
 
@@ -18,6 +25,10 @@ export const SDK_VERSION = '0.3.283'
 
 function currentMemoryFile(): string {
   return paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir))
+}
+
+function currentSkillsFile(): string {
+  return paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir))
 }
 
 function getAppInfo(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): AppInfo {
@@ -137,4 +148,14 @@ export function registerCoreHandlers(opts: {
   handle('memory:list', () => listMemoryEntries(currentMemoryFile()))
   handle('memory:delete', (_e, id) => deleteMemoryEntry(currentMemoryFile(), id))
   handle('memory:clear', () => clearMemoryEntries(currentMemoryFile()))
+
+  handle('skills:list', () => listSkills(currentSkillsFile()))
+  handle('skills:create', (_e, input) =>
+    createSkill(currentSkillsFile(), { ...input, source: 'user' }),
+  )
+  handle('skills:update', (_e, id, input) => updateSkill(currentSkillsFile(), id, input))
+  handle('skills:delete', (_e, id) => deleteSkill(currentSkillsFile(), id))
+  handle('skills:setEnabled', (_e, id, enabled) =>
+    setSkillEnabled(currentSkillsFile(), id, enabled),
+  )
 }

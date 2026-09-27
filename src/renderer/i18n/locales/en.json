@@ -115,6 +115,7 @@
       "account": "Account",
       "agent": "Agent",
       "memory": "Memory",
+      "skills": "Skills",
       "voice": "Voice",
       "proxy": "Proxy",
       "permissions": "Permissions",
@@ -191,6 +192,38 @@
         "fact": "Fact",
         "project": "Project"
       }
+    },
+    "skills": {
+      "tabs": {
+        "skills": "Skills",
+        "integrations": "Integrations"
+      },
+      "title": "Skills",
+      "description": "Named, reusable blocks of instructions injected into Vivi's own system prompt when enabled — a repeatable procedure, house style, or preferred approach to a recurring task. Vivi can create and edit these herself when you teach her something worth keeping this way (see the manage_skill tool), or you can write one directly here.",
+      "new": "New skill",
+      "empty": "No skills yet.",
+      "edit": "Edit",
+      "delete": "Delete",
+      "name": "Name",
+      "descriptionField": "Description",
+      "body": "Instructions",
+      "bodyHint": "The actual text injected into the prompt when this skill is enabled.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "source": {
+        "user": "you",
+        "agent": "Vivi"
+      },
+      "integrationsTitle": "Integrations",
+      "integrationsDescription": "External MCP servers merged into Vivi's tools. Each one runs a program you specify, so Vivi can only add tools this way with your explicit setup here — never on her own.",
+      "integrationsWarning": "An integration runs an external program (or connects to a remote one) that gains access to whatever tools it defines. Only add ones you trust. Integrations apply to the built-in Agent SDK backend only — they're not available in ACP mode.",
+      "newIntegration": "New integration",
+      "noIntegrations": "No integrations configured.",
+      "unnamed": "(unnamed)",
+      "transport": "Transport",
+      "command": "Command",
+      "args": "Arguments",
+      "url": "URL"
     },
     "usage": {
       "title": "Usage",

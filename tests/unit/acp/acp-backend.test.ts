@@ -44,6 +44,7 @@ function makeBackend(mode = 'normal') {
     cwd: () => dir,
     homeDir: dir,
     memoryFile: () => join(dir, 'VIVI.md'),
+    skillsFile: () => join(dir, 'skills.json'),
     claudeConfigDir: join(dir, 'claude'),
     adapterEntry: () => null,
     adapterBootstrap: () => null,

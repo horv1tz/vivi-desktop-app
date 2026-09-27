@@ -54,4 +54,11 @@ export const paths = {
   memoryFile(workspace: string): string {
     return join(paths.memoryDir(workspace), 'memory.json')
   },
+  skillsDir(workspace: string): string {
+    return ensureDir(join(workspace, 'skills'))
+  },
+  /** INT-02: named, toggleable instruction blocks injected into the system prompt when enabled. */
+  skillsFile(workspace: string): string {
+    return join(paths.skillsDir(workspace), 'skills.json')
+  },
 }

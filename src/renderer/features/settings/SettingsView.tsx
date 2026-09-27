@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { GeneralSection } from './sections/GeneralSection'
 import { AgentSection } from './sections/AgentSection'
 import { MemorySection } from './sections/MemorySection'
+import { SkillsSection } from './sections/SkillsSection'
 import { AboutSection } from './sections/AboutSection'
 import { AccountSection } from './sections/AccountSection'
 import { ProxySection } from './sections/ProxySection'
@@ -20,6 +21,7 @@ const sections: SettingsSection[] = [
   'account',
   'agent',
   'memory',
+  'skills',
   'voice',
   'proxy',
   'permissions',
@@ -66,6 +68,7 @@ export function SettingsView() {
           {section === 'account' ? <AccountSection /> : null}
           {section === 'agent' ? <AgentSection /> : null}
           {section === 'memory' ? <MemorySection /> : null}
+          {section === 'skills' ? <SkillsSection /> : null}
           {section === 'voice' ? <VoiceSection /> : null}
           {section === 'proxy' ? <ProxySection /> : null}
           {section === 'permissions' ? <PermissionsSection /> : null}

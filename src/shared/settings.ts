@@ -38,6 +38,22 @@ export const PermissionRuleSchema = z.object({
   ruleContent: z.string().optional(),
 })
 
+/**
+ * INT-01: a user-configured external MCP server, merged into the agent's tools (SDK backend
+ * only — see docs/INTEGRATIONS.md for why ACP mode doesn't support these yet). Deliberately not
+ * agent-creatable: unlike a skill (text), an integration runs an arbitrary program the user
+ * chose, so adding one is a decision only the user makes, through this settings screen.
+ */
+export const IntegrationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  enabled: z.boolean().default(true),
+  transport: z.enum(['stdio', 'http']).default('stdio'),
+  command: z.string().default(''),
+  args: z.string().default(''),
+  url: z.string().default(''),
+})
+
 export const PermissionSettingsSchema = z.object({
   autoAllowReadOnly: z.boolean().default(true),
   /** Screenshots and clipboard reads can surface passwords/PII; gated separately from autoAllowReadOnly. */
@@ -122,12 +138,14 @@ export const SettingsSchema = z.object({
   appearance: AppearanceSettingsSchema.prefault({}),
   auth: AuthSettingsSchema.prefault({}),
   features: FeatureFlagsSchema.prefault({}),
+  integrations: z.array(IntegrationSchema).default([]),
 })
 
 export type Settings = z.infer<typeof SettingsSchema>
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>
 export type PermissionSettings = z.infer<typeof PermissionSettingsSchema>
 export type PermissionRule = z.infer<typeof PermissionRuleSchema>
+export type Integration = z.infer<typeof IntegrationSchema>
 export type ProxySettings = z.infer<typeof ProxySettingsSchema>
 export type VoiceSettings = z.infer<typeof VoiceSettingsSchema>
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
