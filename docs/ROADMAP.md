@@ -442,9 +442,11 @@ gantt
 - **Подход:** запоминать активное окно перед показом диалога и возвращать фокус после (`get-windows` + драйвер `focus`); `win.setContentProtection(true)` на время захвата или исключение по `sourceId`; overlay не активирует окно (`showInactive`).
 - **Оценка:** M · **P1** · **0.2**
 
-#### CU-06 · macOS: pre-flight проверки TCC · ⚠️ Partially done (automation status check + onboarding row shipped; check-before-every-action wiring is still open)
+#### CU-06 · macOS: pre-flight проверки TCC · ✅ Done
 - **Цель:** до первого действия проверить Accessibility/Screen Recording/Automation и дать понятную ошибку с кнопкой в системные настройки.
 - **Подход:** `app/os-permissions.ts` расширить `automation` (AppleScript к System Events), проверка перед `mouse/keyboard/windows`, онбординг с шагом «Автоматизация».
+- **Сделано:** реальный пробел — `getOsPermissions()`/`requestOsPermission()` были подключены только к онбордингу и диагностике, но ни разу не вызывались перед фактическим `mouse`/`keyboard`/`windows`-действием; при отказе в Accessibility агент просто получал бы что-то невнятное от драйвера (robotjs на macOS тихо не выполняет CGEvent-вызовы без Accessibility, не бросая исключения — то есть агент увидел бы «клик выполнен», которого на самом деле не было). Добавлена `checkInputPermission(kind: 'pointer' | 'window')` в `os-permissions.ts`: Accessibility проверяется синхронно (`systemPreferences.isTrustedAccessibilityClient(false)`, без сабпроцесса) перед каждым mouse/keyboard-действием, Automation — только перед `windows.focus/minimize` (единственное действие, которое на фолбэк-драйвере идёт через `osascript`), чтобы не добавлять сабпроцесс на каждый клик/движение мыши. `beforeInputAction` (уже существовавший хук для fail-safe угла/kill switch, вызывается из `main/index.ts` перед каждым вызовом драйвера) теперь принимает `kind` и бросает понятную ошибку с прямой инструкцией («Open System Settings → Privacy & Security → Accessibility/Automation, enable Vivi, then try again») до обращения к драйверу вообще.
+- **Тесты:** `tests/unit/app/os-permissions.test.ts` — 6 новых тестов на `checkInputPermission` (не-macOS всегда ok без единого вызова Accessibility/Automation; блокировка pointer-действия при отказе в Accessibility без лишнего пробирования Automation; разрешение pointer-действия без проверки Automation вообще; блокировка/разрешение window-действия по статусу Automation; статус Automation «неизвестно» не блокирует). Полный набор юнит-тестов (367), typecheck, lint, format, e2e и сборка — без регрессий.
 - **Оценка:** S · **P1** · **0.2**
 
 #### CU-07 · HUD «Vivi управляет» + «Стоп» в трее + освобождение ввода · ✅ Сделано
@@ -1001,7 +1003,7 @@ SemVer; до 1.0 минорные версии могут менять наст�
 | CU-03 | «Действие + наблюдение» | CU | P1 | S | 0.2 | ✅ |
 | CU-04 | Корректный DPI | CU | P0 | S | 0.1.x | ✅ |
 | CU-05 | Гигиена фокуса и захвата | CU | P1 | M | 0.2 | 🔶 |
-| CU-06 | macOS pre-flight TCC | CU | P1 | S | 0.2 | 🔶 |
+| CU-06 | macOS pre-flight TCC | CU | P1 | S | 0.2 | ✅ |
 | CU-07 | HUD, «Стоп» в трее, освобождение ввода | CU | P1 | M | 0.2 | ✅ |
 | CU-08 | Accessibility-дерево macOS | CU | P1 | XL | 0.4 | 📋 |
 | CU-09 | Accessibility-дерево Windows/Linux | CU | P2 | XL | 0.5 | 📋 |

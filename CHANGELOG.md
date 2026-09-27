@@ -99,6 +99,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and how it differs from the default SDK backend), and `docs/PROXY.md` (proxy modes, exact
   settings fields, the CA-certificate limitation) — linked from both the Russian and English
   sections of the README.
+- **macOS permission pre-flight**: before every `mouse`/`keyboard` action Vivi now checks the
+  Accessibility TCC permission, and before every window focus/minimize it also checks Automation,
+  returning a clear error naming the exact System Settings pane to fix instead of letting a denied
+  action silently do nothing (robotjs's mouse/keyboard calls fail silently on macOS without
+  Accessibility, so the agent previously had no way to tell a click never actually landed).
 
 ### Chore
 

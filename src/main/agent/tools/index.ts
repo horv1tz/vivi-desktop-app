@@ -19,8 +19,12 @@ export interface ViviToolDeps {
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
-  /** Called before every mouse/keyboard action; throws to abort (fail-safe corner, kill switch). */
-  beforeInputAction?: () => Promise<void>
+  /**
+   * Called before every mouse/keyboard/window-focus action; throws to abort (fail-safe corner,
+   * kill switch, macOS TCC permission gate — CU-06). `kind` says which permission category
+   * applies: 'pointer' for mouse/keyboard, 'window' for focus/minimize.
+   */
+  beforeInputAction?: (kind: 'pointer' | 'window') => Promise<void>
   appRegistryEnabled: () => boolean
   /** CU-05: hides Vivi's own windows from screen capture for the duration of the callback. */
   withOwnWindowsHidden: <T>(fn: () => Promise<T>) => Promise<T>
@@ -149,7 +153,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
           'mouse control is not available on this system (no input driver). On Linux Wayland use X11 or install xdotool/ydotool.',
         )
       try {
-        await deps.beforeInputAction?.()
+        await deps.beforeInputAction?.('pointer')
         let message: string
         switch (action) {
           case 'position': {
@@ -233,7 +237,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       if (!driver)
         return error('keyboard control is not available on this system (no input driver).')
       try {
-        await deps.beforeInputAction?.()
+        await deps.beforeInputAction?.('pointer')
         let message: string
         if (action === 'type') {
           if (!t) return error('text is required')
@@ -296,7 +300,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       const driver = await deps.inputDriver()
       if (!driver) return error('window control is not available on this system.')
       try {
-        await deps.beforeInputAction?.()
+        await deps.beforeInputAction?.('window')
         const ok =
           action === 'focus'
             ? await driver.focusWindow({ id, title, app, pid })

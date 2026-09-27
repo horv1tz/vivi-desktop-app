@@ -36,7 +36,7 @@ export interface ControllerDeps {
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
-  beforeInputAction?: () => Promise<void>
+  beforeInputAction?: (kind: 'pointer' | 'window') => Promise<void>
   /** CU-07: called whenever the user explicitly sends the agent a new message (text or voice). */
   onUserAction?: () => void
 }

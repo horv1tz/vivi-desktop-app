@@ -58,6 +58,41 @@ export async function getOsPermissions(): Promise<OsPermissionStatus> {
   return { microphone: 'unknown', screen: 'unknown', accessibility: 'n/a', automation: 'n/a' }
 }
 
+export interface InputPermissionCheck {
+  ok: boolean
+  message?: string
+}
+
+/**
+ * CU-06: called right before a mouse/keyboard/window-focus tool call actually reaches the input
+ * driver, so a TCC denial on macOS surfaces as one clear, actionable tool error instead of
+ * whatever the native driver happens to throw (robotjs's CGEvent calls silently no-op without
+ * Accessibility rather than raising, which is worse: the agent would see a "click succeeded" that
+ * never actually landed). Accessibility is checked synchronously (no subprocess) since it gates
+ * every mouse/keyboard action; Automation is only checked for window focus/minimize, since that's
+ * the only action that shells out to `osascript` under the native-cli fallback driver.
+ */
+export async function checkInputPermission(
+  kind: 'pointer' | 'window',
+): Promise<InputPermissionCheck> {
+  if (process.platform !== 'darwin') return { ok: true }
+  if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+    return {
+      ok: false,
+      message:
+        'macOS Accessibility permission is required to control the mouse and keyboard. Open System Settings → Privacy & Security → Accessibility, enable Vivi, then try again.',
+    }
+  }
+  if (kind === 'window' && (await checkAutomationPermission()) === 'denied') {
+    return {
+      ok: false,
+      message:
+        "macOS Automation permission is required to focus or minimize other apps' windows. Open System Settings → Privacy & Security → Automation, enable Vivi → System Events, then try again.",
+    }
+  }
+  return { ok: true }
+}
+
 export async function requestOsPermission(
   kind: 'microphone' | 'screen' | 'accessibility' | 'automation',
 ): Promise<boolean> {

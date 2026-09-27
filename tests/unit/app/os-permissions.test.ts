@@ -90,3 +90,59 @@ describe('requestOsPermission — automation (CU-06)', () => {
     expect(openExternalMock).toHaveBeenCalledWith(expect.stringContaining('Privacy_Automation'))
   })
 })
+
+describe('checkInputPermission — pre-flight gate before an input action (CU-06)', () => {
+  it('is always ok on non-macOS platforms, without touching Accessibility or Automation', async () => {
+    setPlatform('win32')
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    expect(await checkInputPermission('pointer')).toEqual({ ok: true })
+    expect(await checkInputPermission('window')).toEqual({ ok: true })
+    expect(isTrustedAccessibilityClientMock).not.toHaveBeenCalled()
+    expect(runMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks a pointer action with an actionable message when Accessibility is denied', async () => {
+    setPlatform('darwin')
+    isTrustedAccessibilityClientMock.mockReturnValueOnce(false)
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    const result = await checkInputPermission('pointer')
+    expect(result.ok).toBe(false)
+    expect(result.message).toMatch(/Accessibility/)
+    // Automation is never probed once Accessibility already failed — no need for the extra subprocess.
+    expect(runMock).not.toHaveBeenCalled()
+  })
+
+  it('allows a pointer action once Accessibility is granted, without probing Automation at all', async () => {
+    setPlatform('darwin')
+    isTrustedAccessibilityClientMock.mockReturnValueOnce(true)
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    expect(await checkInputPermission('pointer')).toEqual({ ok: true })
+    expect(runMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks a window action with an actionable message when Automation is denied', async () => {
+    setPlatform('darwin')
+    isTrustedAccessibilityClientMock.mockReturnValueOnce(true)
+    runMock.mockResolvedValue({ code: 1, stdout: '', stderr: '-1743' })
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    const result = await checkInputPermission('window')
+    expect(result.ok).toBe(false)
+    expect(result.message).toMatch(/Automation/)
+  })
+
+  it('allows a window action when both Accessibility and Automation are granted', async () => {
+    setPlatform('darwin')
+    isTrustedAccessibilityClientMock.mockReturnValueOnce(true)
+    runMock.mockResolvedValue({ code: 0, stdout: 'Finder', stderr: '' })
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    expect(await checkInputPermission('window')).toEqual({ ok: true })
+  })
+
+  it('allows a window action when Automation status is merely inconclusive, not denied', async () => {
+    setPlatform('darwin')
+    isTrustedAccessibilityClientMock.mockReturnValueOnce(true)
+    runMock.mockResolvedValue({ code: 1, stdout: '', stderr: 'osascript: command timed out' })
+    const { checkInputPermission } = await import('../../../src/main/app/os-permissions')
+    expect(await checkInputPermission('window')).toEqual({ ok: true })
+  })
+})

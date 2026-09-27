@@ -28,6 +28,7 @@ import { InputGuard, resolveInputDriver } from './agent/tools/drivers'
 import { applyAutostart } from './app/autostart'
 import { getMainWindow, isOverlayVisible } from './app/windows'
 import { registerUpdater } from './app/updater'
+import { checkInputPermission } from './app/os-permissions'
 
 const log = logger('main')
 
@@ -118,7 +119,9 @@ async function bootstrap(): Promise<void> {
     speak: (text) => voice.speak(text),
     stopSpeaking: () => voice.stopSpeaking(),
     inputDriver: () => resolveInputDriver(),
-    beforeInputAction: async () => {
+    beforeInputAction: async (kind) => {
+      const permission = await checkInputPermission(kind)
+      if (!permission.ok) throw new Error(permission.message)
       const driver = await resolveInputDriver()
       if (driver) await inputGuard.check(driver)
       pingControlHud()
