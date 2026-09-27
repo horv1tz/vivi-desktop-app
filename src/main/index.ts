@@ -89,6 +89,12 @@ async function bootstrap(): Promise<void> {
       if (win) win.webContents.postMessage('voice:port', null, [port])
     },
     isOverlayVisible: () => isOverlayVisible(),
+    onPermissionRequest: (listener) => agent.onPermissionRequest(listener),
+    onPermissionResolved: (listener) => agent.onPermissionResolved(listener),
+    respondPermission: (requestId, decision) => agent.respondPermission(requestId, decision),
+    onQuestionRequest: (listener) => agent.onQuestionRequest(listener),
+    onQuestionResolved: (listener) => agent.onQuestionResolved(listener),
+    answerQuestion: (requestId, answers) => agent.answerQuestionRequest(requestId, answers),
   })
   const inheritedConfigDir = process.env.CLAUDE_CONFIG_DIR
   /** The SDK's session helpers (listSessions, getSessionMessages) resolve the config dir from this process' env. */

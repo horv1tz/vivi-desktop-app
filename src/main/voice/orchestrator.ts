@@ -1,6 +1,12 @@
 import { cpus } from 'node:os'
 import { app } from 'electron'
-import type { AgentUiEvent, VoiceState } from '@shared/events'
+import type {
+  AgentUiEvent,
+  PermissionDecision,
+  PermissionRequest,
+  QuestionRequest,
+  VoiceState,
+} from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
 import type { Settings } from '@shared/settings'
 import type { Dispatcher } from 'undici'
@@ -16,6 +22,17 @@ import { handle } from '../ipc/handlers'
 import { logger } from '../logging/log'
 import { showOverlay } from '../app/windows'
 import { sherpaLibDir } from './native-paths'
+import {
+  describePermissionPrompt,
+  describeQuestionPrompt,
+  matchPermissionAnswer,
+  matchQuestionOption,
+  permissionAllowedSpoken,
+  permissionDeniedSpoken,
+  permissionRetrySpoken,
+  questionAnsweredSpoken,
+  questionRetrySpoken,
+} from './permission-voice'
 
 const log = logger('voice')
 
@@ -53,6 +70,13 @@ export interface OrchestratorDeps {
   /** Hand the renderer-side audio port to the main window. */
   deliverAudioPort: (port: Electron.MessagePortMain) => void
   isOverlayVisible: () => boolean
+  /** VO-05: speak permission/question prompts and answer them by voice. */
+  onPermissionRequest: (listener: (req: PermissionRequest) => void) => () => void
+  onPermissionResolved: (listener: (requestId: string) => void) => () => void
+  respondPermission: (requestId: string, decision: PermissionDecision) => void
+  onQuestionRequest: (listener: (req: QuestionRequest) => void) => () => void
+  onQuestionResolved: (listener: (requestId: string) => void) => () => void
+  answerQuestion: (requestId: string, answers: Record<string, string>) => void
 }
 
 /**
@@ -69,6 +93,13 @@ export class VoiceOrchestrator {
   private speaking = false
   private currentVoiceTurn = false
   private unsubscribeAgent: (() => void) | null = null
+  private unsubscribePermission: (() => void) | null = null
+  private unsubscribePermissionResolved: (() => void) | null = null
+  private unsubscribeQuestion: (() => void) | null = null
+  private unsubscribeQuestionResolved: (() => void) | null = null
+  /** VO-05: set while a permission/question prompt raised during a voice turn awaits a spoken answer. */
+  private pendingPermission: PermissionRequest | null = null
+  private pendingQuestion: QuestionRequest | null = null
   private cloud: OpenAIVoiceProvider | null = null
   private starting: Promise<void> | null = null
   private readonly thinkingTimeoutMs: number
@@ -89,6 +120,79 @@ export class VoiceOrchestrator {
   attachAgent(): void {
     this.unsubscribeAgent?.()
     this.unsubscribeAgent = this.deps.onAgentEvent((e) => this.onAgentEvent(e))
+    this.unsubscribePermission?.()
+    this.unsubscribePermission = this.deps.onPermissionRequest((req) =>
+      this.onPermissionRequest(req),
+    )
+    this.unsubscribePermissionResolved?.()
+    this.unsubscribePermissionResolved = this.deps.onPermissionResolved((id) => {
+      if (this.pendingPermission?.requestId === id) {
+        this.pendingPermission = null
+        this.pushToTalk(false)
+      }
+    })
+    this.unsubscribeQuestion?.()
+    this.unsubscribeQuestion = this.deps.onQuestionRequest((req) => this.onQuestionRequest(req))
+    this.unsubscribeQuestionResolved?.()
+    this.unsubscribeQuestionResolved = this.deps.onQuestionResolved((id) => {
+      if (this.pendingQuestion?.requestId === id) {
+        this.pendingQuestion = null
+        this.pushToTalk(false)
+      }
+    })
+  }
+
+  /**
+   * VO-05: only jump in with speech/forced-listening when the interaction that raised this prompt
+   * was itself voice-driven — a permission dialog triggered by a typed command shouldn't suddenly
+   * start talking and turn on the microphone.
+   */
+  private onPermissionRequest(req: PermissionRequest): void {
+    if (!this.currentVoiceTurn || !this.deps.getSettings().voice.speakReplies) return
+    this.pendingPermission = req
+    void this.speak(describePermissionPrompt(req, this.deps.getSettings().appearance.language))
+    this.pushToTalk(true)
+  }
+
+  private onQuestionRequest(req: QuestionRequest): void {
+    if (!this.currentVoiceTurn || !this.deps.getSettings().voice.speakReplies) return
+    const spoken = describeQuestionPrompt(req, this.deps.getSettings().appearance.language)
+    if (!spoken) return // multi-question/multi-select: on-screen dialog only
+    this.pendingQuestion = req
+    void this.speak(spoken)
+    this.pushToTalk(true)
+  }
+
+  /** Voice answer to a pending permission/question prompt, if one is pending. Returns true if the transcript was consumed this way. */
+  /** Only called when pendingPermission or pendingQuestion is already known to be set. */
+  private async answerPending(t: string): Promise<void> {
+    const locale = this.deps.getSettings().appearance.language
+    if (this.pendingPermission) {
+      const decision = matchPermissionAnswer(t)
+      if (!decision) {
+        await this.speak(permissionRetrySpoken(locale))
+        return
+      }
+      const req = this.pendingPermission
+      this.pendingPermission = null
+      this.pushToTalk(false)
+      this.deps.respondPermission(req.requestId, decision)
+      await this.speak(
+        decision === 'deny' ? permissionDeniedSpoken(locale) : permissionAllowedSpoken(locale),
+      )
+      return
+    }
+    const pending = this.pendingQuestion!
+    const q = pending.questions[0]!
+    const label = matchQuestionOption(t, q.options)
+    if (!label) {
+      await this.speak(questionRetrySpoken(locale))
+      return
+    }
+    this.pendingQuestion = null
+    this.pushToTalk(false)
+    this.deps.answerQuestion(pending.requestId, { [q.question]: label })
+    await this.speak(questionAnsweredSpoken(label, locale))
   }
 
   getState(): VoiceState {
@@ -375,6 +479,12 @@ export class VoiceOrchestrator {
   private async handleTranscript(text: string): Promise<void> {
     const t = text.trim()
     if (!t) return
+    // Synchronous check (no `await` before it) so the common case — nothing pending — falls
+    // through to the normal turn-start below within the same microtask, exactly as before VO-05.
+    if (this.pendingPermission || this.pendingQuestion) {
+      await this.answerPending(t)
+      return
+    }
     this.currentVoiceTurn = true
     this.chunker.reset()
     this.speakGeneration++
@@ -520,6 +630,10 @@ export class VoiceOrchestrator {
     this.clearThinkingWatchdog()
     this.clearSpeakingWatchdog()
     this.unsubscribeAgent?.()
+    this.unsubscribePermission?.()
+    this.unsubscribePermissionResolved?.()
+    this.unsubscribeQuestion?.()
+    this.unsubscribeQuestionResolved?.()
     await this.worker?.stop()
     this.worker = null
   }

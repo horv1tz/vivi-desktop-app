@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AgentUiEvent } from '../../../src/shared/events'
+import type { AgentUiEvent, PermissionRequest, QuestionRequest } from '../../../src/shared/events'
 import { defaultSettings, type Settings } from '../../../src/shared/settings'
 import type { WorkerToMain } from '../../../src/voice-worker/protocol'
 import type { OrchestratorDeps } from '../../../src/main/voice/orchestrator'
@@ -106,9 +106,17 @@ const workerClientMock = (await import('../../../src/main/voice/worker-client'))
 const flushReal = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 let agentListener: ((e: AgentUiEvent) => void) | null = null
+let permissionListener: ((req: PermissionRequest) => void) | null = null
+let permissionResolvedListener: ((id: string) => void) | null = null
+let questionListener: ((req: QuestionRequest) => void) | null = null
+let questionResolvedListener: ((id: string) => void) | null = null
 
 function makeDeps(settings: Settings): OrchestratorDeps {
   agentListener = null
+  permissionListener = null
+  permissionResolvedListener = null
+  questionListener = null
+  questionResolvedListener = null
   return {
     getSettings: () => settings,
     modelsDir: '/tmp/fake-models-dir',
@@ -123,6 +131,32 @@ function makeDeps(settings: Settings): OrchestratorDeps {
     getDispatcher: () => undefined,
     deliverAudioPort: vi.fn(),
     isOverlayVisible: () => true,
+    onPermissionRequest: (listener) => {
+      permissionListener = listener
+      return () => {
+        permissionListener = null
+      }
+    },
+    onPermissionResolved: (listener) => {
+      permissionResolvedListener = listener
+      return () => {
+        permissionResolvedListener = null
+      }
+    },
+    respondPermission: vi.fn(),
+    onQuestionRequest: (listener) => {
+      questionListener = listener
+      return () => {
+        questionListener = null
+      }
+    },
+    onQuestionResolved: (listener) => {
+      questionResolvedListener = listener
+      return () => {
+        questionResolvedListener = null
+      }
+    },
+    answerQuestion: vi.fn(),
   }
 }
 
@@ -358,5 +392,178 @@ describe("VoiceOrchestrator 'speaking' watchdog (VO-02)", () => {
     await vi.advanceTimersByTimeAsync(5000)
     expect(orch.getState()).toBe('armed')
     expect(stateEvents().some((e) => e.state === 'error')).toBe(false)
+  })
+})
+
+describe('VoiceOrchestrator voice permissions and questions (VO-05)', () => {
+  const permissionReq: PermissionRequest = {
+    requestId: 'p1',
+    toolName: 'Bash',
+    input: {},
+    category: 'exec',
+    dangerous: false,
+    dangerReasons: [],
+    canAlwaysAllow: true,
+    suggestionsCount: 0,
+    displayName: 'run a shell command',
+  }
+  const questionReq: QuestionRequest = {
+    requestId: 'q1',
+    questions: [
+      { question: 'Which language?', options: [{ label: 'TypeScript' }, { label: 'Python' }] },
+    ],
+  }
+  const finalTranscript = (text: string): WorkerToMain => ({ type: 'final', text, durationMs: 300 })
+  const spokenText = (client: FakeWorkerClientLike): string =>
+    client.sent
+      .filter((m) => m.type === 'tts')
+      .map((m) => m.text as string)
+      .join(' ')
+
+  it('only speaks/force-listens for a permission request raised during a voice-originated turn', async () => {
+    const settings = defaultSettings()
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+
+    // No voice turn in progress yet: a permission request must be a no-op for voice.
+    permissionListener?.(permissionReq)
+    expect(client.sent.some((m) => m.type === 'ptt')).toBe(false)
+
+    client.emitEvent('message', finalTranscript('run the tests'))
+    await flushReal()
+    client.sent.length = 0
+    permissionListener?.(permissionReq)
+
+    expect(client.sent.some((m) => m.type === 'ptt' && m.active === true)).toBe(true)
+    expect(spokenText(client)).toContain('run a shell command')
+  })
+
+  it('resolves the permission from a matched voice answer, stops forced listening, and lets the next utterance start a normal turn again', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('run the tests'))
+    await flushReal()
+    permissionListener?.(permissionReq)
+    client.sent.length = 0
+
+    client.emitEvent('message', finalTranscript('yes, go ahead'))
+    await flushReal()
+
+    expect(deps.respondPermission).toHaveBeenCalledWith('p1', 'allow')
+    expect(client.sent.some((m) => m.type === 'ptt' && m.active === false)).toBe(true)
+    expect(spokenText(client)).toBeTruthy()
+
+    // Pending is cleared: the next utterance is a normal new turn, not another answer attempt.
+    ;(deps.sendToAgent as ReturnType<typeof vi.fn>).mockClear()
+    client.emitEvent('message', finalTranscript('open settings'))
+    await flushReal()
+    expect(deps.sendToAgent).toHaveBeenCalledWith({ text: 'open settings', fromVoice: true })
+  })
+
+  it('re-prompts instead of forwarding an unrecognized answer to the agent', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('run the tests'))
+    await flushReal()
+    permissionListener?.(permissionReq)
+    client.sent.length = 0
+
+    client.emitEvent('message', finalTranscript('what time is it'))
+    await flushReal()
+
+    expect(deps.respondPermission).not.toHaveBeenCalled()
+    expect(deps.sendToAgent).not.toHaveBeenCalledWith({
+      text: 'what time is it',
+      fromVoice: true,
+    })
+    expect(spokenText(client)).toBeTruthy() // re-prompted instead of silently dropping it
+  })
+
+  it('clears the pending permission and forced listening when it is resolved from the UI instead of voice', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('run the tests'))
+    await flushReal()
+    permissionListener?.(permissionReq)
+    client.sent.length = 0
+
+    permissionResolvedListener?.('p1')
+    expect(client.sent.some((m) => m.type === 'ptt' && m.active === false)).toBe(true)
+
+    // A follow-up utterance is now a normal turn, not treated as a stale answer attempt.
+    client.emitEvent('message', finalTranscript('open settings'))
+    await flushReal()
+    expect(deps.sendToAgent).toHaveBeenCalledWith({ text: 'open settings', fromVoice: true })
+  })
+
+  it('clears the pending question and forced listening when it is resolved from the UI instead of voice', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('help me pick a language'))
+    await flushReal()
+    questionListener?.(questionReq)
+    client.sent.length = 0
+
+    questionResolvedListener?.('q1')
+    expect(client.sent.some((m) => m.type === 'ptt' && m.active === false)).toBe(true)
+
+    client.emitEvent('message', finalTranscript('open settings'))
+    await flushReal()
+    expect(deps.sendToAgent).toHaveBeenCalledWith({ text: 'open settings', fromVoice: true })
+  })
+
+  it('speaks a single-select question, then answers it by number and sends answers keyed by question text', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('help me pick a language'))
+    await flushReal()
+    questionListener?.(questionReq)
+
+    expect(client.sent.some((m) => m.type === 'ptt' && m.active === true)).toBe(true)
+    expect(spokenText(client)).toContain('Which language?')
+    client.sent.length = 0
+
+    client.emitEvent('message', finalTranscript('option 2'))
+    await flushReal()
+
+    expect(deps.answerQuestion).toHaveBeenCalledWith('q1', { 'Which language?': 'Python' })
+  })
+
+  it('does not attempt voice Q&A for a multi-question prompt (falls back to the on-screen dialog only)', async () => {
+    const settings = defaultSettings()
+    const deps = makeDeps(settings)
+    const orch = new VoiceOrchestrator(deps)
+    orch.attachAgent()
+    const client = await armOrchestrator(orch)
+    client.emitEvent('message', finalTranscript('help me pick'))
+    await flushReal()
+    client.sent.length = 0
+
+    questionListener?.({
+      requestId: 'q2',
+      questions: [
+        { question: 'A?', options: [{ label: 'x' }] },
+        { question: 'B?', options: [{ label: 'y' }] },
+      ],
+    })
+
+    expect(client.sent.some((m) => m.type === 'ptt')).toBe(false)
+    expect(spokenText(client)).toBe('')
   })
 })

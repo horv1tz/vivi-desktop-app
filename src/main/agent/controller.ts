@@ -1,7 +1,12 @@
 import { app, dialog } from 'electron'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AgentUiEvent } from '@shared/events'
+import type {
+  AgentUiEvent,
+  PermissionDecision,
+  PermissionRequest,
+  QuestionRequest,
+} from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
 import type { Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
@@ -76,18 +81,55 @@ export class AgentController {
     })
   }
 
+  private permissionListeners = new Set<(req: PermissionRequest) => void>()
+  private permissionResolvedListeners = new Set<(requestId: string) => void>()
+  private questionListeners = new Set<(req: QuestionRequest) => void>()
+  private questionResolvedListeners = new Set<(requestId: string) => void>()
+
+  /** VO-05: lets the voice orchestrator speak a permission/question prompt and answer it by voice. */
+  onPermissionRequest(listener: (req: PermissionRequest) => void): () => void {
+    this.permissionListeners.add(listener)
+    return () => this.permissionListeners.delete(listener)
+  }
+  onPermissionResolved(listener: (requestId: string) => void): () => void {
+    this.permissionResolvedListeners.add(listener)
+    return () => this.permissionResolvedListeners.delete(listener)
+  }
+  onQuestionRequest(listener: (req: QuestionRequest) => void): () => void {
+    this.questionListeners.add(listener)
+    return () => this.questionListeners.delete(listener)
+  }
+  onQuestionResolved(listener: (requestId: string) => void): () => void {
+    this.questionResolvedListeners.add(listener)
+    return () => this.questionResolvedListeners.delete(listener)
+  }
+  respondPermission(requestId: string, decision: PermissionDecision): void {
+    this.backend.broker?.respond(requestId, decision)
+  }
+  answerQuestionRequest(requestId: string, answers: Record<string, string>): void {
+    this.backend.broker?.answerQuestion(requestId, answers)
+  }
+
   private brokerUi(): BrokerUi {
     return {
       requestPermission: (req) => {
         emit('permission:request', req)
+        for (const l of this.permissionListeners) l(req)
         if (!getMainWindow()?.isVisible()) showMainWindow()
       },
-      resolvePermission: (requestId) => emit('permission:resolved', { requestId }),
+      resolvePermission: (requestId) => {
+        emit('permission:resolved', { requestId })
+        for (const l of this.permissionResolvedListeners) l(requestId)
+      },
       requestQuestion: (req) => {
         emit('question:request', req)
+        for (const l of this.questionListeners) l(req)
         if (!getMainWindow()?.isVisible()) showMainWindow()
       },
-      resolveQuestion: (requestId) => emit('question:resolved', { requestId }),
+      resolveQuestion: (requestId) => {
+        emit('question:resolved', { requestId })
+        for (const l of this.questionResolvedListeners) l(requestId)
+      },
     }
   }
 
@@ -219,10 +261,10 @@ export class AgentController {
     handle('agent:deleteSession', (_e, id) => this.backend.deleteSession(id))
     handle('agent:listModels', () => this.backend.listModels())
     handle('permission:respond', (_e, requestId, decision) =>
-      this.backend.broker?.respond(requestId, decision),
+      this.respondPermission(requestId, decision),
     )
     handle('question:respond', (_e, requestId, answers) =>
-      this.backend.broker?.answerQuestion(requestId, answers),
+      this.answerQuestionRequest(requestId, answers),
     )
     handle('journal:list', () => this.journal.list())
     handle('journal:clear', () => this.journal.clear())

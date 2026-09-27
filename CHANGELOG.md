@@ -46,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Action + observe**: the `mouse` and `keyboard` tools accept `observe: true`, which waits for
   the screen to settle (comparing frame hashes, capped at 1.5s by default) and returns a
   screenshot inline — one round trip instead of an action followed by a separate `screenshot` call.
+- **Voice permissions and questions**: a permission dialog or `AskUserQuestion` prompt raised
+  during a voice-driven turn is now spoken aloud ("Vivi wants to: run a shell command. Say yes,
+  no, or always allow.") and the mic starts listening for the answer without needing the wake word
+  again; "yes"/"no"/"always allow" (and their Russian equivalents) are recognized, and a
+  single-select question can be answered by number or by naming the option. Previously these
+  prompts were silent from voice mode's perspective — you had to look at the screen to notice one
+  was even waiting.
 
 ### Fixed
 
