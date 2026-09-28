@@ -28,6 +28,7 @@ import { emit } from './ipc/emitters'
 import { ProxyManager } from './proxy/manager'
 import { VoiceOrchestrator } from './voice/orchestrator'
 import { InputGuard, resolveInputDriver } from './agent/tools/drivers'
+import { browserClose } from './agent/tools/browser'
 import { applyAutostart } from './app/autostart'
 import { getMainWindow, isOverlayVisible } from './app/windows'
 import { registerUpdater } from './app/updater'
@@ -245,6 +246,8 @@ async function bootstrap(): Promise<void> {
     void agent.dispose()
     void proxy.dispose()
     void voice.dispose()
+    // INT-03: never leave the automation browser (and its profile-holding process) running after Vivi quits.
+    void browserClose().catch(() => undefined)
   })
   app.on('window-all-closed', () => {
     // Keep running in the tray on every platform; quitting is explicit.

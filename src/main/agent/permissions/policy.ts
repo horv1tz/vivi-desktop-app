@@ -23,6 +23,9 @@ export const READ_ONLY_TOOLS = [
   'mcp__vivi__notify',
   'mcp__vivi__list_skills',
   'mcp__vivi__list_scenarios',
+  // INT-03: reading a page's content/structure is no riskier than Read/WebFetch.
+  'mcp__vivi__browser_find',
+  'mcp__vivi__browser_read',
 ]
 /** Privacy-sensitive read-only tools with their own toggle, separate from the blanket autoAllowReadOnly. */
 export const SCREEN_TOOLS = ['mcp__vivi__screenshot']
@@ -35,7 +38,19 @@ export const EDIT_TOOLS = [
   'mcp__vivi__clipboard_write',
   'mcp__vivi__manage_skill',
 ]
-export const EXEC_TOOLS = ['Bash', 'PowerShell', 'mcp__vivi__open', 'Agent', 'Skill']
+export const EXEC_TOOLS = [
+  'Bash',
+  'PowerShell',
+  'mcp__vivi__open',
+  'Agent',
+  'Skill',
+  // INT-03: navigating/clicking/typing in a page can submit forms, trigger downloads, etc. —
+  // same risk tier as running a command.
+  'mcp__vivi__browser_open',
+  'mcp__vivi__browser_click',
+  'mcp__vivi__browser_type',
+  'mcp__vivi__browser_close',
+]
 export const INPUT_TOOLS = [
   'mcp__vivi__mouse',
   'mcp__vivi__keyboard',

@@ -33,6 +33,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "add rule" form with a live, human-readable preview of what the rule will do, and a decision log
   showing what was allowed/denied and why (a rule/setting decided it automatically, or you did in a
   dialog) — recorded from one shared place so it's identical for the SDK and ACP backends.
+- **Browser automation** (INT-03): new `browser_open`/`browser_find`/`browser_click`/
+  `browser_type`/`browser_read`/`browser_close` tools drive a page directly over CDP
+  (`chrome-remote-interface`), faster and more reliable than screenshot+mouse for work inside a web
+  page. Runs in its own dedicated, isolated Chromium profile — never the user's everyday
+  browser/profile — so a tool call can never reach an already-logged-in session; the automation
+  browser starts with no saved logins by design. `browser_find` returns stable, unguessable element
+  references (via an injected `data-vivi-ref` attribute) for later `browser_click`/`browser_type`
+  calls. Works cross-platform against an installed Chrome/Chromium/Edge/Brave, overridable with
+  `VIVI_BROWSER_BIN`; an opt-in `VIVI_BROWSER_ARGS` env var lets extra Chromium flags be appended
+  (e.g. `--no-sandbox` for a root/CI environment) without weakening the default for a normal,
+  non-root install. `browser_find`/`browser_read` are read-only; the rest require the `exec`
+  permission category, same as `Bash`/`open`. Verified against a real, locally spawned Chromium
+  (`tests/unit/tools/browser-real.test.ts`, no mocking): open → read → find (by selector and by
+  text) → type + click → read round trip, plus the not-found error path — all 6 passing.
 
 ### Fixed
 

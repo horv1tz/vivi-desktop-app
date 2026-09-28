@@ -77,6 +77,8 @@ export class AgentController {
       skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
       scenariosFile: () =>
         paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
+      browserProfileDir: () =>
+        paths.browserProfileDir(paths.workspace(settings().get().agent.workspaceDir)),
       speak: this.deps.speak,
       stopSpeaking: this.deps.stopSpeaking,
       inputDriver: this.deps.inputDriver,

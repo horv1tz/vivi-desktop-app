@@ -68,6 +68,10 @@ export const paths = {
   scenariosDir(workspace: string): string {
     return ensureDir(join(workspace, 'scenarios'))
   },
+  /** INT-03: dedicated Chromium profile for browser automation — isolated from the user's own browser/profile. */
+  browserProfileDir(workspace: string): string {
+    return ensureDir(join(workspace, 'browser-profile'))
+  },
   /** WORK-02: named, ready-made action sequences the run_scenario tool replays on request. */
   scenariosFile(workspace: string): string {
     return join(paths.scenariosDir(workspace), 'scenarios.json')

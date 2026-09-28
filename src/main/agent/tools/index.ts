@@ -12,6 +12,14 @@ import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from '
 import { rememberEntry } from './memory'
 import { createSkill, deleteSkill, listSkills, setSkillEnabled, updateSkill } from './skills'
 import { listScenarios, runScenario } from './scenarios'
+import {
+  browserClick,
+  browserClose,
+  browserFind,
+  browserOpen,
+  browserRead,
+  browserType,
+} from './browser'
 import { listWindows } from './windows-list'
 import type { InputDriver } from './input-driver'
 import { error, text, image, truncate } from './util'
@@ -20,6 +28,7 @@ export interface ViviToolDeps {
   memoryFile: () => string
   skillsFile: () => string
   scenariosFile: () => string
+  browserProfileDir: () => string
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
   inputDriver: () => Promise<InputDriver | null>
@@ -599,6 +608,105 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     { annotations: { destructiveHint: true } },
   )
 
+  const browserOpenTool = tool(
+    'browser_open',
+    "Open a URL in Vivi's own dedicated automation browser (not the user's everyday browser — a separate, isolated profile) and return the page title and a short text preview. Prefer this plus browser_find/browser_click/browser_type/browser_read over driving a page with screenshot+mouse: faster, more reliable, and works even if the window isn't visible on screen.",
+    { url: z.string().min(1).describe('URL to open, e.g. https://example.com') },
+    async ({ url }) => {
+      try {
+        const r = await browserOpen(deps.browserProfileDir(), url)
+        return text(`opened ${r.url}\ntitle: ${r.title}\n${r.text}`)
+      } catch (err) {
+        return error(`browser_open failed: ${(err as Error).message}`)
+      }
+    },
+  )
+
+  const browserFindTool = tool(
+    'browser_find',
+    "Find elements on the currently open automation-browser page, by CSS selector or by visible text (give exactly one). Returns each match's ref (use it with browser_click/browser_type), tag, trimmed text and a few useful attributes. Call this before browser_click/browser_type — refs are not guessable.",
+    {
+      selector: z.string().optional().describe('CSS selector, e.g. "button.submit"'),
+      text: z.string().optional().describe('Visible text to search for instead of a selector'),
+    },
+    async ({ selector, text: query }) => {
+      if (!selector && !query) return error('give either selector or text')
+      try {
+        const els = await browserFind(deps.browserProfileDir(), { selector, text: query })
+        if (!els.length) return text('no matching elements found')
+        return text(
+          els
+            .map(
+              (e) =>
+                `${e.ref} <${e.tag}> "${e.text}" ${Object.entries(e.attributes)
+                  .map(([k, v]) => `${k}="${v}"`)
+                  .join(' ')}`,
+            )
+            .join('\n'),
+        )
+      } catch (err) {
+        return error(`browser_find failed: ${(err as Error).message}`)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
+
+  const browserClickTool = tool(
+    'browser_click',
+    'Click an element on the automation-browser page by its ref (from browser_find).',
+    { ref: z.string().min(1) },
+    async ({ ref }) => {
+      try {
+        return text(await browserClick(deps.browserProfileDir(), ref))
+      } catch (err) {
+        return error(`browser_click failed: ${(err as Error).message}`)
+      }
+    },
+    { annotations: { destructiveHint: true } },
+  )
+
+  const browserTypeTool = tool(
+    'browser_type',
+    "Type text into an input, textarea or editable element on the automation-browser page, by its ref (from browser_find). Replaces the field's current content.",
+    { ref: z.string().min(1), text: z.string() },
+    async ({ ref, text: value }) => {
+      try {
+        return text(await browserType(deps.browserProfileDir(), ref, value))
+      } catch (err) {
+        return error(`browser_type failed: ${(err as Error).message}`)
+      }
+    },
+    { annotations: { destructiveHint: true } },
+  )
+
+  const browserReadTool = tool(
+    'browser_read',
+    "Read the automation-browser page's visible text (optionally scoped to a CSS selector), for when you need the full content rather than the short preview from browser_open.",
+    { selector: z.string().optional().describe('Limit to this element instead of the whole page') },
+    async ({ selector }) => {
+      try {
+        return text(await browserRead(deps.browserProfileDir(), selector))
+      } catch (err) {
+        return error(`browser_read failed: ${(err as Error).message}`)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
+
+  const browserCloseTool = tool(
+    'browser_close',
+    "Close Vivi's automation browser. Use when you're done with it, or to recover from a page that got stuck.",
+    {},
+    async () => {
+      try {
+        await browserClose()
+        return text('closed')
+      } catch (err) {
+        return error(`browser_close failed: ${(err as Error).message}`)
+      }
+    },
+  )
+
   return createSdkMcpServer({
     name: 'vivi',
     version: '1.0.0',
@@ -622,6 +730,12 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       manageSkill,
       listScenariosTool,
       runScenarioTool,
+      browserOpenTool,
+      browserFindTool,
+      browserClickTool,
+      browserTypeTool,
+      browserReadTool,
+      browserCloseTool,
     ],
   })
 }
