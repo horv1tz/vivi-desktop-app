@@ -77,7 +77,8 @@
     "mockBanner": "Режим mock-агента: настоящий Claude не подключён. Откройте Настройки → Аккаунт.",
     "thinking": "Размышления",
     "copy": "Копировать",
-    "copied": "Скопировано"
+    "copied": "Скопировано",
+    "plan": "План"
   },
   "tools": {
     "Read": "Читаю файл",
@@ -190,6 +191,13 @@
         "sdk": "Claude Agent SDK (встроенный)",
         "acp": "ACP — Agent Client Protocol"
       },
+      "acpPreset": "Известные агенты",
+      "acpPresetHint": "Заполняет команду ниже — потом её можно отредактировать вручную.",
+      "acpPresetPlaceholder": "Выбрать готовый вариант…",
+      "acpAuthTitle": "Требуется вход",
+      "acpAuthSignIn": "Войти",
+      "acpAuthSuccess": "Вход выполнен.",
+      "acpAuthError": "Не удалось войти",
       "acpCommand": "Команда ACP-агента",
       "acpCommandHint": "Пусто — встроенный адаптер Claude (claude-agent-acp). Можно указать путь к другому ACP-агенту, например gemini или codex-acp.",
       "acpCommandPlaceholder": "встроенный claude-agent-acp",

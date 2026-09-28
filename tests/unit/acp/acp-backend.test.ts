@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -16,7 +16,7 @@ const silent = {
   debug: () => undefined,
 }
 
-function makeBackend(mode = 'normal') {
+function makeBackend(mode = 'normal', extraEnv: Record<string, string> = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'vivi-acp-unit-'))
   const settings = defaultSettings()
   settings.agent.backend = 'acp'
@@ -37,6 +37,7 @@ function makeBackend(mode = 'normal') {
     getExtraEnv: async () => ({
       FAKE_AGENT_MODE: mode,
       ANTHROPIC_API_KEY: 'should-not-reach-third-party-agents',
+      ...extraEnv,
     }),
     isolateConfig: () => true,
     cwd: () => dir,
@@ -244,4 +245,70 @@ describe('AcpBackend against a real ACP agent process', () => {
     settings.agent.model = 'fake-2'
     await expect(backend.applyLiveModelAndMode(before, settings)).resolves.toBe(true)
   })
+
+  it('surfaces plan, available-commands and notice updates as their own events (ACP-03)', async () => {
+    const { backend, events, permissionRequests } = makeBackend()
+    await backend.send({ text: 'hello' })
+    await until(() => events.some((e) => e.type === 'plan'))
+    expect(events.find((e) => e.type === 'plan')).toEqual({
+      type: 'plan',
+      entries: [{ content: 'Look into it', priority: 'medium', status: 'in_progress' }],
+    })
+    expect(events.find((e) => e.type === 'commands')).toEqual({
+      type: 'commands',
+      commands: [{ name: 'research', description: 'Research something', inputHint: undefined }],
+    })
+    const notice = events.find((e) => e.type === 'notice')
+    expect(notice?.type).toBe('notice')
+    if (notice?.type !== 'notice') throw new Error('unreachable')
+    expect(notice.notice).toMatchObject({ severity: 'info', title: 'fake notice' })
+    await until(() => permissionRequests.length === 1)
+    backend.broker.respond(permissionRequests[0]!.requestId, 'allow')
+    await until(() => events.some((e) => e.type === 'result'))
+    await backend.dispose()
+  }, 40_000)
+
+  it('steers a message into a running turn instead of queuing a new one (ACP-03)', async () => {
+    const { backend, events } = makeBackend()
+    await backend.send({ text: 'please hang' })
+    await until(() => events.some((e) => e.type === 'text-delta'))
+    events.length = 0
+    // Sent while the "hang" turn is still running: the fake agent only resumes once steered
+    // (never on its own), so a `result` here proves this went in via steering, not a fresh queued
+    // turn racing ahead of it.
+    await backend.send({ text: 'actually check the other file too' })
+    await until(() => events.some((e) => e.type === 'result'))
+    expect(textOf(events)).toContain('steered: "actually check the other file too"')
+    // Exactly one result for the whole exchange proves the steer went into the SAME turn rather
+    // than starting (and settling) a second, separately queued one.
+    expect(events.filter((e) => e.type === 'result')).toHaveLength(1)
+    await backend.dispose()
+  }, 40_000)
+
+  it('falls back to a queued turn when nothing is running to steer into (ACP-03)', async () => {
+    const { backend, events, permissionRequests } = makeBackend()
+    await backend.send({ text: 'hello' })
+    await until(() => events.some((e) => e.type === 'user-message'))
+    // No turn is in flight yet (the very first send always queues), so this call can't steer —
+    // it must fall back to the ordinary queued path, which does emit its own 'user-message'.
+    expect(events.filter((e) => e.type === 'user-message')).toHaveLength(1)
+    await until(() => permissionRequests.length === 1)
+    backend.broker.respond(permissionRequests[0]!.requestId, 'allow')
+    await until(() => events.some((e) => e.type === 'result'))
+    await backend.dispose()
+  }, 40_000)
+
+  it('acpAuthMethods excludes terminal methods, and acpAuthenticate reaches the agent (ACP-02)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vivi-acp-auth-'))
+    const authLog = join(dir, 'auth.log')
+    const { backend } = makeBackend('auth', { FAKE_AGENT_AUTH_LOG: authLog })
+    const methods = await backend.acpAuthMethods()
+    expect(methods).toEqual([
+      { id: 'fake-login', name: 'Fake login', description: 'Sign in via fake-agent' },
+    ])
+    await backend.acpAuthenticate('fake-login')
+    expect(readFileSync(authLog, 'utf8')).toBe('fake-login\n')
+    await expect(backend.acpAuthenticate('not-a-real-method')).rejects.toThrow(/Unknown ACP auth/)
+    await backend.dispose()
+  }, 40_000)
 })

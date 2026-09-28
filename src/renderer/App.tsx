@@ -8,6 +8,7 @@ import { useUiStore } from './stores/ui'
 import { TitleBar } from './features/layout/TitleBar'
 import { Sidebar } from './features/layout/Sidebar'
 import { ChatView } from './features/chat/ChatView'
+import { NoticeToasts } from './features/chat/NoticeToasts'
 import { SettingsView } from './features/settings/SettingsView'
 import { JournalView } from './features/journal/JournalView'
 import { WorkshopView } from './features/workshop/WorkshopView'
@@ -78,6 +79,7 @@ export function App() {
       <PermissionDialog />
       <QuestionDialog />
       <CommandPalette />
+      <NoticeToasts />
     </div>
   )
 }

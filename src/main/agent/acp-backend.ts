@@ -30,6 +30,7 @@ import {
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
 import type {
+  AcpAuthMethod,
   AgentErrorCode,
   AgentUiEvent,
   PermissionCategory,
@@ -98,6 +99,17 @@ interface Connection {
   capabilities: AgentCapabilities
   agentInfo: Implementation | null
   isClaudeAdapter: boolean
+  /**
+   * ACP-03: whether this agent supports the `_session/steering` extension (advertised via
+   * `InitializeResponse._meta.steering.supported` — not part of the base ACP schema, so read out
+   * of the raw response rather than a typed field). Not gated on `isClaudeAdapter`: any agent that
+   * implements the same wire contract qualifies, not just Vivi's bundled one.
+   */
+  steeringSupported: boolean
+  /** ACP-02: auth methods the agent reported it supports, minus terminal-kind ones (Vivi never
+   * advertises terminal auth support, so agents should not offer them — kept anyway in case one
+   * does, since `authenticate()` must never be called with a terminal method's id). */
+  authMethods: AcpAuthMethod[]
 }
 
 class AcpProcessExitedError extends Error {}
@@ -616,6 +628,13 @@ export class AcpBackend implements AgentBackend {
             fs: { readTextFile: false, writeTextFile: false },
             terminal: false,
             elicitation: { form: {} },
+            // ACP-03: opts into `notice` session updates (experimental — agents must not send them
+            // otherwise). `subagent-transcript` (a claude-agent-acp-specific _meta flag, not a base
+            // ACP capability) asks the adapter to forward a delegated subagent's own text/thinking
+            // into the transcript instead of silently dropping it — without this, Vivi never sees
+            // what a subagent actually did, only the wrapping tool call for the delegation itself.
+            session: { notices: {} },
+            _meta: { 'subagent-transcript': true },
           },
           clientInfo: { name: 'vivi', title: 'Vivi', version: this.deps.appVersion },
         }),
@@ -624,12 +643,21 @@ export class AcpBackend implements AgentBackend {
       )
       if (generation !== this.generation || this.disposed)
         throw new Error('ACP agent start was cancelled')
+      const steeringMeta = init._meta?.steering as { supported?: boolean } | undefined
       const conn: Connection = {
         process: proc,
         connection,
         capabilities: init.agentCapabilities ?? {},
         agentInfo: init.agentInfo ?? null,
         isClaudeAdapter: !custom,
+        steeringSupported: steeringMeta?.supported === true,
+        authMethods: (init.authMethods ?? [])
+          .filter((m) => !('type' in m && m.type === 'terminal'))
+          .map((m): AcpAuthMethod => ({
+            id: m.id,
+            name: m.name,
+            description: m.description ?? undefined,
+          })),
       }
       this.conn = conn
       this.deps.log.info(
@@ -857,9 +885,36 @@ export class AcpBackend implements AgentBackend {
     if (this.disposed) throw new Error('agent backend is disposed')
     const { ui, blocks } = this.userMessage(args)
     this.emit({ type: 'user-message', message: ui })
+    if (await this.trySteer(blocks)) return { messageId: ui.id }
     this.pendingPrompts.push({ turnId: ui.id, blocks })
     void this.pump()
     return { messageId: ui.id }
+  }
+
+  /**
+   * ACP-03: while a turn is running, injects into it via the `_session/steering` extension
+   * instead of queuing a fully separate follow-up turn — for a clarification ("actually check the
+   * other file too") that lands while the agent is still working, without waiting for the current
+   * turn to finish first. `extMethod` is the SDK's generic call for extension methods outside the
+   * base protocol; `_session/steering` isn't a typed member of `ClientSideConnection` because it's
+   * this adapter's own extension, not (yet) part of the ACP spec itself.
+   *
+   * Returns true when the message was actually injected; false means the caller should fall back
+   * to the normal queued-turn path — covers agents that don't support steering, and the race where
+   * the turn finishes between our own `inFlight` check and the adapter's.
+   */
+  private async trySteer(blocks: ContentBlock[]): Promise<boolean> {
+    if (!this.inFlight || !this.conn?.steeringSupported || !this.sessionId) return false
+    try {
+      const res = (await this.conn.connection.extMethod('_session/steering', {
+        sessionId: this.sessionId,
+        prompt: blocks,
+      })) as { outcome?: string }
+      return res.outcome === 'injected'
+    } catch (err) {
+      this.deps.log.warn('ACP steering failed, falling back to a queued turn', err)
+      return false
+    }
   }
 
   /** Runs queued prompts one at a time; interrupt()/teardown() drop whatever is still queued. */
@@ -1152,6 +1207,25 @@ export class AcpBackend implements AgentBackend {
       if (models.length) return models
     }
     return FALLBACK_MODELS
+  }
+
+  /** ACP-02: auth methods the connected agent reported, if any — empty once already authenticated
+   * via env vars (the bundled Claude adapter never reports any, since Vivi's own AuthManager
+   * already handles it before the process even starts) or for an agent with no auth step at all.
+   * Connects on demand (like `acpAuthenticate`) so this can be checked before the user ever sends
+   * a message — e.g. right after picking a custom ACP agent in Settings. */
+  async acpAuthMethods(): Promise<AcpAuthMethod[]> {
+    const conn = this.conn ?? (await this.ensureConnection())
+    return conn.authMethods
+  }
+
+  /** ACP-02: only for methods the agent handles itself (`AuthMethodAgent`) — Vivi never advertises
+   * terminal auth support, so `authMethods` never carries a terminal-kind id to pass here. */
+  async acpAuthenticate(methodId: string): Promise<void> {
+    const conn = this.conn ?? (await this.ensureConnection())
+    if (!conn.authMethods.some((m) => m.id === methodId))
+      throw new Error(`Unknown ACP auth method: ${methodId}`)
+    await conn.connection.authenticate({ methodId })
   }
 
   private loadTitles(): void {

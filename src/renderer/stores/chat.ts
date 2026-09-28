@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import type {
   AgentError,
+  AgentNotice,
   AgentUiEvent,
+  AvailableCommandUi,
+  PlanEntryUi,
   RateLimitInfo,
   SessionState,
   TurnResult,
@@ -23,7 +26,16 @@ interface ChatState {
   totalCostUsd?: number
   rateLimit: RateLimitInfo | null
   error: AgentError | null
+  /** ACP-03: the agent's own execution plan (ACP `plan` updates) — null once no ACP agent has
+   * reported one yet this session; the SDK backend never sends this (it exposes TodoWrite as a
+   * regular tool call instead). */
+  plan: PlanEntryUi[] | null
+  /** ACP-03: slash commands the current agent advertised (ACP `available_commands_update`). */
+  commands: AvailableCommandUi[]
+  /** ACP-03: currently visible toast notices (ACP `notice`, experimental) — auto-dismissed. */
+  notices: AgentNotice[]
   apply: (e: AgentUiEvent) => void
+  dismissNotice: (id: string) => void
   send: (args: SendArgs) => Promise<void>
   interrupt: () => Promise<void>
   newSession: () => Promise<void>
@@ -31,6 +43,9 @@ interface ChatState {
   clearError: () => void
   hydrate: () => Promise<void>
 }
+
+const NOTICE_TIMEOUT_MS = 8_000
+const MAX_VISIBLE_NOTICES = 5
 
 function upsertMessage(messages: UiMessage[], msg: UiMessage): UiMessage[] {
   const idx = messages.findIndex((m) => m.id === msg.id)
@@ -65,6 +80,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   totalCostUsd: undefined,
   rateLimit: null,
   error: null,
+  plan: null,
+  commands: [],
+  notices: [],
 
   apply: (e) => {
     const s = get()
@@ -76,6 +94,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           model: e.model ?? s.model,
           title: e.title ?? null,
           error: null,
+          plan: null,
+          commands: [],
         })
         break
       case 'state':
@@ -190,10 +210,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       case 'rate-limit':
         set({ rateLimit: e.info })
         break
+      case 'plan':
+        set({ plan: e.entries })
+        break
+      case 'commands':
+        set({ commands: e.commands })
+        break
+      case 'notice': {
+        const notices = [...s.notices, e.notice].slice(-MAX_VISIBLE_NOTICES)
+        set({ notices })
+        setTimeout(() => get().dismissNotice(e.notice.id), NOTICE_TIMEOUT_MS)
+        break
+      }
       case 'compact':
         break
     }
   },
+
+  dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
 
   send: async (args) => {
     set({ error: null })
@@ -204,11 +238,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   newSession: async () => {
     await invoke('agent:newSession')
-    set({ messages: [], lastResult: null, error: null, title: null })
+    set({ messages: [], lastResult: null, error: null, title: null, plan: null, commands: [] })
   },
   resume: async (sessionId) => {
     const messages = await invoke('agent:resumeSession', sessionId)
-    set({ messages, sessionId, lastResult: null, error: null })
+    set({ messages, sessionId, lastResult: null, error: null, plan: null, commands: [] })
   },
   clearError: () => set({ error: null }),
   hydrate: async () => {

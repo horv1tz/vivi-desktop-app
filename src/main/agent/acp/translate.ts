@@ -10,6 +10,8 @@ import type {
 } from '@agentclientprotocol/sdk'
 import type {
   AgentUiEvent,
+  AvailableCommandUi,
+  PlanEntryUi,
   TurnResult,
   UiBlock,
   UiImageBlock,
@@ -209,15 +211,47 @@ export class AcpTranslator {
         if (!this.replay) this.emit({ type: 'compact' })
         break
       case 'notice':
+        // Experimental (ACP `notice`): only sent when the client advertised the `session.notices`
+        // capability at initialize(), and agents must not assume it's seen — a genuine
+        // fire-and-forget advisory, not a substitute for putting real answers in the transcript.
         if (!this.replay)
           this.emit({
-            type: 'status',
-            status: null,
-            detail: `${update.title}${update.description ? `: ${update.description}` : ''}`,
+            type: 'notice',
+            notice: {
+              id: randomUUID(),
+              severity: update.severity,
+              title: update.title,
+              description: update.description ?? undefined,
+            },
+          })
+        break
+      case 'plan':
+        // ACP replaces the whole plan on every update — this UI event mirrors that (full list,
+        // not a diff), so the renderer can just replace its own plan state wholesale too.
+        if (!this.replay)
+          this.emit({
+            type: 'plan',
+            entries: update.entries.map((e): PlanEntryUi => ({
+              content: e.content,
+              priority: e.priority,
+              status: e.status,
+            })),
+          })
+        break
+      case 'available_commands_update':
+        if (!this.replay)
+          this.emit({
+            type: 'commands',
+            commands: update.availableCommands.map((c): AvailableCommandUi => ({
+              name: c.name,
+              description: c.description,
+              inputHint: c.input?.hint ?? undefined,
+            })),
           })
         break
       default:
-        // plan, available_commands_update, current_mode_update, config_option_update, session_info_update: not surfaced in the chat.
+        // plan_update/plan_removed (experimental, superseded by full `plan` snapshots above),
+        // current_mode_update, config_option_update, session_info_update: not surfaced in the chat.
         break
     }
   }

@@ -1,5 +1,5 @@
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
-import type { AgentUiEvent, SessionSummary, UiMessage } from '@shared/events'
+import type { AcpAuthMethod, AgentUiEvent, SessionSummary, UiMessage } from '@shared/events'
 import type { Settings } from '@shared/settings'
 import type { PermissionBroker } from './permissions/broker'
 
@@ -34,4 +34,7 @@ export interface AgentBackend {
   deleteSession(sessionId: string): Promise<void>
   listModels(): Promise<{ id: string; name: string; description?: string }[]>
   onEvent(listener: (event: AgentUiEvent) => void): () => void
+  /** ACP-02: only meaningful for the ACP backend — absent elsewhere. */
+  acpAuthMethods?(): Promise<AcpAuthMethod[]>
+  acpAuthenticate?(methodId: string): Promise<void>
 }

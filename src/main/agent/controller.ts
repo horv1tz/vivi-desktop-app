@@ -280,6 +280,12 @@ export class AgentController {
     handle('agent:renameSession', (_e, id, title) => this.backend.renameSession(id, title))
     handle('agent:deleteSession', (_e, id) => this.backend.deleteSession(id))
     handle('agent:listModels', () => this.backend.listModels())
+    handle('agent:acpAuthMethods', async () => (await this.backend.acpAuthMethods?.()) ?? [])
+    handle('agent:acpAuthenticate', (_e, methodId) => {
+      if (!this.backend.acpAuthenticate)
+        throw new Error('The current backend has no ACP authentication to perform.')
+      return this.backend.acpAuthenticate(methodId)
+    })
     handle('permission:respond', (_e, requestId, decision) =>
       this.respondPermission(requestId, decision),
     )

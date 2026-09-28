@@ -77,7 +77,8 @@
     "mockBanner": "Mock agent mode: Claude is not connected. Open Settings → Account.",
     "thinking": "Thinking",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "plan": "Plan"
   },
   "tools": {
     "Read": "Reading file",
@@ -190,6 +191,13 @@
         "sdk": "Claude Agent SDK (built-in)",
         "acp": "ACP — Agent Client Protocol"
       },
+      "acpPreset": "Known agents",
+      "acpPresetHint": "Fills in the command below — you can still edit it afterwards.",
+      "acpPresetPlaceholder": "Choose a preset…",
+      "acpAuthTitle": "Sign-in required",
+      "acpAuthSignIn": "Sign in",
+      "acpAuthSuccess": "Signed in.",
+      "acpAuthError": "Sign-in failed",
       "acpCommand": "ACP agent command",
       "acpCommandHint": "Empty — the bundled Claude adapter (claude-agent-acp). Point it at another ACP agent instead, e.g. gemini or codex-acp.",
       "acpCommandPlaceholder": "bundled claude-agent-acp",

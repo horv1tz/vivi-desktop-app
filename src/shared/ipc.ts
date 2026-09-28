@@ -1,5 +1,6 @@
 import type { DeepPartial, Settings } from './settings'
 import type {
+  AcpAuthMethod,
   AgentUiEvent,
   Platform,
   AppInfo,
@@ -133,6 +134,10 @@ export interface InvokeMap {
   'agent:renameSession': { args: [string, string]; result: void }
   'agent:deleteSession': { args: [string]; result: void }
   'agent:listModels': { args: []; result: { id: string; name: string; description?: string }[] }
+  /** ACP-02: empty when the current backend/agent has none to offer (e.g. the SDK backend, or an
+   * ACP agent that authenticates purely via env vars like the bundled Claude adapter). */
+  'agent:acpAuthMethods': { args: []; result: AcpAuthMethod[] }
+  'agent:acpAuthenticate': { args: [string]; result: void }
 
   'permission:respond': { args: [string, PermissionDecision]; result: void }
   'question:respond': { args: [string, Record<string, string>]; result: void }

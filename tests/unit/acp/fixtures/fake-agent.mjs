@@ -2,13 +2,17 @@
 // Speaks ndjson JSON-RPC over stdio like any real agent. Behaviour switches via FAKE_AGENT_MODE:
 //   normal (default) — one text chunk, one Bash tool call gated by session/request_permission, final text
 //   crash            — exits with code 3 right after the first chunk
-// A prompt containing "hang" waits until session/cancel arrives and then returns stopReason "cancelled".
+//   auth             — initialize() reports one non-terminal auth method (ACP-02)
+// A prompt containing "hang" waits until session/cancel OR a `_session/steering` call arrives; a
+// steer resumes it immediately with a chunk naming what was steered in, instead of waiting for cancel.
+import { appendFileSync } from 'node:fs'
 import { Readable, Writable } from 'node:stream'
 import { AgentSideConnection, PROTOCOL_VERSION, ndJsonStream } from '@agentclientprotocol/sdk'
 
 const mode = process.env.FAKE_AGENT_MODE ?? 'normal'
 const sessions = new Map()
 let client
+let onSteer = null
 
 const PERMISSION_OPTIONS = [
   { optionId: 'allow-once', name: 'Yes', kind: 'allow_once' },
@@ -26,7 +30,15 @@ const agent = {
       protocolVersion: PROTOCOL_VERSION,
       agentInfo: { name: 'fake-agent', version: '1.0.0' },
       agentCapabilities: { loadSession: false, sessionCapabilities: { list: {} } },
-      authMethods: [],
+      authMethods:
+        mode === 'auth'
+          ? [
+              { id: 'fake-login', name: 'Fake login', description: 'Sign in via fake-agent' },
+              { id: 'fake-terminal', type: 'terminal', name: 'Fake terminal login' },
+            ]
+          : [],
+      // ACP-03: advertises the `_session/steering` extension the same way claude-agent-acp does.
+      _meta: { steering: { supported: true } },
     }
   },
   async newSession(params) {
@@ -94,8 +106,18 @@ const agent = {
       ],
     }
   },
-  async authenticate() {
+  async authenticate(params) {
+    if (process.env.FAKE_AGENT_AUTH_LOG)
+      appendFileSync(process.env.FAKE_AGENT_AUTH_LOG, `${params.methodId}\n`)
     return {}
+  },
+  async extMethod(method, params) {
+    if (method !== '_session/steering') throw new Error(`unknown ext method ${method}`)
+    if (!onSteer) return { outcome: 'startedNewTurn' }
+    const steer = onSteer
+    onSteer = null
+    steer(params)
+    return { outcome: 'injected' }
   },
   async cancel(params) {
     const s = sessions.get(params.sessionId)
@@ -111,16 +133,38 @@ const agent = {
       sessionUpdate: 'agent_message_chunk',
       content: { type: 'text', text: `Working on "${text}"… ` },
     })
+    await update({
+      sessionUpdate: 'plan',
+      entries: [{ content: 'Look into it', priority: 'medium', status: 'in_progress' }],
+    })
+    await update({
+      sessionUpdate: 'available_commands_update',
+      availableCommands: [{ name: 'research', description: 'Research something' }],
+    })
+    await update({ sessionUpdate: 'notice', severity: 'info', title: 'fake notice' })
     if (mode === 'crash') process.exit(3)
     if (text.includes('hang')) {
-      await new Promise((resolve) => {
+      const steered = await new Promise((resolve) => {
+        onSteer = resolve
         const t = setInterval(() => {
           if (s.cancelled) {
             clearInterval(t)
-            resolve()
+            onSteer = null
+            resolve(null)
           }
         }, 10)
       })
+      if (steered) {
+        const steeredText = steered.prompt.map((b) => (b.type === 'text' ? b.text : '')).join('')
+        await update({
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: `steered: "${steeredText}"` },
+        })
+        return {
+          stopReason: 'end_turn',
+          usage: { totalTokens: 1, inputTokens: 1, outputTokens: 0 },
+        }
+      }
       return { stopReason: 'cancelled' }
     }
     const toolCall = {

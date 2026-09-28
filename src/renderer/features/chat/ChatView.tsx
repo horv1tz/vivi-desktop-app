@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import { MessageBubble } from './MessageBubble'
 import { Composer } from './Composer'
+import { PlanPanel } from './PlanPanel'
 import { Button } from '../../components/ui/Button'
 import { formatTokens, formatUsd } from '../../lib/format'
 import { lastUserSendArgs } from '../../lib/chat-retry'
@@ -42,6 +43,7 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
           </button>
         </div>
       ) : null}
+      <PlanPanel />
       <div
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto px-6 py-5"

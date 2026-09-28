@@ -72,6 +72,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   below WCAG AA contrast (~3.15:1 / ~3.77:1) on both themes; darkened/lightened to ~4.75–5.5:1. The
   command palette's result list gained `listbox`/`option`/`aria-activedescendant` semantics, and
   the chat error banner gained `role="alert"` so it's announced when it appears.
+- **ACP agent presets and authentication** (ACP-02): Settings → Agent gained a "Known agents"
+  preset picker (Claude bundled, Gemini CLI via `gemini --acp`, Codex CLI via
+  `npx @agentclientprotocol/codex-acp` — each command verified against the real project, not
+  guessed) that fills the ACP command/arguments fields in one click; the fields stay freely
+  editable afterwards. The ACP backend now reads the agent's reported `authMethods` from
+  `initialize()` and exposes them in Settings with a "Sign in" button that calls `authenticate()`
+  — only relevant for a custom third-party agent, since the bundled Claude adapter authenticates
+  via env vars before the process even starts and reports none. Terminal-based auth methods are
+  intentionally out of scope (Vivi doesn't advertise terminal support, and doesn't build an
+  embedded terminal to drive one).
+- **ACP plan panel, notices, slash commands and steering** (ACP-03): the ACP backend now surfaces
+  three previously-unhandled (or silently broken) session updates — an agent's execution plan now
+  renders as a collapsible panel above the chat; `notice` updates render as toasts (previously
+  routed to the status line, and never actually sent in practice since the required
+  `session.notices` client capability was never advertised); and advertised slash commands drive
+  autocomplete in the composer (type `/`, arrow keys or click to select, Enter/Tab inserts
+  `/name `, and the command's input hint replaces the composer's usual hint text once selected).
+  Also fixed: a delegated subagent's own text/thinking was being silently dropped from the
+  transcript by the adapter (only the wrapping tool call was ever visible) — the client now
+  advertises the `subagent-transcript` capability, so subagent output is no longer lost. Finally,
+  sending a message while a turn is running now injects into that same turn via the adapter's
+  `_session/steering` extension instead of always queuing a fully separate follow-up turn — useful
+  for a quick clarification that shouldn't have to wait for the current turn to finish; agents that
+  don't support steering fall back to the previous queuing behavior exactly as before.
 
 ### Fixed
 

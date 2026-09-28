@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowUp, ImagePlus, Mic, Square, X } from 'lucide-react'
+import { ArrowUp, ImagePlus, Mic, Square, Terminal, X } from 'lucide-react'
 import { motion } from 'motion/react'
+import type { AvailableCommandUi } from '@shared/events'
 import { useChatStore } from '../../stores/chat'
 import { useVoiceStore } from '../../stores/voice'
 import { invoke } from '../../lib/bridge'
@@ -30,10 +31,12 @@ export function Composer({
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [images, setImages] = useState<{ mimeType: string; data: string; name: string }[]>([])
+  const [activeCmd, setActiveCmd] = useState(0)
   const send = useChatStore((s) => s.send)
   const interrupt = useChatStore((s) => s.interrupt)
   const state = useChatStore((s) => s.sessionState)
   const rateLimit = useChatStore((s) => s.rateLimit)
+  const commands = useChatStore((s) => s.commands)
   const voiceState = useVoiceStore((s) => s.state)
   const running =
     state === 'running' || state === 'awaiting_permission' || state === 'awaiting_question'
@@ -63,6 +66,33 @@ export function Composer({
     el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 220)}px`
   }, [text, compact])
 
+  // ACP-03: while the whole message so far is just "/" plus a partial word (no space yet), offer
+  // the agent's currently-advertised slash commands. Slash commands are plain text as far as the
+  // wire protocol is concerned — the agent parses the leading "/name" itself out of a normal
+  // prompt — so "running" one is just inserting its name, not a separate protocol call.
+  const slashPrefix = /^\/(\S*)$/.exec(text)?.[1]
+  const suggestions = useMemo(
+    (): AvailableCommandUi[] =>
+      slashPrefix === undefined
+        ? []
+        : commands
+            .filter((c) => c.name.toLowerCase().startsWith(slashPrefix.toLowerCase()))
+            .slice(0, 6),
+    [commands, slashPrefix],
+  )
+  // Clamped rather than reset via an effect: `text` changing is already the render that should
+  // show the right highlight, not a follow-up one.
+  const activeCmdIndex = suggestions.length ? Math.min(activeCmd, suggestions.length - 1) : 0
+  const activeCommandHint = useMemo(() => {
+    const m = /^\/(\S+)\s/.exec(text)
+    return m ? commands.find((c) => c.name === m[1])?.inputHint : undefined
+  }, [text, commands])
+
+  const applyCommand = (cmd: AvailableCommandUi): void => {
+    setText(`/${cmd.name} `)
+    ref.current?.focus()
+  }
+
   const submit = async (): Promise<void> => {
     const value = text.trim()
     if ((!value && images.length === 0) || rateLimited) return
@@ -74,6 +104,23 @@ export function Composer({
   }
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveCmd((i) => (i + 1) % suggestions.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveCmd((i) => (i - 1 + suggestions.length) % suggestions.length)
+        return
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        applyCommand(suggestions[activeCmdIndex]!)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       void submit()
@@ -85,10 +132,35 @@ export function Composer({
   return (
     <div
       className={cn(
-        'no-drag rounded-2xl border border-line bg-elev shadow-[0_8px_30px_-18px_rgba(0,0,0,0.5)] focus-within:border-accent/60',
+        'relative no-drag rounded-2xl border border-line bg-elev shadow-[0_8px_30px_-18px_rgba(0,0,0,0.5)] focus-within:border-accent/60',
         compact ? 'p-1.5' : 'p-2',
       )}
     >
+      {suggestions.length > 0 ? (
+        <ul
+          role="listbox"
+          className="absolute bottom-full left-0 right-0 mb-2 max-h-56 overflow-y-auto rounded-xl border border-line bg-elev p-1.5 shadow-[var(--shadow)]"
+        >
+          {suggestions.map((cmd, i) => (
+            <li key={cmd.name}>
+              <button
+                role="option"
+                aria-selected={i === activeCmdIndex}
+                onMouseEnter={() => setActiveCmd(i)}
+                onClick={() => applyCommand(cmd)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px]',
+                  i === activeCmdIndex ? 'bg-line/70' : 'hover:bg-line/40',
+                )}
+              >
+                <Terminal size={13} className="shrink-0 text-accent" />
+                <span className="font-medium text-fg">/{cmd.name}</span>
+                <span className="min-w-0 flex-1 truncate text-faint">{cmd.description}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {images.length ? (
         <div className="flex flex-wrap gap-2 px-2 pt-1">
           {images.map((img, i) => (
@@ -195,7 +267,9 @@ export function Composer({
         )}
       </div>
       {!compact ? (
-        <div className="px-3 pb-1 pt-0.5 text-[11px] text-faint">{t('composer.hint')}</div>
+        <div className="px-3 pb-1 pt-0.5 text-[11px] text-faint">
+          {activeCommandHint ?? t('composer.hint')}
+        </div>
       ) : null}
     </div>
   )

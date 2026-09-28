@@ -118,6 +118,28 @@ test('settings view opens and switches sections', async () => {
   ).toBeVisible({ timeout: 10_000 })
 })
 
+test('ACP-02: picking an agent preset fills the command and arguments fields', async () => {
+  await page.getByRole('button', { name: /^Агент$|^Agent$/ }).click()
+  const backendField = page.getByLabel(/talks to Claude|Способ подключения к Claude/)
+  await backendField.selectOption('acp')
+  const commandField = page.getByLabel(/Команда ACP-агента|ACP agent command/)
+  const argsField = page.getByLabel(/аргументы|arguments/i)
+  await expect(commandField).toHaveValue('')
+
+  await page.getByLabel(/Известные агенты|Known agents/).selectOption('gemini-cli')
+  await expect(commandField).toHaveValue('gemini')
+  await expect(argsField).toHaveValue('--acp')
+
+  await page.getByLabel(/Известные агенты|Known agents/).selectOption('codex-acp')
+  await expect(commandField).toHaveValue('npx')
+  await expect(argsField).toHaveValue('-y @agentclientprotocol/codex-acp')
+
+  // Back to the bundled adapter, and off ACP entirely, so later tests see the mock agent as usual.
+  await page.getByLabel(/Известные агенты|Known agents/).selectOption('claude')
+  await expect(commandField).toHaveValue('')
+  await backendField.selectOption('sdk')
+})
+
 test('Permissions: compose a rule with a live preview, then remove it; decision log starts empty (SEC-03)', async () => {
   await page
     .getByRole('button', { name: /Настройки|Settings/ })
@@ -239,6 +261,37 @@ test('Command palette (UX-05): Ctrl/Cmd+K opens it, filters, runs an action, and
   await expect(searchBox).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(searchBox).not.toBeVisible()
+})
+
+test('ACP-03: plan panel, notice toast and slash-command autocomplete (mock triggers)', async () => {
+  const composer = page.getByPlaceholder(/команду|command/i)
+  await composer.fill('покажи план')
+  await composer.press('Enter')
+
+  // Plan panel: 1 of 2 entries completed.
+  await expect(page.getByText(/План · 1\/2|Plan · 1\/2/)).toBeVisible()
+  await expect(page.getByText('Read the file')).toBeVisible()
+  await expect(page.getByText('Write the fix')).toBeVisible()
+  // Collapsing hides the entries but keeps the summary line visible.
+  await page.getByText(/План · 1\/2|Plan · 1\/2/).click()
+  await expect(page.getByText('Read the file')).not.toBeVisible()
+  await page.getByText(/План · 1\/2|Plan · 1\/2/).click()
+  await expect(page.getByText('Read the file')).toBeVisible()
+
+  // Notice toast.
+  await expect(page.getByRole('status').filter({ hasText: 'mock: this is a notice' })).toBeVisible()
+
+  // Slash-command autocomplete: filters by prefix, Enter inserts "/name " and shows its hint.
+  await composer.fill('/')
+  await expect(page.getByRole('option', { name: /create_plan/ })).toBeVisible()
+  await expect(page.getByRole('option', { name: /research/ })).toBeVisible()
+  await composer.fill('/create')
+  await expect(page.getByRole('option', { name: /create_plan/ })).toBeVisible()
+  await expect(page.getByRole('option', { name: /^research/ })).not.toBeVisible()
+  await composer.press('Enter')
+  await expect(composer).toHaveValue('/create_plan ')
+  await expect(page.getByText('the goal')).toBeVisible()
+  await composer.fill('')
 })
 
 test('overlay window exists and can be toggled via IPC', async () => {

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, Plus, X } from 'lucide-react'
+import { FolderOpen, KeyRound, Plus, X } from 'lucide-react'
+import type { AcpAuthMethod } from '@shared/events'
+import { ACP_PRESETS } from '@shared/acp-presets'
 import { useSettingsStore } from '../../../stores/settings'
 import { invoke } from '../../../lib/bridge'
 import { Field, Input, Section, Select, Textarea } from '../../../components/ui/Field'
 import { Switch } from '../../../components/ui/Switch'
 import { Button } from '../../../components/ui/Button'
+import { cn } from '../../../lib/cn'
 
 export function AgentSection() {
   const { t } = useTranslation()
@@ -34,6 +37,26 @@ export function AgentSection() {
         </Field>
         {s.backend === 'acp' ? (
           <>
+            <Field
+              label={t('settings.agent.acpPreset')}
+              hint={t('settings.agent.acpPresetHint')}
+              inline
+            >
+              <Select
+                value=""
+                onChange={(e) => {
+                  const preset = ACP_PRESETS.find((p) => p.id === e.target.value)
+                  if (preset) set({ acpCommand: preset.command, acpArgs: preset.args })
+                }}
+              >
+                <option value="">{t('settings.agent.acpPresetPlaceholder')}</option>
+                {ACP_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id} title={p.description}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label={t('settings.agent.acpCommand')} hint={t('settings.agent.acpCommandHint')}>
               <Input
                 key={s.acpCommand}
@@ -54,6 +77,7 @@ export function AgentSection() {
               />
             </Field>
             <p className="text-xs text-muted">{t('settings.agent.acpNote')}</p>
+            <AcpAuthPanel acpCommand={s.acpCommand} acpArgs={s.acpArgs} />
           </>
         ) : null}
       </Section>
@@ -246,5 +270,78 @@ export function AgentSection() {
         ) : null}
       </Section>
     </>
+  )
+}
+
+/**
+ * ACP-02: `authenticate()` support. Only matters for a custom third-party ACP agent — the bundled
+ * Claude adapter never reports any auth methods, since Vivi's own AuthManager (Settings → Account)
+ * already authenticates it via env vars before the process even starts. Re-checks whenever the
+ * command/args actually change (both fields commit on blur, so this isn't refetching per keystroke).
+ */
+function AcpAuthPanel({ acpCommand, acpArgs }: { acpCommand: string; acpArgs: string }) {
+  const { t } = useTranslation()
+  const [methods, setMethods] = useState<AcpAuthMethod[]>([])
+  const [pending, setPending] = useState<string | null>(null)
+  const [result, setResult] = useState<{ methodId: string; error?: string } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    invoke('agent:acpAuthMethods')
+      .then((m) => {
+        if (!alive) return
+        setMethods(m)
+        setResult(null)
+      })
+      .catch(() => alive && setMethods([]))
+    return () => {
+      alive = false
+    }
+  }, [acpCommand, acpArgs])
+
+  if (methods.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-line bg-sunken/60 p-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-fg">
+        <KeyRound size={13} className="text-accent" /> {t('settings.agent.acpAuthTitle')}
+      </div>
+      {methods.map((m) => (
+        <div key={m.id} className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm text-fg">{m.name}</div>
+            {m.description ? <div className="text-xs text-muted">{m.description}</div> : null}
+          </div>
+          <Button
+            size="sm"
+            disabled={pending !== null}
+            onClick={async () => {
+              setPending(m.id)
+              setResult(null)
+              try {
+                await invoke('agent:acpAuthenticate', m.id)
+                setResult({ methodId: m.id })
+              } catch (err) {
+                setResult({
+                  methodId: m.id,
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              } finally {
+                setPending(null)
+              }
+            }}
+          >
+            {pending === m.id ? t('common.loading') : t('settings.agent.acpAuthSignIn')}
+          </Button>
+        </div>
+      ))}
+      {result ? (
+        <p className={cn('text-xs', result.error ? 'text-danger' : 'text-success')}>
+          {result.error
+            ? `${t('settings.agent.acpAuthError')}: ${result.error}`
+            : t('settings.agent.acpAuthSuccess')}
+        </p>
+      ) : null}
+    </div>
   )
 }

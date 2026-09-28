@@ -90,6 +90,29 @@ export class MockBackend implements AgentBackend {
 
     this.emit({ type: 'assistant-start', messageId, parentToolUseId: null })
 
+    // Test-only trigger (ACP-03): lets e2e tests exercise the plan panel, slash-command
+    // autocomplete and notice toasts — features that only real ACP updates drive otherwise.
+    if (/покажи план|show plan/.test(lower)) {
+      this.emit({
+        type: 'plan',
+        entries: [
+          { content: 'Read the file', priority: 'high', status: 'completed' },
+          { content: 'Write the fix', priority: 'medium', status: 'in_progress' },
+        ],
+      })
+      this.emit({
+        type: 'commands',
+        commands: [
+          { name: 'create_plan', description: 'Create a plan', inputHint: 'the goal' },
+          { name: 'research', description: 'Research the codebase' },
+        ],
+      })
+      this.emit({
+        type: 'notice',
+        notice: { id: randomUUID(), severity: 'info', title: 'mock: this is a notice' },
+      })
+    }
+
     const useTool = /файл|file|папк|folder|list|покажи|скриншот|screenshot/.test(lower)
     let blockIndex = 0
     const blocks: UiMessage['blocks'] = []

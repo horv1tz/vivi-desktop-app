@@ -127,6 +127,45 @@ export type AgentUiEvent =
   | { type: 'rate-limit'; info: RateLimitInfo }
   | { type: 'history'; messages: UiMessage[] }
   | { type: 'compact' }
+  /** ACP-03: the agent's own execution plan/TODO list (ACP `plan` session update). */
+  | { type: 'plan'; entries: PlanEntryUi[] }
+  /** ACP-03: slash commands the agent currently accepts (ACP `available_commands_update`). */
+  | { type: 'commands'; commands: AvailableCommandUi[] }
+  /** ACP-03: a fire-and-forget advisory from the agent (ACP `notice`, experimental). */
+  | { type: 'notice'; notice: AgentNotice }
+
+/** ACP-03: one entry of an agent-reported execution plan. Mirrors ACP's `PlanEntry`. */
+export interface PlanEntryUi {
+  content: string
+  priority: 'high' | 'medium' | 'low'
+  status: 'pending' | 'in_progress' | 'completed'
+}
+
+/** ACP-03: one slash command the agent advertised as currently invocable. */
+export interface AvailableCommandUi {
+  name: string
+  description: string
+  /** Shown as a hint for what to type after the command name, if the agent provided one. */
+  inputHint?: string
+}
+
+/** ACP-03: an ACP `notice` (experimental — agents must not rely on it being seen). */
+export interface AgentNotice {
+  id: string
+  severity: 'info' | 'warning' | 'error' | string
+  title: string
+  description?: string
+}
+
+/** ACP-02: one authentication method an ACP agent reported via `initialize()`. Terminal-kind
+ * methods are excluded upstream (Vivi doesn't advertise terminal auth support), so every entry
+ * here is one the agent can complete on its own once told to start (e.g. it opens its own
+ * browser-based login). */
+export interface AcpAuthMethod {
+  id: string
+  name: string
+  description?: string
+}
 
 export interface SessionSummary {
   sessionId: string

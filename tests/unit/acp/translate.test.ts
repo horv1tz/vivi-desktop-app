@@ -172,18 +172,74 @@ describe('AcpTranslator (live turn)', () => {
     expect(result.result.subtype).toBe('cancelled')
   })
 
-  it('ignores updates for plans/modes and records usage for the context window', () => {
+  it('ignores mode updates and records usage for the context window', () => {
     const { t, events } = make()
     t.beginTurn()
-    t.handleUpdate({
-      sessionUpdate: 'plan',
-      entries: [{ content: 'x', priority: 'medium', status: 'pending' }],
-    })
     t.handleUpdate({ sessionUpdate: 'current_mode_update', currentModeId: 'default' })
     t.handleUpdate({ sessionUpdate: 'usage_update', used: 1000, size: 200000 })
     const r = t.finishTurn({ stopReason: 'end_turn' })
     expect(events.map((e) => e.type)).toEqual(['result'])
     expect(r.contextWindow).toBe(200000)
+  })
+
+  it('surfaces a plan update as a full entries snapshot (ACP-03)', () => {
+    const { t, events } = make()
+    t.beginTurn()
+    t.handleUpdate({
+      sessionUpdate: 'plan',
+      entries: [
+        { content: 'Read the file', priority: 'high', status: 'completed' },
+        { content: 'Write the fix', priority: 'medium', status: 'in_progress' },
+      ],
+    })
+    const plan = events.find((e) => e.type === 'plan')
+    expect(plan).toEqual({
+      type: 'plan',
+      entries: [
+        { content: 'Read the file', priority: 'high', status: 'completed' },
+        { content: 'Write the fix', priority: 'medium', status: 'in_progress' },
+      ],
+    })
+  })
+
+  it('surfaces available commands, mapping the unstructured input hint (ACP-03)', () => {
+    const { t, events } = make()
+    t.beginTurn()
+    t.handleUpdate({
+      sessionUpdate: 'available_commands_update',
+      availableCommands: [
+        { name: 'create_plan', description: 'Create a plan', input: { hint: 'the goal' } },
+        { name: 'research_codebase', description: 'Research the codebase' },
+      ],
+    })
+    const commands = events.find((e) => e.type === 'commands')
+    expect(commands).toEqual({
+      type: 'commands',
+      commands: [
+        { name: 'create_plan', description: 'Create a plan', inputHint: 'the goal' },
+        { name: 'research_codebase', description: 'Research the codebase', inputHint: undefined },
+      ],
+    })
+  })
+
+  it('surfaces a notice with a generated id (ACP-03, experimental)', () => {
+    const { t, events } = make()
+    t.beginTurn()
+    t.handleUpdate({
+      sessionUpdate: 'notice',
+      severity: 'warning',
+      title: 'Model fell back',
+      description: 'Switched to a smaller model after a rate limit.',
+    })
+    const notice = events.find((e) => e.type === 'notice')
+    expect(notice?.type).toBe('notice')
+    if (notice?.type !== 'notice') throw new Error('unreachable')
+    expect(notice.notice.id).toBeTruthy()
+    expect(notice.notice).toMatchObject({
+      severity: 'warning',
+      title: 'Model fell back',
+      description: 'Switched to a smaller model after a rate limit.',
+    })
   })
 })
 
