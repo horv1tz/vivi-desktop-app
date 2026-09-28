@@ -11,6 +11,21 @@
     "activity": "Activity",
     "workshop": "Workshop"
   },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Search commands…",
+    "noResults": "No matching commands",
+    "newChat": "New chat",
+    "goChat": "Go to Chat",
+    "goJournal": "Go to Activity",
+    "goWorkshop": "Go to Workshop",
+    "openSettings": "Open Settings",
+    "openSettingsSection": "Settings: {{section}}",
+    "switchBackend": "Switch backend to {{backend}}",
+    "voiceOn": "Turn voice on",
+    "voiceOff": "Turn voice off",
+    "toggleOverlay": "Toggle quick-command overlay"
+  },
   "state": {
     "starting": "Starting…",
     "idle": "Ready",

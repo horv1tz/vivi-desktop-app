@@ -205,6 +205,34 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
   await expect(page.getByText(/Пока нет сценариев|No scenarios yet/)).toBeVisible()
 })
 
+test('Command palette (UX-05): Ctrl/Cmd+K opens it, filters, runs an action, and Escape closes it', async () => {
+  const searchBox = page.getByPlaceholder(/Поиск команд|Search commands/)
+
+  await page.keyboard.press('Control+k')
+  await expect(searchBox).toBeVisible()
+  await expect(searchBox).toBeFocused()
+
+  // A query matching nothing shows the empty state instead of silently listing everything.
+  await searchBox.fill('zzzzznomatch')
+  await expect(page.getByText(/Ничего не найдено|No matching commands/)).toBeVisible()
+  await searchBox.fill('')
+
+  // Currently on the Workshop view (left there by the previous test) — "Go to Activity" runs a
+  // real navigation, proving the palette drives the same store the sidebar buttons do.
+  await page.getByRole('button', { name: /Перейти в Активность|Go to Activity/ }).click()
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(/сделала Vivi|Vivi did/)
+  await expect(searchBox).not.toBeVisible()
+
+  await page.keyboard.press('Control+k')
+  await page.getByRole('button', { name: /Перейти в Чат|Go to Chat/ }).click()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+  await page.keyboard.press('Control+k')
+  await expect(searchBox).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(searchBox).not.toBeVisible()
+})
+
 test('overlay window exists and can be toggled via IPC', async () => {
   const windows = app.windows()
   expect(windows.length).toBeGreaterThanOrEqual(2)

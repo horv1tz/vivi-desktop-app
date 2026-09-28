@@ -1,5 +1,5 @@
-import { app, crashReporter, nativeTheme, Notification } from 'electron'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { app, crashReporter, nativeTheme, Notification, shell } from 'electron'
+import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initLogging, logger } from './logging/log'
 import { settings } from './settings/store'
 import {
@@ -15,6 +15,7 @@ import {
   toggleOverlay,
   watchLauncherDisplays,
 } from './app/windows'
+import { installAppMenu } from './app/menu'
 import { createTray, destroyTray, refreshTrayMenu } from './app/tray'
 import { registerShortcuts, unregisterShortcuts } from './app/shortcuts'
 import { registerCoreHandlers } from './ipc/register-core'
@@ -190,11 +191,40 @@ async function bootstrap(): Promise<void> {
     },
   }
   createTray(trayActions)
+
+  // UX-05: the native app menu has no direct access to renderer state, so its "New Chat" /
+  // "Command Palette" / "Settings…" entries ask the focused window over IPC instead — the same
+  // route the tray already uses for showMainWindow, extended with a `nav:command` broadcast.
+  const appMenuActions = {
+    onNewChat: () => {
+      showMainWindow()
+      emit('nav:command', 'newChat')
+    },
+    onCommandPalette: () => {
+      showMainWindow()
+      emit('nav:command', 'openPalette')
+    },
+    onSettings: () => {
+      showMainWindow()
+      emit('nav:command', 'openSettings')
+    },
+    onOpenLogs: () => {
+      void shell.openPath(paths.logsDir)
+    },
+    onReportIssue: () => {
+      void shell.openExternal('https://github.com/horv1tz/vivi-desktop-app/issues')
+    },
+  }
+  installAppMenu(is.dev, appMenuActions)
+
   let agentFingerprint = agentSettingsFingerprint(store.get())
   let hotkeyFingerprint = hotkeySettingsFingerprint(store.get())
   let previousAgentSettings = store.get()
   store.onChanged((next) => {
     refreshTrayMenu(trayActions, latestUpdateStatus)
+    // Rebuilt on every change (cheap), same as the tray menu above — covers appearance.language
+    // changing the menu's own strings, not just settings that affect the tray.
+    installAppMenu(is.dev, appMenuActions)
     // Re-registering global shortcuts briefly drops them; only do it when a hotkey actually changed,
     // not on every unrelated settings write (theme, agent text fields, …).
     const hfp = hotkeySettingsFingerprint(next)

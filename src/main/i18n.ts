@@ -15,6 +15,16 @@ const strings = {
     'notify.killSwitch': 'Остановлено: все действия прерваны.',
     'notify.updateReady':
       'Обновление готово к установке. Перезапустите Vivi, чтобы применить версию',
+    'menu.file': 'Файл',
+    'menu.edit': 'Правка',
+    'menu.view': 'Вид',
+    'menu.help': 'Справка',
+    'menu.newChat': 'Новый чат',
+    'menu.commandPalette': 'Командная палитра',
+    'menu.settings': 'Настройки…',
+    'menu.quit': 'Выйти',
+    'menu.reportIssue': 'Сообщить о проблеме',
+    'menu.openLogs': 'Открыть папку логов',
   },
   en: {
     'tray.open': 'Open Vivi',
@@ -28,6 +38,16 @@ const strings = {
     'notify.ready': 'Vivi is ready. Press the hotkey or say “Vivi”.',
     'notify.killSwitch': 'Stopped: all actions were interrupted.',
     'notify.updateReady': 'An update is ready to install. Restart Vivi to apply version',
+    'menu.file': 'File',
+    'menu.edit': 'Edit',
+    'menu.view': 'View',
+    'menu.help': 'Help',
+    'menu.newChat': 'New Chat',
+    'menu.commandPalette': 'Command Palette',
+    'menu.settings': 'Settings…',
+    'menu.quit': 'Quit',
+    'menu.reportIssue': 'Report an Issue',
+    'menu.openLogs': 'Open Logs Folder',
   },
 } as const
 

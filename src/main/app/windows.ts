@@ -4,8 +4,17 @@ import { is } from '@electron-toolkit/utils'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
 import { paths } from '../util/paths'
+import { attachEditContextMenu } from './menu'
 import { clampToDisplays, loadWindowState, saveWindowState } from './window-state'
 import icon from '../../../resources/icon.png?asset'
+
+/**
+ * UX-05: without this, Electron's default `webPreferences.devTools` (true) leaves DevTools
+ * reachable in a shipped build via any route — the default app menu's "Toggle Developer Tools",
+ * its keyboard shortcut, or a stray `webContents.openDevTools()` call — with nothing gating it.
+ * Applied to every window Vivi creates, not just the main one.
+ */
+const devToolsEnabled = is.dev
 
 const log = logger('windows')
 
@@ -127,6 +136,7 @@ export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow 
       nodeIntegration: false,
       spellcheck: false,
       backgroundThrottling: false,
+      devTools: devToolsEnabled,
     },
   })
   mainWindow = win
@@ -161,6 +171,7 @@ export function createMainWindow(opts: { startHidden: boolean }): BrowserWindow 
   win.on('closed', () => {
     mainWindow = null
   })
+  attachEditContextMenu(win)
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
@@ -226,6 +237,7 @@ export function createOverlayWindow(): BrowserWindow {
       nodeIntegration: false,
       spellcheck: false,
       backgroundThrottling: false,
+      devTools: devToolsEnabled,
     },
   })
   overlayWindow = win
@@ -291,6 +303,7 @@ function createHudWindow(): BrowserWindow {
       nodeIntegration: false,
       spellcheck: false,
       backgroundThrottling: false,
+      devTools: devToolsEnabled,
     },
   })
   hudWindow = win
@@ -383,6 +396,7 @@ function createLauncherWindow(): BrowserWindow {
       nodeIntegration: false,
       spellcheck: false,
       backgroundThrottling: false,
+      devTools: devToolsEnabled,
     },
   })
   launcherWindow = win

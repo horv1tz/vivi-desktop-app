@@ -11,6 +11,21 @@
     "activity": "Активность",
     "workshop": "Мастерская"
   },
+  "palette": {
+    "title": "Командная палитра",
+    "placeholder": "Поиск команд…",
+    "noResults": "Ничего не найдено",
+    "newChat": "Новый чат",
+    "goChat": "Перейти в Чат",
+    "goJournal": "Перейти в Активность",
+    "goWorkshop": "Перейти в Мастерскую",
+    "openSettings": "Открыть настройки",
+    "openSettingsSection": "Настройки: {{section}}",
+    "switchBackend": "Переключить бэкенд на {{backend}}",
+    "voiceOn": "Включить голос",
+    "voiceOff": "Выключить голос",
+    "toggleOverlay": "Показать/скрыть быструю команду"
+  },
   "state": {
     "starting": "Запуск…",
     "idle": "Готова",

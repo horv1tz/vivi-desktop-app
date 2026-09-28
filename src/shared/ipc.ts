@@ -199,6 +199,8 @@ export interface EventMap {
   'overlay:visibility': boolean
   'app:notification': { title: string; body: string; level?: 'info' | 'warn' | 'error' }
   'update:status': UpdateStatus
+  /** UX-05: the native app menu can't reach renderer state directly, so it asks via this instead. */
+  'nav:command': 'newChat' | 'openSettings' | 'openPalette'
 }
 
 export type InvokeChannel = keyof InvokeMap

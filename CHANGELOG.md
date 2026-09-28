@@ -47,6 +47,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   permission category, same as `Bash`/`open`. Verified against a real, locally spawned Chromium
   (`tests/unit/tools/browser-real.test.ts`, no mocking): open → read → find (by selector and by
   text) → type + click → read round trip, plus the not-found error path — all 6 passing.
+- **Command palette** (UX-05): Ctrl/Cmd+K opens a searchable command palette from anywhere in the
+  main window — new chat, jump to Chat/Activity/Workshop or any Settings section, switch the agent
+  backend between SDK and ACP, turn voice on/off, toggle the quick-command overlay. Arrow keys
+  navigate, Enter runs the selected action, Escape closes.
+- **Native application menu** (UX-05): Vivi previously never called `Menu.setApplicationMenu`, so
+  Electron's own auto-generated default menu was active in every build — including "Toggle
+  Developer Tools", reachable in a shipped app with nothing gating it. Replaced with a real,
+  platform-aware menu (File/Edit/View/Window/Help on macOS, File/Edit/View/Help elsewhere) whose
+  View submenu drops Reload/Force Reload/Toggle DevTools entirely outside development builds — and
+  now backed by real enforcement, not just an absent menu item: every window (main, overlay,
+  control HUD, launcher) sets `webPreferences.devTools` to match, so DevTools can't be opened via
+  any route in a packaged build. The menu also gained a right-click context menu on text fields
+  (Cut/Copy/Paste/Select All on editable fields, Copy on a selection) — previously right-clicking a
+  text input anywhere in Vivi showed nothing at all.
 
 ### Fixed
 

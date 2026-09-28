@@ -13,6 +13,7 @@ import { JournalView } from './features/journal/JournalView'
 import { WorkshopView } from './features/workshop/WorkshopView'
 import { PermissionDialog } from './features/permissions/PermissionDialog'
 import { QuestionDialog } from './features/permissions/QuestionDialog'
+import { CommandPalette } from './features/palette/CommandPalette'
 import { OnboardingView } from './features/onboarding/OnboardingView'
 import { useVoiceBridge } from './features/voice/useVoiceBridge'
 
@@ -76,6 +77,7 @@ export function App() {
       </div>
       <PermissionDialog />
       <QuestionDialog />
+      <CommandPalette />
     </div>
   )
 }

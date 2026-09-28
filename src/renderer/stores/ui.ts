@@ -13,6 +13,19 @@ export type SettingsSection =
   | 'diagnostics'
   | 'about'
 
+export const SETTINGS_SECTIONS: SettingsSection[] = [
+  'general',
+  'account',
+  'agent',
+  'memory',
+  'voice',
+  'proxy',
+  'permissions',
+  'usage',
+  'diagnostics',
+  'about',
+]
+
 interface UiState {
   view: View
   settingsSection: SettingsSection

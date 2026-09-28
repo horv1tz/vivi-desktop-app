@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { ArrowLeft } from 'lucide-react'
-import { useUiStore, type SettingsSection } from '../../stores/ui'
+import { SETTINGS_SECTIONS, useUiStore } from '../../stores/ui'
 import { cn } from '../../lib/cn'
 import { GeneralSection } from './sections/GeneralSection'
 import { AgentSection } from './sections/AgentSection'
@@ -15,18 +15,7 @@ import { UsageSection } from './sections/UsageSection'
 import { DiagnosticsSection } from './sections/DiagnosticsSection'
 import { Button } from '../../components/ui/Button'
 
-const sections: SettingsSection[] = [
-  'general',
-  'account',
-  'agent',
-  'memory',
-  'voice',
-  'proxy',
-  'permissions',
-  'usage',
-  'diagnostics',
-  'about',
-]
+const sections = SETTINGS_SECTIONS
 
 export function SettingsView() {
   const { t } = useTranslation()
