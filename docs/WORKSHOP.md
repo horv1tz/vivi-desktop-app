@@ -90,6 +90,15 @@ Each step is one of a small, fixed set of actions:
 - **Type text** — literal text typed into whatever's focused.
 - **Notify** — show a desktop notification.
 
+**New scenario** opens with a **Library** picker — ready-made scenarios for Spotify music control
+(play/pause, next/previous track, volume) and a quick weather check (opens a plain-text forecast
+in the browser, no account needed). Every keyboard shortcut in the library was checked against
+Spotify's own published shortcuts rather than guessed, and the two shortcuts that differ by
+platform (next/previous track, volume) are resolved to the right modifier for the machine Vivi is
+actually running on when you pick the preset — not written in Windows-only or Mac-only. As with
+the skill and MCP libraries, picking one is a starting point: everything it fills in is still
+plain, editable fields, the same as assembling a scenario by hand.
+
 Steps run in order and can be reordered or removed while editing. Give the scenario a name, an
 optional description, and a few example phrases (comma-separated) that should trigger it — these
 are shown to Vivi so she can match a request like "play some music" to your "Play music" scenario.

@@ -13,6 +13,7 @@ import type {
 import type { Integration, IntegrationEnvVar } from '@shared/settings'
 import { MCP_PRESETS } from '@shared/mcp-presets'
 import { SKILL_PRESETS } from '@shared/skill-presets'
+import { resolvePresetSteps, SCENARIO_PRESETS } from '@shared/scenario-presets'
 import { invoke } from '../../lib/bridge'
 import { useUiStore } from '../../stores/ui'
 import { Field, Input, Section, Select, Textarea } from '../../components/ui/Field'
@@ -995,13 +996,20 @@ function ScenarioForm({
     steps: ScenarioStep[]
   }) => Promise<void>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [triggerPhrases, setTriggerPhrases] = useState((initial?.triggerPhrases ?? []).join(', '))
   const [steps, setSteps] = useState<ScenarioStep[]>(initial?.steps ?? [])
   const [saving, setSaving] = useState(false)
+  const [platform, setPlatform] = useState('win32')
   const valid = name.trim() && steps.length > 0
+
+  useEffect(() => {
+    invoke('app:getInfo')
+      .then((info) => setPlatform(info.platform))
+      .catch(() => undefined)
+  }, [])
 
   const updateStep = (i: number, patch: Partial<ScenarioStep>): void =>
     setSteps(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -1015,6 +1023,36 @@ function ScenarioForm({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-line bg-sunken p-3">
+      {!initial ? (
+        <Field
+          label={t('settings.skills.scenarioPreset')}
+          hint={t('settings.skills.scenarioPresetHint')}
+          inline
+        >
+          <Select
+            value=""
+            onChange={(e) => {
+              const preset = SCENARIO_PRESETS.find((p) => p.id === e.target.value)
+              if (!preset) return
+              const lang = i18n.language === 'ru' ? 'ru' : 'en'
+              setName(preset.name[lang])
+              setDescription(preset.description[lang])
+              setTriggerPhrases(preset.triggerPhrases.join(', '))
+              setSteps(resolvePresetSteps(preset.steps, platform))
+            }}
+          >
+            <option value="">{t('settings.skills.scenarioPresetPlaceholder')}</option>
+            {SCENARIO_PRESETS.map((p) => {
+              const lang = i18n.language === 'ru' ? 'ru' : 'en'
+              return (
+                <option key={p.id} value={p.id} title={p.description[lang]}>
+                  {p.name[lang]}
+                </option>
+              )
+            })}
+          </Select>
+        </Field>
+      ) : null}
       <Field label={t('settings.skills.name')}>
         <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={80} />
       </Field>

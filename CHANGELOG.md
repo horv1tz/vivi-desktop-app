@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A library of ready-made scenarios** (INT-05): the New scenario form now opens with a "Library"
+  picker offering 6 ready-made scenarios — Spotify music control (play/pause, next/previous
+  track, volume up/down) and a quick weather check (opens a plain-text forecast, no account
+  needed). Play/pause uses Space, identical on every platform; the shortcuts that differ by OS
+  (next/previous track, volume) resolve to the right modifier for the machine Vivi is actually
+  running on, not hardcoded to one platform. Every shortcut was checked against Spotify's own
+  published keyboard shortcuts before being written in.
 - **A library of ready-made MCP servers and skills** (INT-01): the Integrations tab now opens with
   a "Known MCP server" picker offering four real, independently-verified servers — GitHub
   (official, via Docker), Slack, Brave Search, and Sequential Thinking — that prefill the

@@ -265,16 +265,18 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
   await page.getByRole('button', { name: /^Сценарии$|^Scenarios$/ }).click()
   await expect(page.getByText(/Пока нет сценариев|No scenarios yet/)).toBeVisible()
 
+  // The scenario library picker prefills name/description/trigger phrases/steps from a
+  // real, verified preset (INT-05) — still fully editable before save.
   await page.getByRole('button', { name: /Новый сценарий|New scenario/ }).click()
-  await page.getByLabel(/^Название$|^Name$/).fill('Play music')
-  await page.getByLabel(/^Описание$|^Description$/).fill('Opens Spotify and starts playback')
-  await page.getByRole('combobox').selectOption('wait')
-  await page.getByPlaceholder(/Миллисекунды|Milliseconds/).fill('500')
+  await page.getByLabel(/Библиотека|Library/).selectOption('play-pause-music')
+  await expect(page.getByLabel(/^Название$|^Name$/)).toHaveValue(/Spotify/)
+  await expect(page.getByLabel(/^Описание$|^Description$/)).not.toHaveValue('')
+  // The preset's 3 steps (open/wait/key) landed in the list; 'space' is platform-identical.
+  await expect(page.getByPlaceholder(/Комбинация клавиш|Key combo/)).toHaveValue('space')
   await page.getByRole('button', { name: /Сохранить|Save/ }).click()
 
-  const scenarioRow = page.getByTestId('scenario-row').filter({ hasText: 'Play music' })
+  const scenarioRow = page.getByTestId('scenario-row').filter({ hasText: 'Spotify' })
   await expect(scenarioRow).toBeVisible()
-  await expect(page.getByText('Opens Spotify and starts playback')).toBeVisible()
 
   const scenarioSwitch = scenarioRow.getByRole('switch')
   await expect(scenarioSwitch).toHaveAttribute('data-state', 'checked')
