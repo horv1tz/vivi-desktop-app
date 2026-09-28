@@ -250,7 +250,12 @@ describe('AcpBackend against a real ACP agent process', () => {
   it('surfaces plan, available-commands and notice updates as their own events (ACP-03)', async () => {
     const { backend, events, permissionRequests } = makeBackend()
     await backend.send({ text: 'hello' })
+    // fake-agent.mjs sends plan/commands/notice as three separate, independently-arriving stdio
+    // messages (not one atomic batch) — waiting only for the first one raced the other two on a
+    // slower CI runner (observed failing intermittently on Windows). Wait for all three by name.
     await until(() => events.some((e) => e.type === 'plan'))
+    await until(() => events.some((e) => e.type === 'commands'))
+    await until(() => events.some((e) => e.type === 'notice'))
     expect(events.find((e) => e.type === 'plan')).toEqual({
       type: 'plan',
       entries: [{ content: 'Look into it', priority: 'medium', status: 'in_progress' }],

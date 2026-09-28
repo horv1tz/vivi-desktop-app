@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { win32 } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('node:fs', () => ({ existsSync: vi.fn() }))
@@ -54,11 +54,10 @@ describe('commandExistsOnPath', () => {
   })
 
   it('also checks the .exe suffix on Windows', () => {
-    // node:path's default `join` follows the host OS the tests run on, not a faked
-    // process.platform — build the expected path with the same `join` the source uses, so this
-    // test verifies the "also try + .exe" logic itself rather than a specific separator.
+    // commandExistsOnPath joins with the passed platform's own separator (win32.join here), not
+    // the host's — this exercises that behavior on any host, matching with the same win32.join.
     process.env.PATH = 'C:\\tools'
-    mockExistsSync.mockImplementation((p) => p === join('C:\\tools', 'chrome.exe'))
+    mockExistsSync.mockImplementation((p) => p === win32.join('C:\\tools', 'chrome.exe'))
     expect(commandExistsOnPath('chrome', 'win32')).toBe(true)
   })
 })

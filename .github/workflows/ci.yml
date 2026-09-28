@@ -46,7 +46,17 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
-      - run: npm test
+      # tests/unit/tools/browser-real.test.ts spawns a real, non-headless Chromium when one is
+      # discoverable on PATH (true for ubuntu-latest's own image) and needs somewhere to render
+      # into — without a display it hangs and times out instead of skipping. macOS/Windows Chrome
+      # doesn't need an X server, so only Linux needs the same xvfb wrapper the e2e step below uses.
+      - name: Unit tests (xvfb)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: xvfb-run -a --server-args="-screen 0 1280x800x24" npm test
+      - name: Unit tests
+        if: runner.os != 'Linux'
+        run: npm test
       - run: npm run build
       - name: Electron smoke tests (xvfb)
         if: runner.os == 'Linux'

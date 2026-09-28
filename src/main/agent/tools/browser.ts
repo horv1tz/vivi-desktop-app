@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { join } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 import CDP from 'chrome-remote-interface'
 import { splitArgs } from '../acp/args'
 
@@ -56,7 +56,11 @@ export function candidateExecutables(plat: NodeJS.Platform): string[] {
 export function commandExistsOnPath(cmd: string, plat: NodeJS.Platform): boolean {
   const dirs = (process.env.PATH ?? '').split(plat === 'win32' ? ';' : ':')
   const names = plat === 'win32' ? [cmd, `${cmd}.exe`] : [cmd]
-  return dirs.some((d) => d && names.some((n) => existsSync(join(d, n))))
+  // Joins with `plat`'s own separator, not the host's — `plat` always matches the host in real
+  // usage (findBrowserExecutable() passes process.platform), but tests exercise other platforms'
+  // logic on whatever OS CI happens to run on, which the ambient `join` can't do correctly.
+  const platJoin = plat === 'win32' ? win32.join : posix.join
+  return dirs.some((d) => d && names.some((n) => existsSync(platJoin(d, n))))
 }
 
 /** Finds an installed Chrome/Chromium/Edge/Brave. `VIVI_BROWSER_BIN` overrides everything (dev/CI, and anyone who wants a specific browser). */
