@@ -2,6 +2,7 @@ import { hostname, release, userInfo } from 'node:os'
 import { readMemoryForPrompt } from './tools/memory'
 import { readSkillsForPrompt } from './tools/skills'
 import { readScenariosForPrompt } from './tools/scenarios'
+import { readRoutinesForPrompt } from './tools/routines'
 
 export interface PromptContext {
   platform: string
@@ -12,6 +13,7 @@ export interface PromptContext {
   memoryFile: string
   skillsFile: string
   scenariosFile: string
+  routinesFile: string
   customInstructions?: string
   now?: Date
   userName?: string
@@ -81,6 +83,9 @@ const STATIC_PROMPT = `You are Vivi (Виви), a personal desktop assistant tha
 ## Scenarios
 - Scenarios are fixed, user-assembled action sequences (e.g. "open Spotify, then press play") listed under "## Scenarios" above when any are enabled. When a request matches one, call \`run_scenario\` with its name instead of performing the steps yourself — it replays them directly and is faster and more reliable than re-deriving them. Use \`list_scenarios\` to check what exists and see each one's example trigger phrases. You cannot create, edit or delete scenarios yourself — unlike a skill, a scenario performs real actions on the computer, so assembling one is a decision only the user makes, in the Workshop screen.
 
+## Routines
+- Routines are prompts the user has scheduled to run by themselves, unattended (daily, on an interval, or once), listed under "## Routines" above when any are enabled — \`list_routines\` shows the same list with each one's next run time. They run as their own separate, isolated turn, not this conversation, and only ever act on tools already covered by an always-allow rule (nobody is there to answer a permission prompt). You cannot create, edit, run or delete routines yourself — the user manages them in the Workshop screen. If the user asks you to schedule or automate something recurring, tell them to set it up there rather than trying to simulate it in this conversation.
+
 ## Style
 - Lead with the result. Short paragraphs, lists only for genuinely parallel items.
 - When you finish a multi-step task, give a 1–3 sentence summary of what changed and where.`
@@ -105,6 +110,12 @@ export function buildDynamicPrompt(ctx: PromptContext): string {
   } catch {
     // best-effort, same as memory above
   }
+  let routines = ''
+  try {
+    routines = readRoutinesForPrompt(ctx.routinesFile)
+  } catch {
+    // best-effort, same as memory above
+  }
   const lines = [
     '## Environment',
     `- OS: ${ctx.platform}${ctx.osVersion ? ` ${ctx.osVersion}` : ''} (host ${hostname()})`,
@@ -117,6 +128,7 @@ export function buildDynamicPrompt(ctx: PromptContext): string {
     lines.push('', '## User instructions', ctx.customInstructions.trim())
   if (skills) lines.push('', '## Skills', skills)
   if (scenarios) lines.push('', '## Scenarios', scenarios)
+  if (routines) lines.push('', '## Routines', routines)
   if (memory) lines.push('', '## Memory', memory)
   return lines.join('\n')
 }

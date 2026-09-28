@@ -229,7 +229,8 @@
       "tabs": {
         "skills": "Skills",
         "integrations": "Integrations",
-        "scenarios": "Scenarios"
+        "scenarios": "Scenarios",
+        "routines": "Routines"
       },
       "title": "Skills",
       "description": "Named, reusable blocks of instructions injected into Vivi's own system prompt when enabled — a repeatable procedure, house style, or preferred approach to a recurring task. Vivi can create and edit these herself when you teach her something worth keeping this way (see the manage_skill tool), or you can write one directly here.",
@@ -281,7 +282,29 @@
       "stepKeys": "Key combo (e.g. space, ctrl+shift+t)",
       "stepText": "Text to type",
       "stepTitle": "Notification title",
-      "stepBody": "Notification body (optional)"
+      "stepBody": "Notification body (optional)",
+      "routinesTitle": "Routines",
+      "routinesDescription": "Prompts that run on their own, on a schedule, without you being there to watch — daily, on an interval, or once. Each run is a separate, isolated turn: it never shows up in this chat, and it can only use tools already covered by an always-allow rule, since nobody is around to answer a permission prompt.",
+      "newRoutine": "New routine",
+      "noRoutines": "No routines yet.",
+      "routinePrompt": "Prompt",
+      "routinePromptHint": "What Vivi does when this routine runs, e.g. \"summarize today's calendar and notify me\".",
+      "scheduleKind": "Schedule",
+      "scheduleKinds": {
+        "daily": "Daily",
+        "interval": "Every N minutes",
+        "once": "Once"
+      },
+      "scheduleHour": "Hour (0–23)",
+      "scheduleMinute": "Minute (0–59)",
+      "scheduleMinutes": "Minutes between runs",
+      "scheduleAt": "Date and time",
+      "safeMode": "Safe mode",
+      "safeModeHint": "Restricts this routine to read-only tools (no file edits, commands, or input control) — recommended for anything unattended. Turn off only if the routine needs to act on the system and every tool it needs is already always-allowed.",
+      "runNow": "Run now",
+      "nextRun": "Next run",
+      "lastRun": "Last run",
+      "routineDisabled": "Disabled"
     },
     "usage": {
       "title": "Usage",

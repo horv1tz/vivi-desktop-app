@@ -44,6 +44,7 @@ describe('buildOptions', () => {
       memoryFile: '/work/memory/VIVI.md',
       skillsFile: '/work/skills/skills.json',
       scenariosFile: '/work/scenarios/scenarios.json',
+      routinesFile: '/work/routines/routines.json',
       claudeConfigDir: '/data/claude',
       extraEnv: {},
       appVersion: '1.0.0',

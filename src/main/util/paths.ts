@@ -76,4 +76,11 @@ export const paths = {
   scenariosFile(workspace: string): string {
     return join(paths.scenariosDir(workspace), 'scenarios.json')
   },
+  routinesDir(workspace: string): string {
+    return ensureDir(join(workspace, 'routines'))
+  },
+  /** SCH-01: scheduled prompts Vivi runs unattended (see agent/tools/routines.ts). */
+  routinesFile(workspace: string): string {
+    return join(paths.routinesDir(workspace), 'routines.json')
+  },
 }

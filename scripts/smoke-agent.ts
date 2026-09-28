@@ -26,6 +26,7 @@ const options = buildOptions({
   memoryFile: join(cwd, 'VIVI.md'),
   skillsFile: join(cwd, 'skills.json'),
   scenariosFile: join(cwd, 'scenarios.json'),
+  routinesFile: join(cwd, 'routines.json'),
   claudeConfigDir: process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'),
   extraEnv: {},
   claudeBinary: process.env.VIVI_CLAUDE_BIN,

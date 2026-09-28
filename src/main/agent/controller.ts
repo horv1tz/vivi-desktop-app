@@ -6,6 +6,8 @@ import type {
   PermissionDecision,
   PermissionRequest,
   QuestionRequest,
+  RoutineEntry,
+  RoutineRunResult,
 } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
 import type { PermissionRule, Settings } from '@shared/settings'
@@ -14,6 +16,7 @@ import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
 import { AcpBackend } from './acp-backend'
 import { ActionJournal } from './journal'
+import { runRoutineOnce } from './routine-runner'
 import { MetricsStore } from './metrics'
 import { PermissionLog } from './permissions/log'
 import { handle } from '../ipc/handlers'
@@ -77,6 +80,7 @@ export class AgentController {
       skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
       scenariosFile: () =>
         paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
+      routinesFile: () => paths.routinesFile(paths.workspace(settings().get().agent.workspaceDir)),
       browserProfileDir: () =>
         paths.browserProfileDir(paths.workspace(settings().get().agent.workspaceDir)),
       speak: this.deps.speak,
@@ -160,6 +164,7 @@ export class AgentController {
       skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
       scenariosFile: () =>
         paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
+      routinesFile: () => paths.routinesFile(paths.workspace(settings().get().agent.workspaceDir)),
       claudeConfigDir: paths.claudeConfigDir,
       claudeBinary: resolveClaudeBinary(),
       debugFile: () =>
@@ -263,6 +268,38 @@ export class AgentController {
       return
     }
     await this.backend.restart()
+  }
+
+  /**
+   * SCH-01: runs one routine's prompt to completion as an isolated, one-shot turn — deliberately
+   * NOT through `this.backend`/the live chat session, so a scheduled routine can never interleave
+   * with (or silently show up inside) whatever the user is doing in the main window right now.
+   */
+  async runRoutine(routine: RoutineEntry): Promise<RoutineRunResult> {
+    // Mirrors createBackend()'s own mock check: with VIVI_MOCK_AGENT set (dev/e2e), a routine run
+    // must never fall through to spawning the real Claude CLI just because it bypasses `this.backend`.
+    if (this.deps.mock)
+      return {
+        timestamp: Date.now(),
+        summary: `[mock] ran routine "${routine.name}"`,
+        isError: false,
+      }
+    return runRoutineOnce(routine, {
+      getSettings: () => settings().get(),
+      getExtraEnv: this.deps.getExtraEnv,
+      isolateConfig: this.deps.isolateConfig,
+      cwd: () => paths.workspace(settings().get().agent.workspaceDir),
+      homeDir: paths.home,
+      memoryFile: () => paths.memoryFile(paths.workspace(settings().get().agent.workspaceDir)),
+      skillsFile: () => paths.skillsFile(paths.workspace(settings().get().agent.workspaceDir)),
+      scenariosFile: () =>
+        paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir)),
+      routinesFile: () => paths.routinesFile(paths.workspace(settings().get().agent.workspaceDir)),
+      claudeConfigDir: paths.claudeConfigDir,
+      claudeBinary: resolveClaudeBinary(),
+      appVersion: app.getVersion(),
+      mcpServer: () => this.viviTools(),
+    })
   }
 
   async dispose(): Promise<void> {

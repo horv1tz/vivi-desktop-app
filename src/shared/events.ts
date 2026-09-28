@@ -390,6 +390,57 @@ export interface PermissionLogEntry {
   reason: PermissionLogReason
 }
 
+/**
+ * SCH-01: when a routine fires. Deliberately just three time-based shapes (not general cron
+ * syntax) — covers the two concrete cases the feature exists for ("every morning at 9:00",
+ * "remind me in 20 minutes") without a cron-expression parser/library. Condition-based triggers
+ * ("when the network connects", "when a file appears") are a separate, larger feature — not
+ * implemented here (see docs/ROADMAP.md's SCH-01 card for why).
+ */
+export type RoutineScheduleKind = 'daily' | 'interval' | 'once'
+
+export interface RoutineSchedule {
+  kind: RoutineScheduleKind
+  /** 'daily': local hour, 0–23. */
+  hour?: number
+  /** 'daily': local minute, 0–59. */
+  minute?: number
+  /** 'interval': minutes between runs, >= 1. */
+  minutes?: number
+  /** 'once': absolute ms timestamp to fire at. */
+  at?: number
+}
+
+/** SCH-01: the outcome of one routine run, whether scheduled or run on request. */
+export interface RoutineRunResult {
+  timestamp: number
+  summary: string
+  isError: boolean
+}
+
+/**
+ * SCH-01: a named prompt Vivi runs on a schedule, unattended — a reminder or recurring check
+ * ("every morning, summarize my inbox"). Like a scenario, this performs real actions on the user's
+ * computer, so it is deliberately never agent-authorable: only the user assembles one, in the
+ * Workshop screen. Unlike a scenario, a routine runs with nobody watching, so `safeMode` (default
+ * on) restricts it to read-only tools and auto-denies (never asks) anything needing approval that
+ * isn't already covered by an existing always-allow rule — see docs/ROADMAP.md's SCH-01 card for
+ * the full safety reasoning.
+ */
+export interface RoutineEntry {
+  id: string
+  name: string
+  prompt: string
+  schedule: RoutineSchedule
+  safeMode: boolean
+  enabled: boolean
+  /** Computed by the scheduler; null once a one-off 'once' schedule has fired, or while disabled. */
+  nextRunAt: number | null
+  lastRun?: RoutineRunResult
+  createdAt: number
+  updatedAt: number
+}
+
 /** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
 export interface JournalEntry {
   id: string

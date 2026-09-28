@@ -45,6 +45,7 @@ function makeBackend(mode = 'normal', extraEnv: Record<string, string> = {}) {
     memoryFile: () => join(dir, 'VIVI.md'),
     skillsFile: () => join(dir, 'skills.json'),
     scenariosFile: () => join(dir, 'scenarios.json'),
+    routinesFile: () => join(dir, 'routines.json'),
     claudeConfigDir: join(dir, 'claude'),
     adapterEntry: () => null,
     adapterBootstrap: () => null,

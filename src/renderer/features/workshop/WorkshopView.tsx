@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react'
-import type { ScenarioEntry, ScenarioStep, ScenarioStepKind, SkillEntry } from '@shared/events'
+import { ArrowLeft, ChevronDown, ChevronUp, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import type {
+  RoutineEntry,
+  RoutineSchedule,
+  RoutineScheduleKind,
+  ScenarioEntry,
+  ScenarioStep,
+  ScenarioStepKind,
+  SkillEntry,
+} from '@shared/events'
 import type { Integration } from '@shared/settings'
 import { invoke } from '../../lib/bridge'
 import { useUiStore } from '../../stores/ui'
@@ -11,7 +19,7 @@ import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
 import { useSettingsStore } from '../../stores/settings'
 
-type Tab = 'skills' | 'integrations' | 'scenarios'
+type Tab = 'skills' | 'integrations' | 'scenarios' | 'routines'
 
 export function WorkshopView() {
   const { t } = useTranslation()
@@ -28,7 +36,7 @@ export function WorkshopView() {
         <div className="w-[88px]" />
       </div>
       <div className="flex gap-1 rounded-xl bg-sunken p-1">
-        {(['skills', 'integrations', 'scenarios'] as const).map((tb) => (
+        {(['skills', 'integrations', 'scenarios', 'routines'] as const).map((tb) => (
           <button
             key={tb}
             onClick={() => setTab(tb)}
@@ -46,8 +54,10 @@ export function WorkshopView() {
           <SkillsTab />
         ) : tab === 'integrations' ? (
           <IntegrationsTab />
-        ) : (
+        ) : tab === 'scenarios' ? (
           <ScenariosTab />
+        ) : (
+          <RoutinesTab />
         )}
       </div>
     </div>
@@ -395,6 +405,277 @@ function IntegrationForm({
       </div>
     </div>
   )
+}
+
+const ROUTINE_SCHEDULE_KINDS: RoutineScheduleKind[] = ['daily', 'interval', 'once']
+
+function newRoutineSchedule(kind: RoutineScheduleKind): RoutineSchedule {
+  switch (kind) {
+    case 'daily':
+      return { kind, hour: 9, minute: 0 }
+    case 'interval':
+      return { kind, minutes: 60 }
+    case 'once':
+      return { kind }
+  }
+}
+
+function RoutinesTab() {
+  const { t } = useTranslation()
+  const [routines, setRoutines] = useState<RoutineEntry[]>([])
+  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [runningId, setRunningId] = useState<string | null>(null)
+
+  const refresh = useCallback(() => {
+    invoke('routines:list')
+      .then(setRoutines)
+      .catch(() => undefined)
+  }, [])
+  useEffect(() => refresh(), [refresh])
+
+  const editing = editingId === 'new' ? null : (routines.find((r) => r.id === editingId) ?? null)
+  const formOpen = editingId !== null
+
+  return (
+    <Section
+      title={t('settings.skills.routinesTitle')}
+      description={t('settings.skills.routinesDescription')}
+    >
+      {!formOpen ? (
+        <Button
+          size="sm"
+          className="self-start"
+          onClick={() => {
+            setError(null)
+            setEditingId('new')
+          }}
+        >
+          <Plus size={14} /> {t('settings.skills.newRoutine')}
+        </Button>
+      ) : (
+        <RoutineForm
+          initial={editing}
+          error={error}
+          onCancel={() => {
+            setEditingId(null)
+            setError(null)
+          }}
+          onSave={async (input) => {
+            const result = editing
+              ? await invoke('routines:update', editing.id, input)
+              : await invoke('routines:create', input)
+            if (result.error) {
+              setError(result.error)
+              return
+            }
+            setEditingId(null)
+            setError(null)
+            refresh()
+          }}
+        />
+      )}
+      {routines.length === 0 && !formOpen ? (
+        <p className="px-1 py-2 text-sm text-faint">{t('settings.skills.noRoutines')}</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {routines.map((r) => (
+            <div
+              key={r.id}
+              data-testid="routine-row"
+              className="flex items-start gap-2 rounded-lg bg-sunken px-3 py-2 text-sm"
+            >
+              <Switch
+                checked={r.enabled}
+                onCheckedChange={async (v) => {
+                  await invoke('routines:setEnabled', r.id, v)
+                  refresh()
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-fg">{r.name}</span>
+                <div className="text-[11px] text-faint">
+                  {r.enabled && r.nextRunAt
+                    ? `${t('settings.skills.nextRun')}: ${new Date(r.nextRunAt).toLocaleString()}`
+                    : t('settings.skills.routineDisabled')}
+                </div>
+                {r.lastRun ? (
+                  <div
+                    className={cn('text-[11px]', r.lastRun.isError ? 'text-danger' : 'text-muted')}
+                  >
+                    {t('settings.skills.lastRun')}: {new Date(r.lastRun.timestamp).toLocaleString()}
+                    {' — '}
+                    {r.lastRun.summary.slice(0, 140)}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                className="shrink-0 rounded-md p-1 text-faint hover:bg-line/60 hover:text-fg disabled:opacity-30"
+                title={t('settings.skills.runNow')}
+                disabled={runningId === r.id}
+                onClick={async () => {
+                  setRunningId(r.id)
+                  try {
+                    await invoke('routines:runNow', r.id)
+                  } catch {
+                    // surfaced via lastRun (isError) on refresh; nothing further to do here
+                  } finally {
+                    setRunningId(null)
+                    refresh()
+                  }
+                }}
+              >
+                <Play size={14} />
+              </button>
+              <button
+                className="shrink-0 rounded-md p-1 text-faint hover:bg-line/60 hover:text-fg"
+                title={t('settings.skills.edit')}
+                onClick={() => {
+                  setError(null)
+                  setEditingId(r.id)
+                }}
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                className="shrink-0 rounded-md p-1 text-faint hover:bg-danger/15 hover:text-danger"
+                title={t('settings.skills.delete')}
+                onClick={async () => {
+                  await invoke('routines:delete', r.id)
+                  refresh()
+                }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  )
+}
+
+function RoutineForm({
+  initial,
+  error,
+  onCancel,
+  onSave,
+}: {
+  initial: RoutineEntry | null
+  error: string | null
+  onCancel: () => void
+  onSave: (input: {
+    name: string
+    prompt: string
+    schedule: RoutineSchedule
+    safeMode: boolean
+  }) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(initial?.name ?? '')
+  const [prompt, setPrompt] = useState(initial?.prompt ?? '')
+  const [schedule, setSchedule] = useState<RoutineSchedule>(
+    initial?.schedule ?? newRoutineSchedule('daily'),
+  )
+  const [safeMode, setSafeMode] = useState(initial?.safeMode ?? true)
+  const [saving, setSaving] = useState(false)
+  const valid =
+    name.trim() && prompt.trim() && (schedule.kind !== 'once' || schedule.at !== undefined)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-line bg-sunken p-3">
+      <Field label={t('settings.skills.name')}>
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={80} />
+      </Field>
+      <Field
+        label={t('settings.skills.routinePrompt')}
+        hint={t('settings.skills.routinePromptHint')}
+      >
+        <Textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+      </Field>
+      <Field label={t('settings.skills.scheduleKind')}>
+        <Select
+          value={schedule.kind}
+          onChange={(e) => setSchedule(newRoutineSchedule(e.target.value as RoutineScheduleKind))}
+        >
+          {ROUTINE_SCHEDULE_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {t(`settings.skills.scheduleKinds.${k}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {schedule.kind === 'daily' ? (
+        <div className="flex gap-2">
+          <Field label={t('settings.skills.scheduleHour')} className="flex-1">
+            <Input
+              type="number"
+              min={0}
+              max={23}
+              value={schedule.hour ?? 9}
+              onChange={(e) => setSchedule({ ...schedule, hour: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label={t('settings.skills.scheduleMinute')} className="flex-1">
+            <Input
+              type="number"
+              min={0}
+              max={59}
+              value={schedule.minute ?? 0}
+              onChange={(e) => setSchedule({ ...schedule, minute: Number(e.target.value) })}
+            />
+          </Field>
+        </div>
+      ) : null}
+      {schedule.kind === 'interval' ? (
+        <Field label={t('settings.skills.scheduleMinutes')}>
+          <Input
+            type="number"
+            min={1}
+            value={schedule.minutes ?? 60}
+            onChange={(e) => setSchedule({ ...schedule, minutes: Number(e.target.value) })}
+          />
+        </Field>
+      ) : null}
+      {schedule.kind === 'once' ? (
+        <Field label={t('settings.skills.scheduleAt')}>
+          <Input
+            type="datetime-local"
+            value={schedule.at ? toDatetimeLocal(schedule.at) : ''}
+            onChange={(e) => {
+              const ms = e.target.value ? new Date(e.target.value).getTime() : undefined
+              setSchedule({ ...schedule, at: ms })
+            }}
+          />
+        </Field>
+      ) : null}
+      <Field label={t('settings.skills.safeMode')} hint={t('settings.skills.safeModeHint')} inline>
+        <Switch checked={safeMode} onCheckedChange={setSafeMode} />
+      </Field>
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={saving || !valid}
+          onClick={async () => {
+            setSaving(true)
+            await onSave({ name, prompt, schedule, safeMode })
+            setSaving(false)
+          }}
+        >
+          {t('settings.skills.save')}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          {t('settings.skills.cancel')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function toDatetimeLocal(ms: number): string {
+  const d = new Date(ms - new Date().getTimezoneOffset() * 60_000)
+  return d.toISOString().slice(0, 16)
 }
 
 const STEP_KINDS: ScenarioStepKind[] = ['open', 'wait', 'key', 'type', 'notify']

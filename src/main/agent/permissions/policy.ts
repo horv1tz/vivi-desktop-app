@@ -23,6 +23,7 @@ export const READ_ONLY_TOOLS = [
   'mcp__vivi__notify',
   'mcp__vivi__list_skills',
   'mcp__vivi__list_scenarios',
+  'mcp__vivi__list_routines',
   // INT-03: reading a page's content/structure is no riskier than Read/WebFetch.
   'mcp__vivi__browser_find',
   'mcp__vivi__browser_read',

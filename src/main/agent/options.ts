@@ -15,6 +15,7 @@ export interface BuildOptionsInput {
   memoryFile: string
   skillsFile: string
   scenariosFile: string
+  routinesFile: string
   claudeConfigDir: string
   /** Auth + proxy env pieces (ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, HTTPS_PROXY, …). */
   extraEnv: Record<string, string | undefined>
@@ -88,6 +89,7 @@ export function buildOptions(input: BuildOptionsInput): Options {
     memoryFile: input.memoryFile,
     skillsFile: input.skillsFile,
     scenariosFile: input.scenariosFile,
+    routinesFile: input.routinesFile,
     customInstructions: s.agent.customInstructions,
   })
 

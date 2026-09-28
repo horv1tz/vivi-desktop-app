@@ -19,7 +19,11 @@ import { installAppMenu } from './app/menu'
 import { createTray, destroyTray, refreshTrayMenu } from './app/tray'
 import { registerShortcuts, unregisterShortcuts } from './app/shortcuts'
 import { registerCoreHandlers } from './ipc/register-core'
+import { handle } from './ipc/handlers'
 import { AgentController } from './agent/controller'
+import { RoutineScheduler } from './app/routine-scheduler'
+import { findRoutineByIdOrName, listRoutines, recordRoutineRun } from './agent/tools/routines'
+import type { RoutineEntry, RoutineRunResult } from '@shared/events'
 import { t } from './i18n'
 import { paths } from './util/paths'
 import { AuthManager } from './auth/manager'
@@ -163,6 +167,31 @@ async function bootstrap(): Promise<void> {
   agent.registerIpc()
   registerAuthHandlers(auth)
 
+  // SCH-01/02: routines fire sequentially, one at a time, as isolated one-shot agent turns — never
+  // through the live chat session (see agent/routine-runner.ts, app/routine-scheduler.ts).
+  const currentRoutinesFile = (): string =>
+    paths.routinesFile(paths.workspace(store.get().agent.workspaceDir))
+  const finishRoutineRun = (routine: RoutineEntry, result: RoutineRunResult): void => {
+    recordRoutineRun(currentRoutinesFile(), routine.id, result)
+    if (Notification.isSupported())
+      new Notification({
+        title: `Vivi — ${routine.name}`,
+        body: result.summary.slice(0, 200),
+      }).show()
+  }
+  const routineScheduler = new RoutineScheduler({
+    getRoutines: () => listRoutines(currentRoutinesFile()),
+    runRoutine: (routine) => agent.runRoutine(routine),
+    onRun: finishRoutineRun,
+  })
+  handle('routines:runNow', async (_e, id) => {
+    const routine = findRoutineByIdOrName(currentRoutinesFile(), id)
+    if (!routine) throw new Error(`no routine with id ${id}`)
+    const result = await agent.runRoutine(routine)
+    finishRoutineRun(routine, result)
+    return result
+  })
+
   const startHidden = store.get().appearance.startMinimized || process.argv.includes('--hidden')
   const mainWin = createMainWindow({ startHidden })
   createOverlayWindow()
@@ -273,6 +302,7 @@ async function bootstrap(): Promise<void> {
   app.on('will-quit', () => {
     unregisterShortcuts()
     destroyTray()
+    routineScheduler.stop()
     void agent.dispose()
     void proxy.dispose()
     void voice.dispose()
@@ -284,6 +314,7 @@ async function bootstrap(): Promise<void> {
   })
 
   await agent.start()
+  routineScheduler.start()
   log.info(`ready (mock agent: ${mockAgent})`)
   updater.checkOnStartup()
 

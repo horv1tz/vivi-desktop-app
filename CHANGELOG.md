@@ -96,6 +96,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_session/steering` extension instead of always queuing a fully separate follow-up turn — useful
   for a quick clarification that shouldn't have to wait for the current turn to finish; agents that
   don't support steering fall back to the previous queuing behavior exactly as before.
+- **Routines** (SCH-01): a new "Routines" tab in the Workshop screen schedules a prompt to run on
+  its own — daily at a given time, on a repeating interval, or once at a specific moment — without
+  the user present. Each run is a fully isolated, one-shot agent turn (never through the live chat
+  session), capped at 30 turns regardless of the user's own chat setting. Because nobody is there
+  to answer a permission dialog, every tool call is checked against the same permission engine the
+  live chat uses (`makePolicy`) with any `'ask'` verdict converted to `'deny'`, and `AskUserQuestion`
+  is refused unconditionally; a routine's own "safe mode" (on by default) additionally restricts it
+  to read-only tools. A background scheduler polls every 30 seconds and runs due routines
+  sequentially, one at a time. Vivi can see the schedule via a new read-only `list_routines` tool,
+  but — like scenarios — can never create, edit or run one herself; that stays a user-only action in
+  the Workshop screen, including a manual "Run now" button.
+- **Background execution** (SCH-02, partially): routines (SCH-01) now run in the background outside
+  the live chat session — the piece SCH-01 actually needed. A full pool of N concurrent, independently
+  tracked sessions with their own UI tabs (the rest of the original SCH-02 scope) is not built: the
+  renderer's chat store currently applies every `agent:event` to a single active session with no
+  `sessionId` filtering, and adding that is a separate, larger refactor than routines required.
 
 ### Fixed
 

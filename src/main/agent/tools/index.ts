@@ -12,6 +12,7 @@ import { lockScreen, setVolume, shutdownSystem, sleepSystem, systemInfo } from '
 import { rememberEntry } from './memory'
 import { createSkill, deleteSkill, listSkills, setSkillEnabled, updateSkill } from './skills'
 import { listScenarios, runScenario } from './scenarios'
+import { listRoutines } from './routines'
 import {
   browserClick,
   browserClose,
@@ -28,6 +29,7 @@ export interface ViviToolDeps {
   memoryFile: () => string
   skillsFile: () => string
   scenariosFile: () => string
+  routinesFile: () => string
   browserProfileDir: () => string
   speak: (text: string) => Promise<void>
   stopSpeaking: () => Promise<void>
@@ -608,6 +610,33 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
     { annotations: { destructiveHint: true } },
   )
 
+  const listRoutinesTool = tool(
+    'list_routines',
+    'List routines: prompts the user has scheduled to run unattended (daily, on an interval, or once), with their schedule and next run time. Read-only — routines are created/edited by the user in the Workshop screen, never by you, and there is no tool to run one on demand (the user can do that from the Workshop screen).',
+    {},
+    async () => {
+      try {
+        const routines = listRoutines(deps.routinesFile())
+        if (!routines.length) return text('no routines yet')
+        return text(
+          routines
+            .map((r) => {
+              const status = r.enabled
+                ? r.nextRunAt
+                  ? `next run ${new Date(r.nextRunAt).toISOString()}`
+                  : 'enabled'
+                : 'disabled'
+              return `"${r.name}" (${status}): ${r.prompt.slice(0, 120)}`
+            })
+            .join('\n'),
+        )
+      } catch (err) {
+        return error((err as Error).message)
+      }
+    },
+    { annotations: { readOnlyHint: true } },
+  )
+
   const browserOpenTool = tool(
     'browser_open',
     "Open a URL in Vivi's own dedicated automation browser (not the user's everyday browser — a separate, isolated profile) and return the page title and a short text preview. Prefer this plus browser_find/browser_click/browser_type/browser_read over driving a page with screenshot+mouse: faster, more reliable, and works even if the window isn't visible on screen.",
@@ -730,6 +759,7 @@ export function createViviMcpServer(deps: ViviToolDeps): McpSdkServerConfigWithI
       manageSkill,
       listScenariosTool,
       runScenarioTool,
+      listRoutinesTool,
       browserOpenTool,
       browserFindTool,
       browserClickTool,

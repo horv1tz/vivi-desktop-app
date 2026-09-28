@@ -17,6 +17,9 @@ import type {
   PermissionLogEntry,
   PermissionRequest,
   QuestionRequest,
+  RoutineEntry,
+  RoutineRunResult,
+  RoutineSchedule,
   ScenarioEntry,
   ScenarioStep,
   SessionState,
@@ -111,6 +114,20 @@ export interface InvokeMap {
   }
   'scenarios:delete': { args: [string]; result: void }
   'scenarios:setEnabled': { args: [string, boolean]; result: void }
+  /** SCH-01: scheduled prompts Vivi runs unattended, one at a time, via an isolated agent turn. */
+  'routines:list': { args: []; result: RoutineEntry[] }
+  'routines:create': {
+    args: [{ name: string; prompt: string; schedule: RoutineSchedule; safeMode?: boolean }]
+    result: { routine?: RoutineEntry; error?: string }
+  }
+  'routines:update': {
+    args: [string, { name: string; prompt: string; schedule: RoutineSchedule; safeMode?: boolean }]
+    result: { routine?: RoutineEntry; error?: string }
+  }
+  'routines:delete': { args: [string]; result: void }
+  'routines:setEnabled': { args: [string, boolean]; result: void }
+  /** Runs a routine immediately, outside its schedule, and returns the outcome (also persisted as lastRun). */
+  'routines:runNow': { args: [string]; result: RoutineRunResult }
   /** OBS-02: local, never-uploaded cost/token usage aggregated by day and by session. */
   'metrics:summary': { args: []; result: MetricsSummary }
   'metrics:clear': { args: []; result: void }

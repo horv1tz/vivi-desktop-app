@@ -25,6 +25,13 @@ import {
   setScenarioEnabled,
   updateScenario,
 } from '../agent/tools/scenarios'
+import {
+  createRoutine,
+  deleteRoutine,
+  listRoutines,
+  setRoutineEnabled,
+  updateRoutine,
+} from '../agent/tools/routines'
 import { handle } from './handlers'
 import { emit } from './emitters'
 
@@ -40,6 +47,10 @@ function currentSkillsFile(): string {
 
 function currentScenariosFile(): string {
   return paths.scenariosFile(paths.workspace(settings().get().agent.workspaceDir))
+}
+
+function currentRoutinesFile(): string {
+  return paths.routinesFile(paths.workspace(settings().get().agent.workspaceDir))
 }
 
 function getAppInfo(opts: { mockAgent: boolean; backend: () => AppInfo['backend'] }): AppInfo {
@@ -176,5 +187,13 @@ export function registerCoreHandlers(opts: {
   handle('scenarios:delete', (_e, id) => deleteScenario(currentScenariosFile(), id))
   handle('scenarios:setEnabled', (_e, id, enabled) =>
     setScenarioEnabled(currentScenariosFile(), id, enabled),
+  )
+
+  handle('routines:list', () => listRoutines(currentRoutinesFile()))
+  handle('routines:create', (_e, input) => createRoutine(currentRoutinesFile(), input))
+  handle('routines:update', (_e, id, input) => updateRoutine(currentRoutinesFile(), id, input))
+  handle('routines:delete', (_e, id) => deleteRoutine(currentRoutinesFile(), id))
+  handle('routines:setEnabled', (_e, id, enabled) =>
+    setRoutineEnabled(currentRoutinesFile(), id, enabled),
   )
 }

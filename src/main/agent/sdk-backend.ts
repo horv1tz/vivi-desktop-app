@@ -38,6 +38,7 @@ export interface SdkBackendDeps {
   memoryFile: () => string
   skillsFile: () => string
   scenariosFile: () => string
+  routinesFile: () => string
   claudeConfigDir: string
   claudeBinary?: string
   mcpServers?: () => Record<string, McpServerConfig>
@@ -154,6 +155,7 @@ export class SdkBackend implements AgentBackend {
       memoryFile: this.deps.memoryFile(),
       skillsFile: this.deps.skillsFile(),
       scenariosFile: this.deps.scenariosFile(),
+      routinesFile: this.deps.routinesFile(),
       claudeConfigDir: this.deps.claudeConfigDir,
       extraEnv,
       claudeBinary: this.deps.claudeBinary,

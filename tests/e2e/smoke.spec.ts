@@ -230,6 +230,32 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
 
   await scenarioRow.getByTitle(/Удалить|Delete/).click()
   await expect(page.getByText(/Пока нет сценариев|No scenarios yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /^Расписания$|^Routines$/ }).click()
+  await expect(page.getByText(/Пока нет расписаний|No routines yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /Новое расписание|New routine/ }).click()
+  await page.getByLabel(/^Название$|^Name$/).fill('Morning digest')
+  await page.getByLabel(/Промпт|Prompt/).fill('Summarize overnight email')
+  await page.getByRole('button', { name: /Сохранить|Save/ }).click()
+
+  const routineRow = page.getByTestId('routine-row').filter({ hasText: 'Morning digest' })
+  await expect(routineRow).toBeVisible()
+
+  const routineSwitch = routineRow.getByRole('switch')
+  await expect(routineSwitch).toHaveAttribute('data-state', 'checked')
+
+  // VIVI_MOCK_AGENT is set for this suite (see the launch env above), so "run now" resolves
+  // immediately with a canned result — runRoutine() short-circuits before ever spawning the real
+  // Claude CLI.
+  await routineRow.getByTitle(/Запустить сейчас|Run now/).click()
+  await expect(routineRow.getByText(/Последний запуск|Last run/)).toBeVisible()
+
+  await routineSwitch.click()
+  await expect(routineSwitch).toHaveAttribute('data-state', 'unchecked')
+
+  await routineRow.getByTitle(/Удалить|Delete/).click()
+  await expect(page.getByText(/Пока нет расписаний|No routines yet/)).toBeVisible()
 })
 
 test('Command palette (UX-05): Ctrl/Cmd+K opens it, filters, runs an action, and Escape closes it', async () => {
