@@ -271,16 +271,21 @@ export class VoiceOrchestrator {
   /** Models that still need downloading for the current settings. */
   missingModels(): string[] {
     const v = this.deps.getSettings().voice
-    return requiredModels({
+    const ids = requiredModels({
       sttModel: v.sttModel,
       ttsVoice: v.ttsVoice,
       wakeWordEnabled: v.wakeWordEnabled,
       wakeWordStrategy: v.wakeWordStrategy,
-    }).filter((id) => !this.models.isInstalled(id))
+    })
+    // A cloud STT provider needs no local STT model — don't block startup on downloading one
+    // that will never be used (see buildModelConfig's cloudStt branch).
+    const needed = v.sttProvider === 'openai' ? ids.filter((id) => id !== v.sttModel) : ids
+    return needed.filter((id) => !this.models.isInstalled(id))
   }
 
   private buildModelConfig(): WorkerModelConfig {
     const v = this.deps.getSettings().voice
+    const cloudStt = v.sttProvider === 'openai'
     const stt = modelById(v.sttModel)
     const sttPaths = this.models.paths(v.sttModel)
     const ttsPaths = this.models.paths(v.ttsVoice)
@@ -291,9 +296,10 @@ export class VoiceOrchestrator {
         : null
     return {
       stt:
-        stt?.engine && sttPaths
+        !cloudStt && stt?.engine && sttPaths
           ? { engine: stt.engine, paths: sttPaths, language: v.language }
           : undefined,
+      cloudStt: cloudStt || undefined,
       vad: vad ?? undefined,
       kws: kws ?? undefined,
       tts: ttsPaths ? { paths: ttsPaths, speed: 1.0 } : undefined,
@@ -443,6 +449,9 @@ export class VoiceOrchestrator {
         emit('voice:transcript', { text: msg.text, final: true })
         void this.handleTranscript(msg.text)
         break
+      case 'cloud-transcribe':
+        void this.handleCloudTranscribe(msg.requestId, msg.pcm)
+        break
       case 'timeout':
         emit('voice:transcript', { text: '', final: true })
         if (!this.speaking) this.setState('armed')
@@ -474,6 +483,12 @@ export class VoiceOrchestrator {
       case 'error':
         log.error('worker error', msg.message)
         this.setState('error', msg.message)
+        break
+      case 'log':
+        // Previously dropped silently — e.g. "transcript wake-word needs a streaming STT model;
+        // wake word disabled" (fires when cloud STT is picked with the transcript strategy) never
+        // reached a log anyone could see.
+        log[msg.level](`voice-worker: ${msg.message}`)
         break
       default:
         break
@@ -552,17 +567,20 @@ export class VoiceOrchestrator {
     this.worker?.send({ type: 'tts', generation: this.speakGeneration, seq, text })
   }
 
+  private async ensureCloudProvider(): Promise<OpenAIVoiceProvider> {
+    if (!this.cloud) {
+      const key = await secrets().get('openaiApiKey')
+      if (!key) throw new Error('OpenAI API key is not set')
+      this.cloud = new OpenAIVoiceProvider(key, this.deps.getDispatcher())
+    }
+    return this.cloud
+  }
+
   private async cloudSpeak(text: string, generation: number, seq: number): Promise<void> {
     try {
-      if (!this.cloud) {
-        const key = await secrets().get('openaiApiKey')
-        if (!key) throw new Error('OpenAI API key is not set')
-        this.cloud = new OpenAIVoiceProvider(key, this.deps.getDispatcher())
-      }
-      const { bytes, mimeType } = await this.cloud.synthesize(
-        text,
-        this.deps.getSettings().voice.openaiVoice,
-      )
+      const cloud = await this.ensureCloudProvider()
+      const v = this.deps.getSettings().voice
+      const { bytes, mimeType } = await cloud.synthesize(text, v.openaiVoice, v.openaiTtsModel)
       if (generation !== this.speakGeneration) return
       emit('voice:audio', {
         generation,
@@ -577,6 +595,28 @@ export class VoiceOrchestrator {
       // Same reasoning as the local-worker 'tts-error' case above: fill the gap so the ordered
       // playback queue (and therefore the 'speaking' state) doesn't hang on this seq forever.
       if (generation === this.speakGeneration) this.emitSilentFiller(generation, seq)
+    }
+  }
+
+  /**
+   * VO-12: the worker owns wake-word/VAD/end-pointing regardless of STT provider; when the user
+   * picked a cloud provider (Settings → Voice), the worker sends the finished utterance's raw
+   * audio here instead of decoding it locally — see CloudSttBridge (voice-worker/engines.ts).
+   */
+  private async handleCloudTranscribe(requestId: string, pcm: ArrayBuffer): Promise<void> {
+    try {
+      const cloud = await this.ensureCloudProvider()
+      const v = this.deps.getSettings().voice
+      const text = await cloud.transcribe(new Float32Array(pcm), v.language, v.openaiSttModel)
+      this.worker?.send({ type: 'cloud-transcribe-result', requestId, text })
+    } catch (err) {
+      log.warn('cloud stt failed', err)
+      this.worker?.send({
+        type: 'cloud-transcribe-result',
+        requestId,
+        text: '',
+        error: (err as Error).message,
+      })
     }
   }
 

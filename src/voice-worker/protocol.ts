@@ -6,6 +6,12 @@ export interface WorkerModelConfig {
     paths: ModelPaths
     language: 'ru' | 'en' | 'auto'
   }
+  /**
+   * VO-12: when true, the worker still owns wake-word/VAD end-pointing but defers the actual
+   * decode of a finished utterance to the main process instead of loading a local `stt` model —
+   * used when Settings → Voice → "STT provider" is a cloud provider. Mutually exclusive with `stt`.
+   */
+  cloudStt?: boolean
   vad?: ModelPaths
   kws?: ModelPaths
   tts?: { paths: ModelPaths; speed: number }
@@ -35,6 +41,8 @@ export type MainToWorker =
   | { type: 'set-speaking'; speaking: boolean }
   | { type: 'tts'; generation: number; seq: number; text: string }
   | { type: 'tts-cancel'; generation: number }
+  /** VO-12: reply to a worker `cloud-transcribe` request — the decoded text, or `error` on failure. */
+  | { type: 'cloud-transcribe-result'; requestId: string; text: string; error?: string }
   | { type: 'shutdown' }
   | { type: 'ping' }
 
@@ -56,5 +64,7 @@ export type WorkerToMain =
   | { type: 'barge-in' }
   | { type: 'tts-audio'; generation: number; seq: number; sampleRate: number; pcm: ArrayBuffer }
   | { type: 'tts-error'; generation: number; seq: number; error: string }
+  /** VO-12: a finished utterance's raw audio, for the main process to send to a cloud STT provider. */
+  | { type: 'cloud-transcribe'; requestId: string; pcm: ArrayBuffer }
   | { type: 'error'; message: string }
   | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }

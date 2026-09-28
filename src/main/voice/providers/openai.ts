@@ -12,20 +12,28 @@ export class OpenAIVoiceProvider {
     })
   }
 
-  async transcribe(pcm16k: Float32Array, language: 'ru' | 'en' | 'auto'): Promise<string> {
+  async transcribe(
+    pcm16k: Float32Array,
+    language: 'ru' | 'en' | 'auto',
+    model = 'gpt-4o-mini-transcribe',
+  ): Promise<string> {
     const wav = encodeWav(pcm16k, 16000)
     const file = new File([wav], 'speech.wav', { type: 'audio/wav' })
     const res = await this.client.audio.transcriptions.create({
       file,
-      model: 'gpt-4o-mini-transcribe',
+      model,
       language: language === 'auto' ? undefined : language,
     })
     return res.text
   }
 
-  async synthesize(text: string, voice: string): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+  async synthesize(
+    text: string,
+    voice: string,
+    model = 'gpt-4o-mini-tts',
+  ): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
     const res = await this.client.audio.speech.create({
-      model: 'gpt-4o-mini-tts',
+      model,
       voice: voice as 'alloy',
       input: text,
       response_format: 'mp3',

@@ -34,11 +34,27 @@ vi.mock('../../../src/main/voice/models', () => ({
 }))
 // The cloud provider fails synthesis for any chunk whose text contains "FAIL", so tests can force
 // a cloud-path TTS failure the same way a local sherpa synth failure is forced (via 'tts-error').
+// transcribe() fails when the segment's first sample is exactly -1, an out-of-range PCM value a
+// real recording never produces, so a test can force it deliberately without a magic string.
+export const cloudCalls: {
+  synthesize: Array<{ text: string; voice: string; model: string }>
+  transcribe: Array<{ length: number; language: string; model: string }>
+} = { synthesize: [], transcribe: [] }
 vi.mock('../../../src/main/voice/providers/openai', () => ({
   OpenAIVoiceProvider: class {
-    async synthesize(text: string): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+    async synthesize(
+      text: string,
+      voice: string,
+      model: string,
+    ): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+      cloudCalls.synthesize.push({ text, voice, model })
       if (text.includes('FAIL')) throw new Error('cloud tts boom')
       return { bytes: new ArrayBuffer(4), mimeType: 'audio/mpeg' }
+    }
+    async transcribe(pcm: Float32Array, language: string, model: string): Promise<string> {
+      cloudCalls.transcribe.push({ length: pcm.length, language, model })
+      if (pcm[0] === -1) throw new Error('cloud stt boom')
+      return 'cloud transcribed text'
     }
   },
 }))
@@ -654,5 +670,101 @@ describe('VoiceOrchestrator follow-up window (VO-03)', () => {
     if (gen !== undefined) orch.playbackEnded(gen)
 
     expect(client.sent.some((m) => m.type === 'followup')).toBe(false)
+  })
+})
+
+describe('VoiceOrchestrator cloud STT (VO-12)', () => {
+  beforeEach(() => {
+    cloudCalls.synthesize.length = 0
+    cloudCalls.transcribe.length = 0
+  })
+
+  it('missingModels() does not require a local STT model when sttProvider is openai', () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'openai'
+    settings.voice.sttModel = 'stt-model-that-was-never-downloaded'
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    expect(orch.missingModels()).not.toContain('stt-model-that-was-never-downloaded')
+  })
+
+  it('missingModels() still requires the local STT model for the local provider', () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'local'
+    // ModelManager is mocked to report every model as installed (see top-of-file mock), so assert
+    // via the id list itself rather than needing an "uninstalled" fixture.
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    expect(orch.missingModels()).toEqual([])
+  })
+
+  it('sends cloudStt: true and no local stt config in the init message when sttProvider is openai', async () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'openai'
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    await armOrchestrator(orch)
+    const client = workerClientMock.__getLastWorkerClient()!
+    const init = client.sent.find((m) => m.type === 'init')!
+    const models = init.models as { stt?: unknown; cloudStt?: boolean }
+    expect(models.cloudStt).toBe(true)
+    expect(models.stt).toBeUndefined()
+  })
+
+  it('sends a local stt config and no cloudStt flag for the local provider', async () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'local'
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    await armOrchestrator(orch)
+    const client = workerClientMock.__getLastWorkerClient()!
+    const init = client.sent.find((m) => m.type === 'init')!
+    const models = init.models as { stt?: unknown; cloudStt?: boolean }
+    expect(models.cloudStt).toBeUndefined()
+    expect(models.stt).toBeDefined()
+  })
+
+  it('answers a worker cloud-transcribe request via the cloud provider', async () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'openai'
+    settings.voice.openaiSttModel = 'gpt-4o-transcribe'
+    settings.voice.language = 'ru'
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    const client = await armOrchestrator(orch)
+
+    const pcm = new Float32Array(1600) // 100ms at 16kHz, all zero — a real (silent) segment
+    client.emitEvent('message', {
+      type: 'cloud-transcribe',
+      requestId: 'req-1',
+      pcm: pcm.buffer,
+    } satisfies WorkerToMain)
+    await flushReal()
+
+    expect(cloudCalls.transcribe).toEqual([
+      { length: 1600, language: 'ru', model: 'gpt-4o-transcribe' },
+    ])
+    const reply = client.sent.find((m) => m.type === 'cloud-transcribe-result')
+    expect(reply).toEqual({
+      type: 'cloud-transcribe-result',
+      requestId: 'req-1',
+      text: 'cloud transcribed text',
+    })
+  })
+
+  it('replies with an error when the cloud provider rejects', async () => {
+    const settings = defaultSettings()
+    settings.voice.sttProvider = 'openai'
+    const orch = new VoiceOrchestrator(makeDeps(settings))
+    const client = await armOrchestrator(orch)
+
+    const pcm = new Float32Array(1600)
+    pcm[0] = -1 // forces the mocked provider to throw — see cloudCalls mock above
+    client.emitEvent('message', {
+      type: 'cloud-transcribe',
+      requestId: 'req-2',
+      pcm: pcm.buffer,
+    } satisfies WorkerToMain)
+    await flushReal()
+
+    const reply = client.sent.find((m) => m.type === 'cloud-transcribe-result') as
+      { requestId: string; text: string; error?: string } | undefined
+    expect(reply?.requestId).toBe('req-2')
+    expect(reply?.error).toBe('cloud stt boom')
   })
 })

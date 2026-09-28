@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **More voice recognition and generation options** (VO-12, VO-08): fixed a real, previously
+  invisible bug where choosing "OpenAI" as the speech recognition provider in Settings → Voice did
+  nothing at all — the setting existed and was selectable, but the orchestrator never read it or
+  called the OpenAI transcription provider, so voice input silently kept using the local model
+  regardless. Cloud STT now actually works: the voice-worker's wake-word/VAD pipeline still owns
+  end-pointing locally, but a finished utterance's audio is now handed to the main process (which
+  holds the API key) for the final decode step when a cloud provider is selected, via a new
+  `CloudSttBridge` STT-engine implementation and a `cloud-transcribe` round trip over the worker's
+  existing message port — no change to the local path. Settings → Voice also gained real pickers
+  for OpenAI's voice (13 real voices — alloy, ash, ballad, coral, echo, fable, onyx, nova, sage,
+  shimmer, verse, marin, cedar) and its STT/TTS model choices, all read from the installed `openai`
+  SDK's own types rather than guessed; the OpenAI TTS voice setting already existed but previously
+  had no UI to change it at all. Also fixed: `missingModels()` no longer requires downloading a
+  local STT model that a cloud-provider choice would never use, and worker log messages (e.g. "wake
+  word disabled" when cloud STT is combined with the transcript wake-word strategy, which needs a
+  local streaming model) are now actually logged instead of being silently dropped.
+- **7 new local voice models** (VO-08): 2 new Whisper size tiers (`tiny` — fastest/smallest, for
+  weaker CPUs; `small` — between `base` and `turbo` on the accuracy/size curve) and 5 new Piper TTS
+  voices (Kristin, Norman, Joe, HFC female — EN-US; Alan — EN-GB, the first non-American English
+  accent). Every new entry was verified by hand before being added — the archive was actually
+  downloaded in the sandbox, its internal file layout checked against what the existing loader
+  expects, and (for 3 of them) a real sha256 pinned — rather than guessed from the upstream
+  project's URL naming convention. Caught and fixed two pre-existing inaccuracies in the registry
+  while there: `stt-gigaam-v2-ru`'s size was off by 8 MB, and `tts-piper-en-lessac` was labeled
+  "female" when it's actually a male voice. Settings → Voice's STT/TTS dropdowns now render options
+  straight from the shared model registry instead of a separate hardcoded list that had to be kept
+  in sync by hand — every registry addition now shows up in the UI automatically.
+
 ## [0.4.0] - 2026-09-28
 
 ### Added

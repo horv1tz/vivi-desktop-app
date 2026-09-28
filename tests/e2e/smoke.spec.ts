@@ -22,6 +22,8 @@ test.beforeAll(async () => {
     timeout: 60_000,
   })
   page = await mainWindow(app)
+  page.on('console', (msg) => console.log('[DEBUG console]', msg.type(), msg.text()))
+  page.on('pageerror', (err) => console.log('[DEBUG pageerror]', err.message, err.stack))
 })
 
 test.afterAll(async () => {
@@ -116,6 +118,32 @@ test('settings view opens and switches sections', async () => {
   await expect(
     page.getByText(/Активен:|Active:|Драйвер недоступен|No driver available/),
   ).toBeVisible({ timeout: 10_000 })
+
+  // VO-12: the STT/TTS dropdowns are now derived from the shared model registry instead of a
+  // hardcoded, easily-stale duplicate list — check a model only present in the registry renders.
+  await page.getByRole('button', { name: /^Голос$|^Voice$/ }).click()
+  await expect(page.getByLabel(/Распознавание речи|Speech recognition/)).toBeVisible()
+  await expect(
+    page.getByLabel(/Распознавание речи|Speech recognition/).getByRole('option', {
+      name: /Whisper tiny/,
+    }),
+  ).toHaveCount(1)
+
+  // Cloud providers: selecting OpenAI reveals its own voice/model pickers (previously the voice
+  // picker existed in settings but had no UI at all, and the STT provider had no effect either).
+  await page.getByLabel(/Разрешить облачные провайдеры|Allow cloud providers/).click()
+  // Unanchored: a <select>'s computed accessible name (via its wrapping <label>) includes its
+  // own rendered option text too, not just the label's own text — same pitfall as the command
+  // palette's dropdowns (see UX-05/07 history), so `^...$` doesn't match here.
+  await page.getByLabel(/Провайдер распознавания|Recognition provider/).selectOption('openai')
+  await expect(page.getByLabel(/Модель распознавания OpenAI|OpenAI recognition model/)).toHaveValue(
+    'gpt-4o-mini-transcribe',
+  )
+  await page.getByLabel(/Провайдер синтеза|Synthesis provider/).selectOption('openai')
+  await expect(page.getByLabel(/Голос OpenAI|OpenAI voice/)).toHaveValue('alloy')
+  await expect(page.getByLabel(/Модель синтеза OpenAI|OpenAI synthesis model/)).toHaveValue(
+    'gpt-4o-mini-tts',
+  )
 })
 
 test('ACP-02: picking an agent preset fills the command and arguments fields', async () => {

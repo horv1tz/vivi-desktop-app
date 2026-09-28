@@ -1,6 +1,7 @@
 // Voice worker (Electron utilityProcess): owns the native sherpa-onnx engines and the
 // wake-word → VAD → STT pipeline; synthesizes TTS on request. Audio frames arrive on a
 // MessagePort handed over from the renderer (Int16 PCM, 16 kHz, 20 ms frames).
+import { randomUUID } from 'node:crypto'
 import type { MessagePortMain } from 'electron'
 import { logger } from './log'
 import { VoicePipeline } from './pipeline'
@@ -21,6 +22,20 @@ let ttsQueue: TtsJob[] = []
 let ttsBusy = false
 let cancelledGeneration = -1
 let speed = 1.0
+
+/** VO-12: pending cloud-transcribe round trips, keyed by requestId — see CloudSttBridge. */
+const pendingCloudTranscribes = new Map<
+  string,
+  { resolve: (text: string) => void; reject: (err: Error) => void }
+>()
+
+function requestCloudTranscribe(segment: Float32Array): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const requestId = randomUUID()
+    pendingCloudTranscribes.set(requestId, { resolve, reject })
+    send({ type: 'cloud-transcribe', requestId, pcm: Float32Array.from(segment).buffer })
+  })
+}
 
 export interface TtsJob {
   generation: number
@@ -122,7 +137,7 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
           const key = process.platform === 'darwin' ? 'DYLD_LIBRARY_PATH' : 'LD_LIBRARY_PATH'
           process.env[key] = `${msg.libDir}${process.env[key] ? `:${process.env[key]}` : ''}`
         }
-        engines = buildEngines(msg.models, msg.settings)
+        engines = buildEngines(msg.models, msg.settings, requestCloudTranscribe)
         speed = msg.models.tts?.speed ?? 1.0
         for (const w of engines.warnings) send({ type: 'log', level: 'warn', message: w })
         pipeline = new VoicePipeline(
@@ -200,6 +215,14 @@ function handle(msg: MainToWorker, ports: MessagePortMain[]): void {
       cancelledGeneration = Math.max(cancelledGeneration, msg.generation)
       ttsQueue = ttsQueue.filter((j) => j.generation > msg.generation)
       break
+    case 'cloud-transcribe-result': {
+      const pending = pendingCloudTranscribes.get(msg.requestId)
+      if (!pending) break
+      pendingCloudTranscribes.delete(msg.requestId)
+      if (msg.error) pending.reject(new Error(msg.error))
+      else pending.resolve(msg.text)
+      break
+    }
     case 'shutdown':
       audioPort?.close()
       process.exit(0)

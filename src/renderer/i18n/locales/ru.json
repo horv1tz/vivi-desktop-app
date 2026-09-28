@@ -657,6 +657,9 @@
     "cloudEnabled": "Разрешить облачные провайдеры",
     "sttProvider": "Провайдер распознавания",
     "ttsProvider": "Провайдер синтеза",
-    "local": "Локально (офлайн)"
+    "local": "Локально (офлайн)",
+    "openaiSttModel": "Модель распознавания OpenAI",
+    "openaiVoice": "Голос OpenAI",
+    "openaiTtsModel": "Модель синтеза OpenAI"
   }
 }

@@ -655,6 +655,9 @@
     "cloudEnabled": "Allow cloud providers",
     "sttProvider": "Recognition provider",
     "ttsProvider": "Synthesis provider",
-    "local": "Local (offline)"
+    "local": "Local (offline)",
+    "openaiSttModel": "OpenAI recognition model",
+    "openaiVoice": "OpenAI voice",
+    "openaiTtsModel": "OpenAI synthesis model"
   }
 }

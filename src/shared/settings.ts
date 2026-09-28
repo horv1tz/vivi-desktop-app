@@ -101,6 +101,8 @@ export const VoiceSettingsSchema = z.object({
   /** VO-04: only the wake word interrupts TTS playback, instead of any sustained nearby speech. */
   bargeInRequiresWakeWord: z.boolean().default(false),
   openaiVoice: z.string().default('alloy'),
+  openaiSttModel: z.string().default('gpt-4o-mini-transcribe'),
+  openaiTtsModel: z.string().default('gpt-4o-mini-tts'),
 })
 
 export const AppearanceSettingsSchema = z.object({

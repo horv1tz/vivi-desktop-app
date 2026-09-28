@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { VoiceModelInfo } from '@shared/ipc'
 import { useSettingsStore } from '../../../stores/settings'
 import { invoke } from '../../../lib/bridge'
 import { Field, Input, Section, Select } from '../../../components/ui/Field'
@@ -7,6 +8,27 @@ import { Switch } from '../../../components/ui/Switch'
 import { Button } from '../../../components/ui/Button'
 import { VoiceModelsPanel } from '../../voice/VoiceModelsPanel'
 import { VoiceStatusPanel } from '../../voice/VoiceStatusPanel'
+
+// VO-12: OpenAI's own current voice/model choices (from the installed `openai` SDK's own type
+// definitions, not guessed) — real alternatives to the one hardcoded 'alloy'/'gpt-4o-mini-*' pair
+// synthesize()/transcribe() used to be stuck with.
+const OPENAI_TTS_VOICES = [
+  'alloy',
+  'ash',
+  'ballad',
+  'coral',
+  'echo',
+  'fable',
+  'onyx',
+  'nova',
+  'sage',
+  'shimmer',
+  'verse',
+  'marin',
+  'cedar',
+]
+const OPENAI_TTS_MODELS = ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']
+const OPENAI_STT_MODELS = ['gpt-4o-mini-transcribe', 'gpt-4o-transcribe', 'whisper-1']
 
 export function VoiceSection() {
   const { t } = useTranslation()
@@ -16,12 +38,23 @@ export function VoiceSection() {
   const set = (patch: Partial<typeof s>): void => void update({ voice: patch })
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [openaiKey, setOpenaiKey] = useState('')
+  const [models, setModels] = useState<VoiceModelInfo[]>([])
 
   useEffect(() => {
     navigator.mediaDevices
       .enumerateDevices()
       .then(setDevices)
       .catch(() => setDevices([]))
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    invoke('voice:listModels')
+      .then((m) => alive && setModels(m))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
   }, [])
 
   const inputs = devices.filter((d) => d.kind === 'audioinput')
@@ -141,34 +174,24 @@ export function VoiceSection() {
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('voice.sttModel')}>
             <Select value={s.sttModel} onChange={(e) => set({ sttModel: e.target.value })}>
-              {[
-                'stt-zipformer-small-ru',
-                'stt-zipformer-ru',
-                'stt-gigaam-v2-ru',
-                'stt-zipformer-en',
-                'stt-whisper-base',
-                'stt-whisper-turbo',
-              ].map((id) => (
-                <option key={id} value={id}>
-                  {id.replace('stt-', '')}
-                </option>
-              ))}
+              {models
+                .filter((m) => m.kind === 'stt')
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label={t('voice.ttsVoice')}>
             <Select value={s.ttsVoice} onChange={(e) => set({ ttsVoice: e.target.value })}>
-              {[
-                'tts-piper-ru-irina',
-                'tts-piper-ru-denis',
-                'tts-piper-ru-dmitri',
-                'tts-piper-ru-ruslan',
-                'tts-piper-en-lessac',
-                'tts-piper-en-amy',
-              ].map((id) => (
-                <option key={id} value={id}>
-                  {id.replace('tts-piper-', '')}
-                </option>
-              ))}
+              {models
+                .filter((m) => m.kind === 'tts')
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
             </Select>
           </Field>
         </div>
@@ -192,6 +215,20 @@ export function VoiceSection() {
                 <option value="openai">OpenAI</option>
               </Select>
             </Field>
+            {s.sttProvider === 'openai' ? (
+              <Field label={t('voice.openaiSttModel')} inline>
+                <Select
+                  value={s.openaiSttModel}
+                  onChange={(e) => set({ openaiSttModel: e.target.value })}
+                >
+                  {OPENAI_STT_MODELS.map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
             <Field label={t('voice.ttsProvider')} inline>
               <Select
                 value={s.ttsProvider}
@@ -201,6 +238,34 @@ export function VoiceSection() {
                 <option value="openai">OpenAI</option>
               </Select>
             </Field>
+            {s.ttsProvider === 'openai' ? (
+              <>
+                <Field label={t('voice.openaiVoice')} inline>
+                  <Select
+                    value={s.openaiVoice}
+                    onChange={(e) => set({ openaiVoice: e.target.value })}
+                  >
+                    {OPENAI_TTS_VOICES.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label={t('voice.openaiTtsModel')} inline>
+                  <Select
+                    value={s.openaiTtsModel}
+                    onChange={(e) => set({ openaiTtsModel: e.target.value })}
+                  >
+                    {OPENAI_TTS_MODELS.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </>
+            ) : null}
             <Field label="OpenAI API key">
               <div className="flex gap-2">
                 <Input

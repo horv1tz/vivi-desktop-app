@@ -353,6 +353,40 @@ export class PiperTts {
   }
 }
 
+/**
+ * VO-12: an `SttEngine` that decodes nowhere near this process — `finalize()` hands the raw
+ * segment to an injected callback (main process, over the worker's parentPort) and awaits its
+ * reply, instead of running a local sherpa-onnx model. The rest of the pipeline (wake-word, VAD,
+ * end-pointing) is unaffected — only the final decode step leaves the worker. A cloud call can
+ * hang or fail in ways a local model call can't, so this never throws and never hangs forever:
+ * any rejection or timeout resolves to '' (same "always resolves" contract as the local engines).
+ */
+export class CloudSttBridge implements SttEngine {
+  readonly streaming = false
+
+  constructor(
+    private readonly requestTranscribe: (segment: Float32Array) => Promise<string>,
+    private readonly timeoutMs = 20_000,
+  ) {}
+
+  async finalize(segment: Float32Array | null): Promise<string> {
+    if (!segment || segment.length < SAMPLE_RATE * 0.2) return ''
+    try {
+      const text = await Promise.race([
+        this.requestTranscribe(segment),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('cloud transcription timed out')), this.timeoutMs),
+        ),
+      ])
+      return text.trim()
+    } catch {
+      return ''
+    }
+  }
+
+  reset(): void {}
+}
+
 export interface BuiltEngines {
   vad: VadEngine
   stt: SttEngine
@@ -361,16 +395,24 @@ export interface BuiltEngines {
   warnings: string[]
 }
 
-export function buildEngines(models: WorkerModelConfig, settings: WorkerSettings): BuiltEngines {
+export function buildEngines(
+  models: WorkerModelConfig,
+  settings: WorkerSettings,
+  requestCloudTranscribe?: (segment: Float32Array) => Promise<string>,
+): BuiltEngines {
   const warnings: string[] = []
   if (!models.vad?.model || !existsSync(models.vad.model)) throw new Error('VAD model is missing')
-  if (!models.stt) throw new Error('STT model is missing')
+  if (!models.stt && !models.cloudStt) throw new Error('STT model is missing')
   const threads = Math.max(1, settings.numThreads)
   const vad = new SileroVad(models.vad.model, { silenceMs: settings.silenceMs })
   let stt: SttEngine
-  if (models.stt.engine === 'online-transducer')
-    stt = new OnlineTransducerStt(models.stt.paths, threads)
-  else stt = new OfflineStt(models.stt.engine, models.stt.paths, models.stt.language, threads)
+  if (models.cloudStt) {
+    if (!requestCloudTranscribe)
+      throw new Error('cloud STT requested but no transcribe bridge was provided')
+    stt = new CloudSttBridge(requestCloudTranscribe)
+  } else if (models.stt!.engine === 'online-transducer')
+    stt = new OnlineTransducerStt(models.stt!.paths, threads)
+  else stt = new OfflineStt(models.stt!.engine, models.stt!.paths, models.stt!.language, threads)
 
   let wake: WakeEngine | null = null
   if (settings.wakeWordEnabled) {
@@ -380,7 +422,7 @@ export function buildEngines(models: WorkerModelConfig, settings: WorkerSettings
         warnings.push(`wake-word spellings not in vocabulary: ${kws.unresolved.join(', ')}`)
       wake = kws
     } else if (stt instanceof OnlineTransducerStt) {
-      wake = new TranscriptWake(new OnlineTransducerStt(models.stt.paths, 1), settings.keywords)
+      wake = new TranscriptWake(new OnlineTransducerStt(models.stt!.paths, 1), settings.keywords)
     } else {
       warnings.push('transcript wake-word needs a streaming STT model; wake word disabled')
     }
