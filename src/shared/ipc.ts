@@ -128,6 +128,11 @@ export interface InvokeMap {
   'routines:setEnabled': { args: [string, boolean]; result: void }
   /** Runs a routine immediately, outside its schedule, and returns the outcome (also persisted as lastRun). */
   'routines:runNow': { args: [string]; result: RoutineRunResult }
+
+  /** INT-01: (integrationId, key, value) — stores the value in the encrypted secret store, never in settings.json. Empty value clears it. */
+  'integrations:setEnvVar': { args: [string, string, string]; result: void }
+  /** INT-01: (integrationId, key) — removes a previously saved env var value. */
+  'integrations:clearEnvVar': { args: [string, string]; result: void }
   /** OBS-02: local, never-uploaded cost/token usage aggregated by day and by session. */
   'metrics:summary': { args: []; result: MetricsSummary }
   'metrics:clear': { args: []; result: void }

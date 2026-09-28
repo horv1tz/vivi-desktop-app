@@ -41,8 +41,19 @@ export const PermissionRuleSchema = z.object({
 })
 
 /**
+ * INT-01: a named env var a stdio integration needs (e.g. `GITHUB_PERSONAL_ACCESS_TOKEN`). The
+ * value itself is never stored here — like `ProxySettingsSchema.hasPassword`, `hasValue` just
+ * mirrors whether something is saved in the encrypted secret store, keyed
+ * `integrationEnv:<integration id>:<key>` (see `secrets.ts` and `agent/integrations.ts`).
+ */
+export const IntegrationEnvVarSchema = z.object({
+  key: z.string(),
+  hasValue: z.boolean().default(false),
+})
+
+/**
  * INT-01: a user-configured external MCP server, merged into the agent's tools (SDK backend
- * only — see docs/INTEGRATIONS.md for why ACP mode doesn't support these yet). Deliberately not
+ * only — see docs/WORKSHOP.md for why ACP mode doesn't support these yet). Deliberately not
  * agent-creatable: unlike a skill (text), an integration runs an arbitrary program the user
  * chose, so adding one is a decision only the user makes, through this settings screen.
  */
@@ -54,6 +65,8 @@ export const IntegrationSchema = z.object({
   command: z.string().default(''),
   args: z.string().default(''),
   url: z.string().default(''),
+  /** INT-01: env vars this stdio server needs (e.g. an API token). Ignored for http/sse. */
+  env: z.array(IntegrationEnvVarSchema).default([]),
 })
 
 export const PermissionSettingsSchema = z.object({
@@ -158,6 +171,7 @@ export type AgentSettings = z.infer<typeof AgentSettingsSchema>
 export type PermissionSettings = z.infer<typeof PermissionSettingsSchema>
 export type PermissionRule = z.infer<typeof PermissionRuleSchema>
 export type Integration = z.infer<typeof IntegrationSchema>
+export type IntegrationEnvVar = z.infer<typeof IntegrationEnvVarSchema>
 export type ProxySettings = z.infer<typeof ProxySettingsSchema>
 export type VoiceSettings = z.infer<typeof VoiceSettingsSchema>
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>

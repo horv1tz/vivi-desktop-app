@@ -41,7 +41,7 @@ export interface SdkBackendDeps {
   routinesFile: () => string
   claudeConfigDir: string
   claudeBinary?: string
-  mcpServers?: () => Record<string, McpServerConfig>
+  mcpServers?: () => Promise<Record<string, McpServerConfig>>
   ui: BrokerUi
   /** SEC-03: fed every final permission verdict for the decision log. */
   onPermissionDecision?: (entry: {
@@ -162,7 +162,7 @@ export class SdkBackend implements AgentBackend {
       appVersion: app.getVersion(),
       allowedTools: autoAllowedTools(settings.permissions),
       alwaysAllowRules: settings.permissions.alwaysAllowRules,
-      mcpServers: this.deps.mcpServers?.(),
+      mcpServers: await this.deps.mcpServers?.(),
       canUseTool: this.broker.canUseTool,
       resume,
       isolateConfig: this.deps.isolateConfig(),

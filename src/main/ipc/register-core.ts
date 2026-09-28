@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { app, dialog, nativeTheme, shell } from 'electron'
 import type { AppInfo, OsPermissionStatus } from '@shared/events'
 import { settings } from '../settings/store'
+import { secrets } from '../auth/secrets'
 import { paths } from '../util/paths'
 import { describeClaudeBinary } from '../util/claude-bin'
 import { acpAdapterVersion } from '../util/acp-adapter'
@@ -188,6 +189,37 @@ export function registerCoreHandlers(opts: {
   handle('scenarios:setEnabled', (_e, id, enabled) =>
     setScenarioEnabled(currentScenariosFile(), id, enabled),
   )
+
+  // INT-01: an integration's env var VALUE never travels through settings:update (which persists
+  // to plain-JSON settings.json) — it's set/cleared here, straight into the encrypted secret
+  // store, and only the {key, hasValue} marker (no value) is written back to settings.
+  handle('integrations:setEnvVar', async (_e, id, key, value) => {
+    const trimmedKey = key.trim()
+    if (!trimmedKey) return
+    await secrets().set(`integrationEnv:${id}:${trimmedKey}`, value)
+    settings().update({
+      integrations: settings()
+        .get()
+        .integrations.map((it) => {
+          if (it.id !== id) return it
+          const withoutKey = it.env.filter((e) => e.key !== trimmedKey)
+          return {
+            ...it,
+            env: value ? [...withoutKey, { key: trimmedKey, hasValue: true }] : withoutKey,
+          }
+        }),
+    })
+  })
+  handle('integrations:clearEnvVar', async (_e, id, key) => {
+    secrets().delete(`integrationEnv:${id}:${key}`)
+    settings().update({
+      integrations: settings()
+        .get()
+        .integrations.map((it) =>
+          it.id === id ? { ...it, env: it.env.filter((e) => e.key !== key) } : it,
+        ),
+    })
+  })
 
   handle('routines:list', () => listRoutines(currentRoutinesFile()))
   handle('routines:create', (_e, input) => createRoutine(currentRoutinesFile(), input))

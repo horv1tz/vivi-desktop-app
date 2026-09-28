@@ -31,6 +31,11 @@ prompt, under a `## Skills` heading, for every conversation from then on.
 - There's a cap (100 skills, 8,000 characters per skill body) and skill names must be unique —
   hit either limit and you'll get a clear error, whether you're saving from this screen or Vivi is
   saving one herself.
+- **New skill** opens with a **Library** picker — a small set of ready-made skills (a code review
+  checklist, a document-summary format, a file-organization convention, and a few others) that
+  prefill the name/description/body. Picking one is just a fast starting point: everything it
+  fills in is still plain text in the form, so you can edit or delete any part of it before saving
+  the same as if you'd typed it yourself.
 
 ## Integrations
 
@@ -42,6 +47,22 @@ own built-in ones. Two transports are supported:
   Give it the command and, if needed, its arguments (shell-like quoting is supported, so
   `--root "/path with spaces"` works as one argument).
 - **http** — a remote MCP server reached by URL.
+
+**New integration** opens with a **Known MCP server** picker: a small library of real,
+independently-verified servers (GitHub, Slack, Brave Search, Sequential Thinking) that prefills
+the command/arguments and, for the ones that need credentials, the exact environment variable
+name(s) they expect. Picking one doesn't install anything — most run on demand via `npx` (or, for
+GitHub's official server, `docker`), the same as typing the command in yourself; you still need
+the underlying tool (Node/npx, Docker, …) installed for the command to actually work.
+
+A stdio integration can declare **environment variables** — e.g. a `GITHUB_PERSONAL_ACCESS_TOKEN`
+the server needs to authenticate. Unlike the command/arguments, a variable's *value* is never
+written to `settings.json`: it's saved straight into the same encrypted secret store used for your
+Anthropic API key and proxy password (Electron `safeStorage` — see
+[PRIVACY.md](./PRIVACY.md)), keyed to that one integration, and the form only ever shows whether a
+value is currently saved, never the value itself. Add a variable with **Add variable**, name it,
+enter its value, and save that row on its own — independent of the rest of the form. Removing a
+variable's row deletes the stored value immediately, not just when you save the whole integration.
 
 **Integrations are never something Vivi can add herself.** Unlike a skill, which is just text, an
 integration actually runs a program you chose and hands its tools to the agent — that's a

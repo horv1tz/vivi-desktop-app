@@ -202,13 +202,15 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
     .click()
   await expect(page.getByText(/Пока нет скилов|No skills yet/)).toBeVisible()
 
+  // The skill library picker (a ready-made preset) prefills the form; still editable before save.
   await page.getByRole('button', { name: /Новый скил|New skill/ }).click()
-  await page.getByLabel(/^Название$|^Name$/).fill('Commit style')
+  await page.getByLabel(/Библиотека|Library/).selectOption('code-review-checklist')
+  await expect(page.getByLabel(/^Название$|^Name$/)).toHaveValue('Code review checklist')
+  await expect(page.getByLabel(/Инструкции|Instructions/)).not.toHaveValue('')
   await page.getByLabel(/^Описание$|^Description$/).fill('House style for git commits')
-  await page.getByLabel(/Инструкции|Instructions/).fill('Use imperative mood.')
   await page.getByRole('button', { name: /Сохранить|Save/ }).click()
 
-  const skillRow = page.getByTestId('skill-row').filter({ hasText: 'Commit style' })
+  const skillRow = page.getByTestId('skill-row').filter({ hasText: 'Code review checklist' })
   await expect(skillRow).toBeVisible()
   await expect(page.getByText('House style for git commits')).toBeVisible()
 
@@ -224,15 +226,35 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
   await expect(page.getByText(/не настроены|No integrations configured/)).toBeVisible()
   await expect(page.getByText(/Agent SDK-бэкендом|Agent SDK backend only/)).toBeVisible()
 
+  // The MCP library picker (a verified real server) prefills command/args and declares the env
+  // var it needs; INT-01's env var row then round-trips a value through the real, running main
+  // process's encrypted secret store (not mocked in this e2e suite).
   await page.getByRole('button', { name: /Новая интеграция|New integration/ }).click()
-  await page.getByLabel(/^Название$|^Name$/).fill('local-files')
-  await page.getByLabel(/^Команда$|^Command$/).fill('npx')
-  await page.getByLabel(/^Аргументы$|^Arguments$/).fill('-y @some/mcp-server')
-  await page.getByRole('button', { name: /Сохранить|Save/ }).click()
+  await page.getByLabel(/Известный MCP-сервер|Known MCP server/).selectOption('github')
+  await expect(page.getByLabel(/^Название$|^Name$/)).toHaveValue('GitHub (official)')
+  await expect(page.getByLabel(/^Команда$|^Command$/)).toHaveValue('docker')
+  await expect(page.getByLabel(/^Аргументы$|^Arguments$/)).toHaveValue(
+    'run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server',
+  )
 
-  const integrationRow = page.getByTestId('integration-row').filter({ hasText: 'local-files' })
+  const envRow = page.getByTestId('env-var-row').filter({ hasText: 'GITHUB_PERSONAL_ACCESS_TOKEN' })
+  await expect(envRow).toBeVisible()
+  await envRow.getByPlaceholder(/Значение|Value/).fill('ghp_test_token_123')
+  await envRow.getByRole('button', { name: /Сохранить|Save/ }).click()
+  await expect(envRow.getByPlaceholder(/сохранено|saved/)).toBeVisible()
+
+  // .last(): the env var row above has its own "Save" button; this is the outer form's.
+  await page.getByRole('button', { name: /Сохранить|Save/ }).last().click()
+
+  const integrationRow = page
+    .getByTestId('integration-row')
+    .filter({ hasText: 'GitHub (official)' })
   await expect(integrationRow).toBeVisible()
-  await expect(page.getByText('npx -y @some/mcp-server')).toBeVisible()
+  await expect(
+    page.getByText(
+      'docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server',
+    ),
+  ).toBeVisible()
 
   await integrationRow.getByTitle(/Удалить|Delete/).click()
   await expect(page.getByText(/не настроены|No integrations configured/)).toBeVisible()

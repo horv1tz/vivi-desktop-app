@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronDown, ChevronUp, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
 import type {
   RoutineEntry,
   RoutineSchedule,
@@ -10,7 +10,9 @@ import type {
   ScenarioStepKind,
   SkillEntry,
 } from '@shared/events'
-import type { Integration } from '@shared/settings'
+import type { Integration, IntegrationEnvVar } from '@shared/settings'
+import { MCP_PRESETS } from '@shared/mcp-presets'
+import { SKILL_PRESETS } from '@shared/skill-presets'
 import { invoke } from '../../lib/bridge'
 import { useUiStore } from '../../stores/ui'
 import { Field, Input, Section, Select, Textarea } from '../../components/ui/Field'
@@ -182,7 +184,7 @@ function SkillForm({
   onCancel: () => void
   onSave: (input: { name: string; description: string; body: string }) => Promise<void>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [body, setBody] = useState(initial?.body ?? '')
@@ -190,6 +192,31 @@ function SkillForm({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-line bg-sunken p-3">
+      {!initial ? (
+        <Field
+          label={t('settings.skills.skillPreset')}
+          hint={t('settings.skills.skillPresetHint')}
+          inline
+        >
+          <Select
+            value=""
+            onChange={(e) => {
+              const preset = SKILL_PRESETS.find((p) => p.id === e.target.value)
+              if (!preset) return
+              setName(preset.name)
+              setDescription(preset.description)
+              setBody(i18n.language === 'ru' ? preset.body.ru : preset.body.en)
+            }}
+          >
+            <option value="">{t('settings.skills.skillPresetPlaceholder')}</option>
+            {SKILL_PRESETS.map((p) => (
+              <option key={p.id} value={p.id} title={p.description}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
       <Field label={t('settings.skills.name')}>
         <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={80} />
       </Field>
@@ -233,6 +260,7 @@ function newIntegration(): Integration {
     command: '',
     args: '',
     url: '',
+    env: [],
   }
 }
 
@@ -344,11 +372,41 @@ function IntegrationForm({
   const { t } = useTranslation()
   const [form, setForm] = useState(value)
   const [saving, setSaving] = useState(false)
+  const [addingEnvVar, setAddingEnvVar] = useState(false)
   const valid =
     form.name.trim() && (form.transport === 'http' ? form.url.trim() : form.command.trim())
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-line bg-sunken p-3">
+      <Field
+        label={t('settings.skills.mcpPreset')}
+        hint={t('settings.skills.mcpPresetHint')}
+        inline
+      >
+        <Select
+          value=""
+          onChange={(e) => {
+            const preset = MCP_PRESETS.find((p) => p.id === e.target.value)
+            if (!preset) return
+            setForm({
+              ...form,
+              name: form.name.trim() || preset.name,
+              transport: 'stdio',
+              command: preset.command,
+              args: preset.args,
+              env: (preset.envVars ?? []).map((v) => ({ key: v.key, hasValue: false })),
+            })
+            setAddingEnvVar(false)
+          }}
+        >
+          <option value="">{t('settings.skills.mcpPresetPlaceholder')}</option>
+          {MCP_PRESETS.map((p) => (
+            <option key={p.id} value={p.id} title={p.description}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <Field label={t('settings.skills.name')}>
         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </Field>
@@ -377,6 +435,47 @@ function IntegrationForm({
               placeholder="-y @some/mcp-server --flag value"
             />
           </Field>
+          <Field label={t('settings.skills.envVars')} hint={t('settings.skills.envVarsHint')}>
+            <div className="flex flex-col gap-1.5">
+              {form.env.map((e) => (
+                <EnvVarRow
+                  key={e.key}
+                  integrationId={form.id}
+                  envVar={e}
+                  onSaved={(entry) =>
+                    setForm((f) => ({
+                      ...f,
+                      env: [...f.env.filter((x) => x.key !== entry.key), entry],
+                    }))
+                  }
+                  onRemoved={(key) =>
+                    setForm((f) => ({ ...f, env: f.env.filter((x) => x.key !== key) }))
+                  }
+                  onDiscardNew={() => undefined}
+                />
+              ))}
+              {addingEnvVar ? (
+                <EnvVarRow
+                  integrationId={form.id}
+                  envVar={{ key: '', hasValue: false }}
+                  onSaved={(entry) => {
+                    setForm((f) => ({ ...f, env: [...f.env, entry] }))
+                    setAddingEnvVar(false)
+                  }}
+                  onRemoved={() => undefined}
+                  onDiscardNew={() => setAddingEnvVar(false)}
+                />
+              ) : null}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="self-start"
+                onClick={() => setAddingEnvVar(true)}
+              >
+                <Plus size={14} /> {t('settings.skills.addEnvVar')}
+              </Button>
+            </div>
+          </Field>
         </>
       ) : (
         <Field label={t('settings.skills.url')}>
@@ -403,6 +502,87 @@ function IntegrationForm({
           {t('settings.skills.cancel')}
         </Button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * INT-01: one row of `IntegrationForm`'s env var editor. A value is written straight to the
+ * encrypted secret store on its own "Save" click (via `integrations:setEnvVar`), independent of
+ * the rest of the form — matching how the proxy password field already works. `envVar.key === ''`
+ * means an unsaved new row (the name itself is still editable); a real key is shown as fixed text.
+ */
+function EnvVarRow({
+  integrationId,
+  envVar,
+  onSaved,
+  onRemoved,
+  onDiscardNew,
+}: {
+  integrationId: string
+  envVar: IntegrationEnvVar
+  onSaved: (entry: IntegrationEnvVar) => void
+  onRemoved: (key: string) => void
+  onDiscardNew: () => void
+}) {
+  const { t } = useTranslation()
+  const isNew = !envVar.key
+  const [key, setKey] = useState(envVar.key)
+  const [val, setVal] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  return (
+    <div data-testid="env-var-row" className="flex items-center gap-1.5">
+      {isNew ? (
+        <Input
+          className="w-40 shrink-0 font-mono text-[12px]"
+          value={key}
+          onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))}
+          placeholder={t('settings.skills.envVarKey')}
+          autoFocus
+        />
+      ) : (
+        <span className="w-40 shrink-0 truncate font-mono text-[12px] text-fg">{envVar.key}</span>
+      )}
+      <Input
+        type="password"
+        className="min-w-0 flex-1"
+        value={val}
+        autoComplete="new-password"
+        placeholder={envVar.hasValue ? t('settings.skills.envVarSaved') : t('settings.skills.envVarValue')}
+        onChange={(e) => setVal(e.target.value)}
+      />
+      <Button
+        size="sm"
+        disabled={saving || !key.trim() || (!val && !envVar.hasValue)}
+        onClick={async () => {
+          setSaving(true)
+          try {
+            const trimmedKey = key.trim()
+            await invoke('integrations:setEnvVar', integrationId, trimmedKey, val)
+            onSaved({ key: trimmedKey, hasValue: true })
+            setVal('')
+          } finally {
+            setSaving(false)
+          }
+        }}
+      >
+        {t('settings.skills.save')}
+      </Button>
+      <button
+        className="shrink-0 rounded-md p-1 text-faint hover:bg-danger/15 hover:text-danger"
+        title={t('settings.skills.removeEnvVar')}
+        onClick={async () => {
+          if (isNew) {
+            onDiscardNew()
+            return
+          }
+          await invoke('integrations:clearEnvVar', integrationId, envVar.key)
+          onRemoved(envVar.key)
+        }}
+      >
+        <X size={14} />
+      </button>
     </div>
   )
 }

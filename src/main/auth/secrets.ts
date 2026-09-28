@@ -4,7 +4,13 @@ import { logger } from '../logging/log'
 
 const log = logger('secrets')
 
-export type SecretKey = 'claudeOauthToken' | 'anthropicApiKey' | 'proxyPassword' | 'openaiApiKey'
+export type SecretKey =
+  | 'claudeOauthToken'
+  | 'anthropicApiKey'
+  | 'proxyPassword'
+  | 'openaiApiKey'
+  /** INT-01: one per `<integration id>:<env var name>`, e.g. `integrationEnv:abc-123:GITHUB_TOKEN`. */
+  | `integrationEnv:${string}`
 
 /**
  * SEC-06: true only when secrets are genuinely encrypted, not just obfuscated. `safeStorage`

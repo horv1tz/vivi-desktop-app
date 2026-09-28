@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A library of ready-made MCP servers and skills** (INT-01): the Integrations tab now opens with
+  a "Known MCP server" picker offering four real, independently-verified servers — GitHub
+  (official, via Docker), Slack, Brave Search, and Sequential Thinking — that prefill the
+  command/arguments and declare the environment variables each one needs. Picking one is a
+  shortcut, not magic: everything it fills in stays editable before saving, exactly like typing it
+  by hand. The Skills tab's New skill form got the same treatment with a "Library" picker offering
+  six ready-made skills (a code review checklist, a document-summary format, a daily-briefing
+  format, a file-organization convention, and two computer-use habits).
+- **Environment variables for MCP integrations** (INT-01): a stdio integration can now declare env
+  vars an external MCP server needs (an API token, for example). Values are never written to
+  `settings.json` — they're saved straight into the same encrypted secret store already used for
+  the Anthropic API key and proxy password, keyed to that one integration, and the form only ever
+  shows whether a value is currently saved, never the value itself. This closes a real, previously
+  missing capability: several well-known MCP servers (including all but one of the new presets)
+  need a credential to do anything at all, and there was no way to give them one without putting
+  it in plain text in the command/arguments field.
+
 ## [0.5.0] - 2026-09-28
 
 ### Added

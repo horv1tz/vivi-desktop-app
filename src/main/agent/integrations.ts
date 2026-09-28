@@ -1,15 +1,23 @@
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 import type { Integration } from '@shared/settings'
+import { secrets } from '../auth/secrets'
 import { splitArgs } from './acp/args'
 
-/**
- * INT-01: turns the user's configured integrations into the shape the SDK backend's `mcpServers`
- * option expects. Only enabled integrations are included; disabled ones stay in settings but are
- * never actually launched. Pure — no fs/process access, so it's directly unit-testable.
- */
-export function integrationsToMcpServers(
+/** INT-01: values live in the encrypted secret store, keyed by `integrationEnv:<id>:<key>` — never in settings.json. */
+async function resolveEnv(it: Integration): Promise<{ env?: Record<string, string> }> {
+  if (!it.env.length) return {}
+  const env: Record<string, string> = {}
+  for (const { key, hasValue } of it.env) {
+    if (!hasValue) continue
+    const value = await secrets().get(`integrationEnv:${it.id}:${key}`)
+    if (value) env[key] = value
+  }
+  return Object.keys(env).length ? { env } : {}
+}
+
+export async function integrationsToMcpServers(
   integrations: Integration[],
-): Record<string, McpServerConfig> {
+): Promise<Record<string, McpServerConfig>> {
   const out: Record<string, McpServerConfig> = {}
   for (const it of integrations) {
     if (!it.enabled || !it.name.trim()) continue
@@ -22,6 +30,7 @@ export function integrationsToMcpServers(
         type: 'stdio',
         command: it.command.trim(),
         args: it.args.trim() ? splitArgs(it.args.trim()) : [],
+        ...(await resolveEnv(it)),
       }
     }
   }

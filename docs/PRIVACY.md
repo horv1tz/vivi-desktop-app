@@ -5,8 +5,10 @@
   agent reads, screenshots it takes and tool results become part of that conversation.
 - **Voice is local by default.** Wake-word detection, speech recognition and synthesis run offline
   with sherpa-onnx models stored in the app data folder. Cloud voice (OpenAI) is opt-in.
-- **Secrets.** API keys, OAuth tokens and proxy passwords are encrypted with Electron `safeStorage`
-  (Keychain / DPAPI / Secret Service) and stored in `secrets.json` in the app data folder.
+- **Secrets.** API keys, OAuth tokens, proxy passwords and integration environment variables (e.g.
+  a GitHub personal access token given to an MCP server in the Workshop screen) are encrypted with
+  Electron `safeStorage` (Keychain / DPAPI / Secret Service) and stored in `secrets.json` in the
+  app data folder — never in `settings.json` alongside everything else.
 - **Sessions.** Conversation transcripts are stored by Claude Code under `<app data>/claude/projects`.
   Delete a session from the sidebar to remove its transcript.
 - **Memory.** `~/Vivi/memory/VIVI.md` holds facts Vivi remembers about you; edit or delete it freely.

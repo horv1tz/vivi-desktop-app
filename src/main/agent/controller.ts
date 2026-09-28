@@ -188,8 +188,8 @@ export class AgentController {
       ...common,
       // INT-01: user-configured integrations merged alongside Vivi's own tools; a same-named
       // integration can't shadow 'vivi' since integrationsToMcpServers is spread first.
-      mcpServers: () => ({
-        ...integrationsToMcpServers(settings().get().integrations),
+      mcpServers: async () => ({
+        ...(await integrationsToMcpServers(settings().get().integrations)),
         vivi: this.viviTools(),
       }),
     })
