@@ -244,7 +244,10 @@ test('Workshop: create, toggle and delete a skill, an integration and a scenario
   await expect(envRow.getByPlaceholder(/сохранено|saved/)).toBeVisible()
 
   // .last(): the env var row above has its own "Save" button; this is the outer form's.
-  await page.getByRole('button', { name: /Сохранить|Save/ }).last().click()
+  await page
+    .getByRole('button', { name: /Сохранить|Save/ })
+    .last()
+    .click()
 
   const integrationRow = page
     .getByTestId('integration-row')

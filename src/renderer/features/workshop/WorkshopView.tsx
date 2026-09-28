@@ -549,7 +549,9 @@ function EnvVarRow({
         className="min-w-0 flex-1"
         value={val}
         autoComplete="new-password"
-        placeholder={envVar.hasValue ? t('settings.skills.envVarSaved') : t('settings.skills.envVarValue')}
+        placeholder={
+          envVar.hasValue ? t('settings.skills.envVarSaved') : t('settings.skills.envVarValue')
+        }
         onChange={(e) => setVal(e.target.value)}
       />
       <Button

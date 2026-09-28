@@ -52,7 +52,7 @@ export const SKILL_PRESETS: SkillPreset[] = [
   {
     id: 'screenshot-before-diagnosing',
     name: 'Screenshot before diagnosing',
-    description: "Look at the screen before explaining an error, even if not explicitly asked to.",
+    description: 'Look at the screen before explaining an error, even if not explicitly asked to.',
     body: {
       en: 'When asked to help with something currently on screen (an error message, a confusing UI, "why isn\'t this working") and no recent screenshot exists in this conversation, take one before answering — even if not explicitly asked to look. Guessing what\'s on screen from the description alone leads to wrong answers more often than it saves time.',
       ru: 'Если просят помочь с тем, что сейчас на экране (сообщение об ошибке, непонятный интерфейс, «почему это не работает»), и в этом разговоре ещё нет свежего скриншота — сделай его перед ответом, даже если явно не просили посмотреть. Угадывать содержимое экрана по описанию чаще приводит к неверному ответу, чем экономит время.',
