@@ -1,5 +1,8 @@
+import { homedir } from 'node:os'
+import { sep } from 'node:path'
 import type { PermissionRule, PermissionSettings } from '@shared/settings'
 import type { PermissionCategory } from '@shared/events'
+import { globToRegExp, parseRuleContent } from '@shared/permissionRules'
 import type { PolicyDecision } from './broker'
 import { detectDangerousCommand } from './danger'
 
@@ -70,36 +73,88 @@ export function autoAllowedTools(settings: PermissionSettings): string[] {
   return [...out]
 }
 
+/** SEC-03: which input field holds the filesystem path for tools a path-scoped rule can apply to. Tried in order — mirrors renderer/features/chat/ToolCard.tsx's existing fallback chain for the same tools, so a path rule matches exactly what the UI already shows as "the path" for that call. */
+const PATH_ARG_TOOLS: Record<string, string[]> = {
+  Read: ['file_path', 'path'],
+  Write: ['file_path', 'path'],
+  Edit: ['file_path', 'path'],
+  MultiEdit: ['file_path', 'path'],
+  NotebookEdit: ['notebook_path', 'file_path', 'path'],
+}
+
+function extractPathArg(toolName: string, input: Record<string, unknown>): string | undefined {
+  for (const key of PATH_ARG_TOOLS[toolName] ?? []) {
+    const v = input[key]
+    if (typeof v === 'string' && v.trim()) return v
+  }
+  return undefined
+}
+
+/** Expands a leading `~` the same way a shell would — rule globs and trusted folders are typed by hand, almost always as `~/...`. */
+function expandHome(p: string): string {
+  return p === '~' || p.startsWith('~/') || p.startsWith('~\\') ? homedir() + p.slice(1) : p
+}
+
+function normalizeSlashes(p: string): string {
+  return p.split(sep).join('/')
+}
+
+/** Whether `path` is `folder` itself or falls under it (`/a/b` is under `/a`, not under `/ab`). */
+export function isUnderTrustedFolder(path: string, trustedFolders: string[]): boolean {
+  const target = normalizeSlashes(expandHome(path))
+  return trustedFolders.some((f) => {
+    const folder = normalizeSlashes(expandHome(f)).replace(/\/+$/, '')
+    return target === folder || target.startsWith(`${folder}/`)
+  })
+}
+
 /**
- * Whether a persisted "always allow" rule covers this call. A bare rule (no ruleContent) always
- * allows the tool; a scoped rule matches a command prefix ("git:*") or a fetched host ("domain:x").
- * This is what makes "always allow" actually stick on the next call for any backend — the SDK/Claude
- * CLI additionally enforces the same rules itself, but a non-Claude ACP agent has no such layer, so
- * Vivi's own policy must honor them too.
+ * Whether one persisted rule (allow OR deny — the caller decides which list to check) covers this
+ * call. A bare rule (no ruleContent) matches the tool unconditionally; a scoped rule matches a
+ * command prefix ("git:*"), a fetched host ("domain:x"), or a filesystem path glob ("path:~/Vivi/**").
+ * This is what makes a rule actually stick on the next call for any backend — the SDK/Claude CLI
+ * additionally enforces its own allow-list, but a non-Claude ACP agent has no such layer, so Vivi's
+ * own policy must honor rules itself regardless of backend (and is the only place a deny rule is
+ * enforced at all, since the CLI's own list has no deny concept — see options.ts).
  */
-export function matchesAlwaysAllowRule(
+export function matchesRule(
+  toolName: string,
+  input: Record<string, unknown>,
+  rule: Pick<PermissionRule, 'toolName' | 'ruleContent'>,
+): boolean {
+  if (rule.toolName !== toolName) return false
+  const scope = parseRuleContent(rule.ruleContent)
+  switch (scope.kind) {
+    case 'bare':
+      return true
+    case 'prefix':
+      return (
+        typeof input.command === 'string' && input.command.trim().split(/\s+/)[0] === scope.prefix
+      )
+    case 'domain':
+      if (typeof input.url !== 'string') return false
+      try {
+        return new URL(input.url).hostname === scope.domain
+      } catch {
+        return false
+      }
+    case 'path': {
+      const path = extractPathArg(toolName, input)
+      if (!path) return false
+      return globToRegExp(normalizeSlashes(expandHome(scope.glob))).test(
+        normalizeSlashes(expandHome(path)),
+      )
+    }
+  }
+}
+
+function matchesAnyRule(
   toolName: string,
   input: Record<string, unknown>,
   rules: PermissionRule[],
+  behavior: 'allow' | 'deny',
 ): boolean {
-  for (const r of rules) {
-    if (r.toolName !== toolName) continue
-    if (!r.ruleContent) return true
-    const prefix = /^([\w./-]+):\*$/.exec(r.ruleContent)
-    if (prefix && typeof input.command === 'string') {
-      if (input.command.trim().split(/\s+/)[0] === prefix[1]) return true
-      continue
-    }
-    const domain = /^domain:(.+)$/.exec(r.ruleContent)
-    if (domain && typeof input.url === 'string') {
-      try {
-        if (new URL(input.url).hostname === domain[1]) return true
-      } catch {
-        /* not a URL: no match */
-      }
-    }
-  }
-  return false
+  return rules.some((r) => r.behavior === behavior && matchesRule(toolName, input, r))
 }
 
 export interface PolicyState {
@@ -113,31 +168,63 @@ export function makePolicy(getSettings: () => PermissionSettings, state: PolicyS
   return (toolName: string, input: Record<string, unknown>): PolicyDecision => {
     const settings = getSettings()
     const category = categorize(toolName)
-    const danger = detectDangerousCommand(toolName, input)
     const base: PolicyDecision = {
       verdict: 'ask',
       category,
-      dangerous: danger.dangerous,
-      dangerReasons: danger.reasons,
-      canAlwaysAllow: !danger.dangerous,
+      dangerous: false,
+      dangerReasons: [],
+      canAlwaysAllow: true,
     }
-    if (danger.dangerous) return base
+    // SEC-03: an explicit user deny wins over everything, including a matching allow rule, an
+    // auto-allow category setting, and — deliberately — even the built-in danger detector's
+    // "always ask" floor: a deny is strictly safer than an ask (it can't be accidentally approved),
+    // so a user who has already said "never" for this shouldn't be asked again.
+    if (matchesAnyRule(toolName, input, settings.alwaysAllowRules, 'deny'))
+      return {
+        ...base,
+        verdict: 'deny',
+        canAlwaysAllow: false,
+        reason: 'deny-rule',
+        denyMessage: `Blocked by a "deny" permission rule set in Settings for ${toolName}.`,
+      }
+
+    const danger = detectDangerousCommand(toolName, input)
+    if (danger.dangerous)
+      return { ...base, dangerous: true, dangerReasons: danger.reasons, canAlwaysAllow: false }
+
     if (SCREEN_TOOLS.includes(toolName))
-      return settings.autoAllowScreenshot ? { ...base, verdict: 'allow' } : base
+      return settings.autoAllowScreenshot
+        ? { ...base, verdict: 'allow', reason: 'auto-category' }
+        : base
     if (CLIPBOARD_READ_TOOLS.includes(toolName))
-      return settings.autoAllowClipboardRead ? { ...base, verdict: 'allow' } : base
-    if (category === 'read' && settings.autoAllowReadOnly) return { ...base, verdict: 'allow' }
-    if (category === 'edit' && !settings.askForEdits) return { ...base, verdict: 'allow' }
-    if (category === 'exec' && !settings.askForExec) return { ...base, verdict: 'allow' }
-    if (category === 'system' && !settings.askForSystem) return { ...base, verdict: 'allow' }
-    if (
-      category === 'input' &&
-      (!settings.askForInput || state.sessionGrants.has('input') || state.turnGrants.has('input'))
-    )
-      return { ...base, verdict: 'allow' }
-    if (state.sessionGrants.has(category)) return { ...base, verdict: 'allow' }
-    if (matchesAlwaysAllowRule(toolName, input, settings.alwaysAllowRules))
-      return { ...base, verdict: 'allow' }
+      return settings.autoAllowClipboardRead
+        ? { ...base, verdict: 'allow', reason: 'auto-category' }
+        : base
+    if (category === 'read' && settings.autoAllowReadOnly)
+      return { ...base, verdict: 'allow', reason: 'auto-category' }
+    if (category === 'edit' && !settings.askForEdits)
+      return { ...base, verdict: 'allow', reason: 'auto-category' }
+    if (category === 'exec' && !settings.askForExec)
+      return { ...base, verdict: 'allow', reason: 'auto-category' }
+    if (category === 'system' && !settings.askForSystem)
+      return { ...base, verdict: 'allow', reason: 'auto-category' }
+    if (category === 'input') {
+      if (!settings.askForInput) return { ...base, verdict: 'allow', reason: 'auto-category' }
+      if (state.turnGrants.has('input')) return { ...base, verdict: 'allow', reason: 'turn-grant' }
+      if (state.sessionGrants.has('input'))
+        return { ...base, verdict: 'allow', reason: 'session-grant' }
+    }
+    if (state.sessionGrants.has(category))
+      return { ...base, verdict: 'allow', reason: 'session-grant' }
+    // SEC-03: a folder the user marked trusted skips the ask for edits under it specifically,
+    // without needing a per-tool rule — a friendlier grant than "stop asking for edits everywhere".
+    if (category === 'edit') {
+      const path = extractPathArg(toolName, input)
+      if (path && isUnderTrustedFolder(path, settings.trustedFolders))
+        return { ...base, verdict: 'allow', reason: 'trusted-folder' }
+    }
+    if (matchesAnyRule(toolName, input, settings.alwaysAllowRules, 'allow'))
+      return { ...base, verdict: 'allow', reason: 'allow-rule' }
     return base
   }
 }

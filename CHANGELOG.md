@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the screen (the closest a third-party Electron app can get to a Cortana-style taskbar button —
   there's no OS API to embed into the real Windows taskbar) that opens the overlay on click. New
   Settings → General toggle to show/hide it.
+- **Permission engine v2** (SEC-03): rules can now be path-scoped (`Write` under `~/Vivi/**`) and
+  can explicitly *deny* (not just allow) — a deny rule wins over everything else for that call,
+  including a matching allow rule and even the danger detector's "always ask" floor, and never
+  reaches the CLI's own allow-only permission list. New "trusted folders" setting auto-allows file
+  edits under a chosen folder without a per-rule setup. Settings → Permissions gained a manual
+  "add rule" form with a live, human-readable preview of what the rule will do, and a decision log
+  showing what was allowed/denied and why (a rule/setting decided it automatically, or you did in a
+  dialog) — recorded from one shared place so it's identical for the SDK and ACP backends.
 
 ### Fixed
 

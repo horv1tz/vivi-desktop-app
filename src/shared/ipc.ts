@@ -13,6 +13,7 @@ import type {
   ModelDownloadProgress,
   OsPermissionStatus,
   PermissionDecision,
+  PermissionLogEntry,
   PermissionRequest,
   QuestionRequest,
   ScenarioEntry,
@@ -135,6 +136,9 @@ export interface InvokeMap {
 
   'permission:respond': { args: [string, PermissionDecision]; result: void }
   'question:respond': { args: [string, Record<string, string>]; result: void }
+  /** SEC-03: permission decision log (what was allowed/denied and why). */
+  'permissions:log': { args: []; result: PermissionLogEntry[] }
+  'permissions:clearLog': { args: []; result: void }
 
   'auth:getStatus': { args: []; result: AuthStatus }
   'auth:startClaudeLogin': { args: ['claudeai' | 'console']; result: void }

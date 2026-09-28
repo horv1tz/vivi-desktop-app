@@ -36,6 +36,8 @@ export const AgentSettingsSchema = z.object({
 export const PermissionRuleSchema = z.object({
   toolName: z.string(),
   ruleContent: z.string().optional(),
+  /** SEC-03: absent/'allow' behaves exactly as before (back-compat for already-persisted rules); 'deny' is a hard stop that wins over every auto-allow setting and category, checked before the danger detector. */
+  behavior: z.enum(['allow', 'deny']).default('allow'),
 })
 
 /**
@@ -64,6 +66,8 @@ export const PermissionSettingsSchema = z.object({
   askForInput: z.boolean().default(true),
   askForSystem: z.boolean().default(true),
   alwaysAllowRules: z.array(PermissionRuleSchema).default([]),
+  /** SEC-03: file/edit tools whose path falls under one of these folders skip the edit-category ask, without needing a per-tool rule. */
+  trustedFolders: z.array(z.string()).default([]),
 })
 
 export const ProxySettingsSchema = z.object({

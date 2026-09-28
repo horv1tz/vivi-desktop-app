@@ -3,6 +3,7 @@ import type { CanUseTool, PermissionResult, PermissionUpdate } from '@anthropic-
 import type {
   PermissionCategory,
   PermissionDecision,
+  PermissionLogReason,
   PermissionRequest,
   QuestionItem,
   QuestionRequest,
@@ -23,6 +24,8 @@ export interface PolicyDecision {
   dangerReasons: string[]
   canAlwaysAllow: boolean
   denyMessage?: string
+  /** SEC-03: why an 'allow'/'deny' verdict came out that way — absent for 'ask' (not a final decision yet, see onDecision). */
+  reason?: PermissionLogReason
 }
 
 export interface BrokerDeps {
@@ -32,6 +35,13 @@ export interface BrokerDeps {
   onSessionAllow?: (category: PermissionCategory) => void
   /** A plain allow on computer-control tools covers the rest of the turn. */
   onTurnAllow?: (category: PermissionCategory) => void
+  /** SEC-03: fired once per tool call with its final verdict — a policy decision straight away, or the dialog's outcome once the user answers. Feeds the permission decision log, identically for the SDK and ACP backends since both funnel through this same broker. */
+  onDecision?: (entry: {
+    toolName: string
+    input: Record<string, unknown>
+    verdict: 'allow' | 'deny'
+    reason: PermissionLogReason
+  }) => void
   timeoutMs?: number
 }
 
@@ -72,7 +82,15 @@ export class PermissionBroker {
 
   /** Policy verdict for a tool call (no UI involved). */
   decide(toolName: string, input: Record<string, unknown>): PolicyDecision {
-    return this.deps.policy(toolName, input)
+    const decision = this.deps.policy(toolName, input)
+    if (decision.verdict !== 'ask' && decision.reason)
+      this.deps.onDecision?.({
+        toolName,
+        input,
+        verdict: decision.verdict,
+        reason: decision.reason,
+      })
+    return decision
   }
 
   /** Shows the permission dialog and resolves with the user's decision (deny on timeout/abort). */
@@ -96,15 +114,31 @@ export class PermissionBroker {
     })
   }
 
-  /** Records the side effects of a user decision (turn/session grants, persisted always-allow rules). */
+  /** Records the side effects of a user decision (turn/session grants, persisted always-allow rules, decision log). */
   applyDecision(
     answer: PermissionDecision,
+    toolName: string,
+    input: Record<string, unknown>,
     category: PermissionCategory,
     rules: { toolName: string; ruleContent?: string }[],
   ): void {
     if (answer === 'allow' && category === 'input') this.deps.onTurnAllow?.('input')
     if (answer === 'allow-session') this.deps.onSessionAllow?.(category)
     if (answer === 'allow-always') this.deps.onAlwaysAllow?.(rules)
+    const reason: PermissionLogReason =
+      answer === 'deny'
+        ? 'dialog-deny'
+        : answer === 'allow-session'
+          ? 'dialog-allow-session'
+          : answer === 'allow-always'
+            ? 'dialog-allow-always'
+            : 'dialog-allow'
+    this.deps.onDecision?.({
+      toolName,
+      input,
+      verdict: answer === 'deny' ? 'deny' : 'allow',
+      reason,
+    })
   }
 
   readonly canUseTool: CanUseTool = async (toolName, input, ctx) => {
@@ -136,7 +170,7 @@ export class PermissionBroker {
         s.type === 'addRules' && s.behavior === 'allow',
     )
     const rules = suggestions.length ? suggestions.flatMap((s) => s.rules) : [{ toolName }]
-    this.applyDecision(answer, decision.category, rules)
+    this.applyDecision(answer, toolName, input, decision.category, rules)
 
     switch (answer) {
       case 'allow':

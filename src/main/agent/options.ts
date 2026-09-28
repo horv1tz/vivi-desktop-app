@@ -23,7 +23,7 @@ export interface BuildOptionsInput {
   appVersion: string
   allowedTools: string[]
   disallowedTools?: string[]
-  alwaysAllowRules: { toolName: string; ruleContent?: string }[]
+  alwaysAllowRules: { toolName: string; ruleContent?: string; behavior?: 'allow' | 'deny' }[]
   mcpServers?: Record<string, McpServerConfig>
   canUseTool?: CanUseTool
   hooks?: Options['hooks']
@@ -107,7 +107,16 @@ export function buildOptions(input: BuildOptionsInput): Options {
     allowedTools: input.allowedTools,
     disallowedTools: input.disallowedTools,
     settingSources: [],
-    settings: { permissions: { allow: buildPermissionAllowRules(input.alwaysAllowRules) } },
+    // SEC-03: only 'allow' rules go to the CLI's own permission engine — a 'deny' rule must never
+    // reach settings.permissions.allow (an allow-only list with no deny concept), or the CLI would
+    // pre-empt canUseTool and grant exactly what Vivi's own broker is supposed to be blocking.
+    settings: {
+      permissions: {
+        allow: buildPermissionAllowRules(
+          input.alwaysAllowRules.filter((r) => r.behavior !== 'deny'),
+        ),
+      },
+    },
     permissionMode: s.agent.permissionMode,
     allowDangerouslySkipPermissions:
       s.agent.permissionMode === 'bypassPermissions' ? true : undefined,

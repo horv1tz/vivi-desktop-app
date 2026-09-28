@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { AcpBackend } from '@main/agent/acp-backend'
-import { defaultSettings } from '@shared/settings'
+import { defaultSettings, type PermissionRule } from '@shared/settings'
 import type { AgentUiEvent, PermissionRequest } from '@shared/events'
 
 // Drives AcpBackend against tests/unit/acp/fixtures/fake-agent.mjs (a real ACP agent process over stdio).
@@ -27,9 +27,7 @@ function makeBackend(mode = 'normal') {
   settings.agent.permissionMode = 'acceptEdits'
   const events: AgentUiEvent[] = []
   const permissionRequests: PermissionRequest[] = []
-  const updates: {
-    permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
-  }[] = []
+  const updates: { permissions: { alwaysAllowRules: PermissionRule[] } }[] = []
   const backend = new AcpBackend({
     getSettings: () => settings,
     updateSettings: (patch) => {
@@ -130,7 +128,7 @@ describe('AcpBackend against a real ACP agent process', () => {
       )!.result.content,
     ).toBe('permission:allow-with-updates')
     expect(updates.at(-1)?.permissions.alwaysAllowRules).toEqual([
-      { toolName: 'Bash', ruleContent: 'git:*' },
+      { toolName: 'Bash', ruleContent: 'git:*', behavior: 'allow' },
     ])
     // The rule now auto-allows the same call without a dialog.
     events.length = 0

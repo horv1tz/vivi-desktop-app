@@ -8,13 +8,14 @@ import type {
   QuestionRequest,
 } from '@shared/events'
 import type { SendArgs } from '@shared/ipc'
-import type { Settings } from '@shared/settings'
+import type { PermissionRule, Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
 import { MockBackend } from './mock-backend'
 import { SdkBackend } from './sdk-backend'
 import { AcpBackend } from './acp-backend'
 import { ActionJournal } from './journal'
 import { MetricsStore } from './metrics'
+import { PermissionLog } from './permissions/log'
 import { handle } from '../ipc/handlers'
 import { emit } from '../ipc/emitters'
 import { logger } from '../logging/log'
@@ -51,6 +52,7 @@ export class AgentController {
   private unsubscribe: (() => void) | null = null
   private journal = new ActionJournal(paths.journalFile)
   private metrics = new MetricsStore(paths.metricsFile)
+  private permissionLog = new PermissionLog(paths.permissionsLogFile)
 
   constructor(private readonly deps: ControllerDeps) {
     this.backend = this.createBackend()
@@ -144,9 +146,7 @@ export class AgentController {
     if (kind === 'mock') return new MockBackend()
     const common = {
       getSettings: () => settings().get(),
-      updateSettings: (patch: {
-        permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
-      }) => {
+      updateSettings: (patch: { permissions: { alwaysAllowRules: PermissionRule[] } }) => {
         settings().update(patch)
         emit('settings:changed', settings().get())
       },
@@ -163,6 +163,8 @@ export class AgentController {
       debugFile: () =>
         settings().get().features.debugSdk ? `${paths.logsDir}/claude-debug.log` : undefined,
       ui: this.brokerUi(),
+      onPermissionDecision: (entry: Parameters<PermissionLog['record']>[0]) =>
+        this.permissionLog.record(entry),
     }
     if (kind === 'acp') {
       return new AcpBackend({
@@ -296,6 +298,8 @@ export class AgentController {
       writeFileSync(res.filePath, JSON.stringify(this.journal.list(), null, 2), 'utf8')
       return res.filePath
     })
+    handle('permissions:log', () => this.permissionLog.list())
+    handle('permissions:clearLog', () => this.permissionLog.clear())
     handle('metrics:summary', () => this.metrics.summary())
     handle('metrics:clear', () => this.metrics.clear())
     handle('metrics:exportCsv', async () => {

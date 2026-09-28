@@ -30,6 +30,10 @@ export const paths = {
   get journalFile(): string {
     return join(ensureDir(join(app.getPath('userData'), 'journal')), 'journal.json')
   },
+  /** SEC-03: permission decision log (what was allowed/denied and why). */
+  get permissionsLogFile(): string {
+    return join(ensureDir(join(app.getPath('userData'), 'permissions')), 'log.json')
+  },
   /** UX-08: saved main-window size/position/maximized state, restored across restarts. */
   get windowStateFile(): string {
     return join(app.getPath('userData'), 'window-state.json')

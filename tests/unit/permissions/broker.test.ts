@@ -146,10 +146,10 @@ describe('PermissionBroker.applyDecision', () => {
   it('grants turn-wide allow only for allow + the input category', () => {
     const onTurnAllow = vi.fn()
     const broker = new PermissionBroker({ ui: makeUi(), policy: () => askDecision(), onTurnAllow })
-    broker.applyDecision('allow', 'input', rules)
+    broker.applyDecision('allow', 'Bash', {}, 'input', rules)
     expect(onTurnAllow).toHaveBeenCalledWith('input')
     onTurnAllow.mockClear()
-    broker.applyDecision('allow', 'edit', rules)
+    broker.applyDecision('allow', 'Bash', {}, 'edit', rules)
     expect(onTurnAllow).not.toHaveBeenCalled()
   })
 
@@ -160,7 +160,7 @@ describe('PermissionBroker.applyDecision', () => {
       policy: () => askDecision(),
       onSessionAllow,
     })
-    broker.applyDecision('allow-session', 'exec', rules)
+    broker.applyDecision('allow-session', 'Bash', {}, 'exec', rules)
     expect(onSessionAllow).toHaveBeenCalledWith('exec')
   })
 
@@ -171,7 +171,7 @@ describe('PermissionBroker.applyDecision', () => {
       policy: () => askDecision(),
       onAlwaysAllow,
     })
-    broker.applyDecision('allow-always', 'edit', rules)
+    broker.applyDecision('allow-always', 'Bash', {}, 'edit', rules)
     expect(onAlwaysAllow).toHaveBeenCalledWith(rules)
   })
 
@@ -186,10 +186,54 @@ describe('PermissionBroker.applyDecision', () => {
       onSessionAllow,
       onAlwaysAllow,
     })
-    broker.applyDecision('deny', 'edit', rules)
+    broker.applyDecision('deny', 'Bash', {}, 'edit', rules)
     expect(onTurnAllow).not.toHaveBeenCalled()
     expect(onSessionAllow).not.toHaveBeenCalled()
     expect(onAlwaysAllow).not.toHaveBeenCalled()
+  })
+})
+
+describe('PermissionBroker onDecision (SEC-03)', () => {
+  it('fires from decide() for an immediate allow/deny verdict that carries a reason, not for ask', () => {
+    const onDecision = vi.fn()
+    const broker = new PermissionBroker({
+      ui: makeUi(),
+      policy: () => askDecision({ verdict: 'allow', reason: 'auto-category' }),
+      onDecision,
+    })
+    broker.decide('Read', { path: '/x' })
+    expect(onDecision).toHaveBeenCalledWith({
+      toolName: 'Read',
+      input: { path: '/x' },
+      verdict: 'allow',
+      reason: 'auto-category',
+    })
+  })
+
+  it('does not fire from decide() for an ask verdict (not a final decision yet)', () => {
+    const onDecision = vi.fn()
+    const broker = new PermissionBroker({
+      ui: makeUi(),
+      policy: () => askDecision(),
+      onDecision,
+    })
+    broker.decide('Bash', { command: 'ls' })
+    expect(onDecision).not.toHaveBeenCalled()
+  })
+
+  it('fires from applyDecision() for each dialog outcome, mapped to its own reason', () => {
+    const onDecision = vi.fn()
+    const broker = new PermissionBroker({ ui: makeUi(), policy: () => askDecision(), onDecision })
+    broker.applyDecision('allow', 'Bash', { command: 'ls' }, 'exec', [])
+    broker.applyDecision('allow-session', 'Bash', {}, 'exec', [])
+    broker.applyDecision('allow-always', 'Bash', {}, 'exec', [{ toolName: 'Bash' }])
+    broker.applyDecision('deny', 'Bash', {}, 'exec', [])
+    expect(onDecision.mock.calls.map((c) => c[0])).toEqual([
+      { toolName: 'Bash', input: { command: 'ls' }, verdict: 'allow', reason: 'dialog-allow' },
+      { toolName: 'Bash', input: {}, verdict: 'allow', reason: 'dialog-allow-session' },
+      { toolName: 'Bash', input: {}, verdict: 'allow', reason: 'dialog-allow-always' },
+      { toolName: 'Bash', input: {}, verdict: 'deny', reason: 'dialog-deny' },
+    ])
   })
 })
 

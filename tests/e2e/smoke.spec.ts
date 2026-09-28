@@ -113,6 +113,33 @@ test('settings view opens and switches sections', async () => {
   ).toBeVisible({ timeout: 10_000 })
 })
 
+test('Permissions: compose a rule with a live preview, then remove it; decision log starts empty (SEC-03)', async () => {
+  await page
+    .getByRole('button', { name: /Настройки|Settings/ })
+    .first()
+    .click()
+  await page.getByRole('button', { name: /^Разрешения$|^Permissions$/ }).click()
+
+  await expect(page.getByText(/Правил пока нет|No rules yet/)).toBeVisible()
+  // The mock backend never goes through PermissionBroker, so no decision has ever been logged.
+  await expect(page.getByText(/Пока нет решений|No decisions recorded yet/)).toBeVisible()
+
+  await page.getByRole('button', { name: /Добавить правило|Add rule/ }).click()
+  await page.getByLabel(/Название инструмента|Tool name/).fill('TestTool')
+  // getByLabel matches the <label>'s full text content, which (for a <select>) includes every
+  // <option>'s text too — so these can't be anchored with ^...$ the way a plain Input label can.
+  await page.getByLabel(/Область|Scope/).selectOption('path')
+  await page.getByLabel(/Значение|Value/).fill('~/Vivi/**')
+  await expect(page.getByText(/Это правило будет:|This rule will:/)).toBeVisible()
+  await page.getByRole('button', { name: /^Сохранить$|^Save$/ }).click()
+
+  await expect(page.getByText('TestTool(path:~/Vivi/**)')).toBeVisible()
+  await expect(page.getByText(/Правил пока нет|No rules yet/)).not.toBeVisible()
+
+  await page.getByTitle(/^Убрать$|^Remove$/).click()
+  await expect(page.getByText(/Правил пока нет|No rules yet/)).toBeVisible()
+})
+
 test('Workshop: create, toggle and delete a skill, an integration and a scenario (INT-02, WORK-01/02)', async () => {
   await page
     .getByRole('button', { name: /Мастерская|Workshop/ })

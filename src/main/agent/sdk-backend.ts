@@ -9,8 +9,14 @@ import {
   type Options,
 } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentStateSnapshot, SendArgs } from '@shared/ipc'
-import type { AgentUiEvent, PermissionCategory, SessionSummary, UiMessage } from '@shared/events'
-import type { Settings } from '@shared/settings'
+import type {
+  AgentUiEvent,
+  PermissionCategory,
+  PermissionLogReason,
+  SessionSummary,
+  UiMessage,
+} from '@shared/events'
+import type { PermissionRule, Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
 import { AgentSession } from './session'
 import { buildOptions } from './options'
@@ -23,9 +29,7 @@ const log = logger('sdk-backend')
 
 export interface SdkBackendDeps {
   getSettings: () => Settings
-  updateSettings: (patch: {
-    permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
-  }) => void
+  updateSettings: (patch: { permissions: { alwaysAllowRules: PermissionRule[] } }) => void
   /** Env pieces for auth + proxy, resolved at spawn time. */
   getExtraEnv: () => Promise<Record<string, string | undefined>>
   isolateConfig: () => boolean
@@ -38,6 +42,13 @@ export interface SdkBackendDeps {
   claudeBinary?: string
   mcpServers?: () => Record<string, McpServerConfig>
   ui: BrokerUi
+  /** SEC-03: fed every final permission verdict for the decision log. */
+  onPermissionDecision?: (entry: {
+    toolName: string
+    input: Record<string, unknown>
+    verdict: 'allow' | 'deny'
+    reason: PermissionLogReason
+  }) => void
   debugFile?: () => string | undefined
 }
 
@@ -76,11 +87,12 @@ export class SdkBackend implements AgentBackend {
         const next = [...cur]
         for (const r of rules)
           if (!next.some((x) => x.toolName === r.toolName && x.ruleContent === r.ruleContent))
-            next.push(r)
+            next.push({ ...r, behavior: 'allow' })
         deps.updateSettings({ permissions: { alwaysAllowRules: next } })
       },
       onSessionAllow: (category) => this.policyState.sessionGrants.add(category),
       onTurnAllow: (category) => this.policyState.turnGrants.add(category),
+      onDecision: deps.onPermissionDecision,
     })
   }
 

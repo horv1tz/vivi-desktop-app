@@ -324,6 +324,33 @@ export interface ScenarioEntry {
   updatedAt: number
 }
 
+/**
+ * SEC-03: why a permission verdict came out the way it did — distinguishes a rule/setting that
+ * decided it automatically from an explicit in-the-moment user choice, for the decision log.
+ */
+export type PermissionLogReason =
+  | 'deny-rule'
+  | 'trusted-folder'
+  | 'auto-category'
+  | 'allow-rule'
+  | 'session-grant'
+  | 'turn-grant'
+  | 'dialog-allow'
+  | 'dialog-allow-session'
+  | 'dialog-allow-always'
+  | 'dialog-deny'
+
+/** SEC-03: one permission verdict, whether decided automatically by policy or by the user in a dialog. */
+export interface PermissionLogEntry {
+  id: string
+  timestamp: number
+  toolName: string
+  /** JSON-stringified tool input, truncated if large — same convention as JournalEntry.input. */
+  input: string
+  verdict: 'allow' | 'deny'
+  reason: PermissionLogReason
+}
+
 /** AG-02: one recorded agent action ("what did Vivi do"), keyed by its tool_use id. */
 export interface JournalEntry {
   id: string

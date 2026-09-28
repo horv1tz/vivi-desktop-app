@@ -33,13 +33,14 @@ import type {
   AgentErrorCode,
   AgentUiEvent,
   PermissionCategory,
+  PermissionLogReason,
   QuestionItem,
   SessionState,
   SessionSummary,
   UiBlock,
   UiMessage,
 } from '@shared/events'
-import type { Settings } from '@shared/settings'
+import type { PermissionRule, Settings } from '@shared/settings'
 import type { AgentBackend } from './backend'
 import { buildEnv, buildPermissionAllowRules } from './options'
 import { buildSystemPrompt, markVoiceText, osVersionString } from './prompt'
@@ -53,9 +54,7 @@ import { splitArgs } from './acp/args'
 
 export interface AcpBackendDeps {
   getSettings: () => Settings
-  updateSettings: (patch: {
-    permissions: { alwaysAllowRules: { toolName: string; ruleContent?: string }[] }
-  }) => void
+  updateSettings: (patch: { permissions: { alwaysAllowRules: PermissionRule[] } }) => void
   getExtraEnv: () => Promise<Record<string, string | undefined>>
   isolateConfig: () => boolean
   cwd: () => string
@@ -73,6 +72,13 @@ export interface AcpBackendDeps {
   /** Fresh MCP server with Vivi's tools, served to the agent over local HTTP. */
   createMcpServer: () => McpServer
   ui: BrokerUi
+  /** SEC-03: fed every final permission verdict for the decision log. */
+  onPermissionDecision?: (entry: {
+    toolName: string
+    input: Record<string, unknown>
+    verdict: 'allow' | 'deny'
+    reason: PermissionLogReason
+  }) => void
   appVersion: string
   /** JSON file for locally kept session titles (ACP has no rename method). */
   titlesFile: string
@@ -367,11 +373,12 @@ export class AcpBackend implements AgentBackend {
         const next = [...cur]
         for (const r of rules)
           if (!next.some((x) => x.toolName === r.toolName && x.ruleContent === r.ruleContent))
-            next.push(r)
+            next.push({ ...r, behavior: 'allow' })
         deps.updateSettings({ permissions: { alwaysAllowRules: next } })
       },
       onSessionAllow: (category) => this.policyState.sessionGrants.add(category),
       onTurnAllow: (category) => this.policyState.turnGrants.add(category),
+      onDecision: deps.onPermissionDecision,
     })
     this.loadTitles()
   }
@@ -705,8 +712,14 @@ export class AcpBackend implements AgentBackend {
         snapshot: true,
       },
       settingSources: [],
+      // SEC-03: same "never let a deny rule reach the CLI's own allow-only permission list" fix as
+      // the SDK backend's buildOptions() — see the comment there.
       settings: {
-        permissions: { allow: buildPermissionAllowRules(s.permissions.alwaysAllowRules) },
+        permissions: {
+          allow: buildPermissionAllowRules(
+            s.permissions.alwaysAllowRules.filter((r) => r.behavior !== 'deny'),
+          ),
+        },
       },
       allowedTools: autoAllowedTools(s.permissions),
       // See options.ts (SDK backend) for why homeDir is not auto-included here either.
@@ -993,7 +1006,7 @@ export class AcpBackend implements AgentBackend {
           ? 'allow-always'
           : 'allow-session'
         : answer
-    this.broker.applyDecision(effective, decision.category, rule ? [rule] : [])
+    this.broker.applyDecision(effective, toolName, input, decision.category, rule ? [rule] : [])
     switch (effective) {
       case 'allow':
       case 'allow-session':
