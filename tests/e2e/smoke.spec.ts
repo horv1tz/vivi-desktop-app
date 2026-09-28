@@ -54,7 +54,12 @@ test('a retryable error shows a Retry button that resends the same message', asy
   await retryButton.click()
   // The retry resends the exact same text, which the mock backend treats as another error.
   await expect(page.getByText(/перегружен|overloaded/i)).toBeVisible({ timeout: 10_000 })
-  await page.getByRole('button', { name: /Закрыть|Close/ }).click()
+  // Scoped to the error banner's role="alert" region — an unscoped name match on "Закрыть"/"Close"
+  // now also matches the title bar's (correctly, separately labelled) window-close button.
+  await page
+    .getByRole('alert')
+    .getByRole('button', { name: /Закрыть|Close/ })
+    .click()
 })
 
 test('journal records the mock agent tool call', async () => {
@@ -218,14 +223,17 @@ test('Command palette (UX-05): Ctrl/Cmd+K opens it, filters, runs an action, and
   await searchBox.fill('')
 
   // Currently on the Workshop view (left there by the previous test) — "Go to Activity" runs a
-  // real navigation, proving the palette drives the same store the sidebar buttons do.
-  await page.getByRole('button', { name: /Перейти в Активность|Go to Activity/ }).click()
+  // real navigation, proving the palette drives the same store the sidebar buttons do. Palette
+  // entries are role="option" (a listbox pattern), not role="button", so that's what to query.
+  await page.getByRole('option', { name: /Перейти в Активность|Go to Activity/ }).click()
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(/сделала Vivi|Vivi did/)
   await expect(searchBox).not.toBeVisible()
 
   await page.keyboard.press('Control+k')
-  await page.getByRole('button', { name: /Перейти в Чат|Go to Chat/ }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await page.getByRole('option', { name: /Перейти в Чат|Go to Chat/ }).click()
+  // Unlike the (now unconditionally-visible) app h1, the composer placeholder only ever renders
+  // on Chat, and its "…microphone" tail doesn't collide with the palette's own "Search commands…".
+  await expect(page.getByPlaceholder(/микрофон|microphone/i)).toBeVisible()
 
   await page.keyboard.press('Control+k')
   await expect(searchBox).toBeVisible()

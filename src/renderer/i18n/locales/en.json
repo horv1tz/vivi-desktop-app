@@ -9,7 +9,13 @@
     "newChat": "New chat",
     "sessions": "Sessions",
     "activity": "Activity",
-    "workshop": "Workshop"
+    "workshop": "Workshop",
+    "sidebar": "Sidebar"
+  },
+  "window": {
+    "minimize": "Minimize window",
+    "maximize": "Maximize window",
+    "close": "Close window"
   },
   "palette": {
     "title": "Command palette",
@@ -45,6 +51,7 @@
     "stop": "Stop",
     "mic": "Voice input",
     "attach": "Attach image",
+    "removeImage": "Remove image",
     "hint": "Enter to send, Shift+Enter for a new line",
     "rateLimited": "Rate limit reached — resets in {{time}}"
   },

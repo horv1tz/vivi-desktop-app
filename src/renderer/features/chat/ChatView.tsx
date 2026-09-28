@@ -65,7 +65,7 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
                   boxShadow: '0 20px 50px -20px var(--accent)',
                 }}
               />
-              <h1 className="text-2xl font-semibold">{t('chat.empty')}</h1>
+              <h2 className="text-2xl font-semibold">{t('chat.empty')}</h2>
               <p className="mt-2 max-w-md text-sm text-muted">
                 {t('chat.emptyHint', { hotkey: hotkey.replace('CommandOrControl', 'Ctrl') })}
               </p>
@@ -88,6 +88,7 @@ export function ChatView({ mockAgent }: { mockAgent: boolean }) {
           <AnimatePresence>
             {error ? (
               <motion.div
+                role="alert"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}

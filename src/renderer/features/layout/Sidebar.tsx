@@ -81,8 +81,9 @@ export function Sidebar() {
   return (
     <AnimatePresence initial={false}>
       {open ? (
-        <motion.aside
+        <motion.nav
           key="sidebar"
+          aria-label={t('nav.sidebar')}
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 260, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
@@ -101,9 +102,12 @@ export function Sidebar() {
               <MessageSquarePlus size={16} /> {t('nav.newChat')}
             </Button>
           </div>
-          <div className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">
+          {/* h3, not h2: the sidebar is always visible alongside whichever view (Chat/Activity/
+              Settings/Workshop) owns the page's h2, so this needs to sit a level below those,
+              not compete with them. */}
+          <h3 className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">
             {t('sessions.title')}
-          </div>
+          </h3>
           {sessions.length > 0 ? (
             <div className="px-3 pb-2">
               <div className="flex items-center gap-1.5 rounded-lg bg-sunken px-2 py-1">
@@ -211,7 +215,7 @@ export function Sidebar() {
               <Settings size={16} /> {t('nav.settings')}
             </Button>
           </div>
-        </motion.aside>
+        </motion.nav>
       ) : null}
     </AnimatePresence>
   )

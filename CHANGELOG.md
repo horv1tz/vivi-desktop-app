@@ -61,6 +61,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   any route in a packaged build. The menu also gained a right-click context menu on text fields
   (Cut/Copy/Paste/Select All on editable fields, Copy on a selection) — previously right-clicking a
   text input anywhere in Vivi showed nothing at all.
+- **Accessibility pass** (UX-07): the window minimize/maximize/close buttons and the composer's
+  per-image remove button were icon-only with no `aria-label`/`title` — a screen reader announced
+  them as unlabeled buttons. The app now has exactly one `<h1>` (the title bar's "Vivi", present on
+  every screen) instead of competing/absent ones across Chat, Onboarding, Settings, Activity and
+  Workshop; the sidebar is a real `<nav>` landmark. `MotionConfig reducedMotion="user"` now wraps
+  both renderer roots — the existing CSS-only `prefers-reduced-motion` rule never affected
+  `motion/react`'s own spring-driven animations, which is how nearly every animated surface in the
+  app actually animates. The `--fg-faint` color token (timestamps, hints, empty-state text) was
+  below WCAG AA contrast (~3.15:1 / ~3.77:1) on both themes; darkened/lightened to ~4.75–5.5:1. The
+  command palette's result list gained `listbox`/`option`/`aria-activedescendant` semantics, and
+  the chat error banner gained `role="alert"` so it's announced when it appears.
 
 ### Fixed
 

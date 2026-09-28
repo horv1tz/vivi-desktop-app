@@ -222,16 +222,26 @@ function PaletteContent({ onClose }: { onClose: () => void }) {
               }}
               placeholder={t('palette.placeholder')}
               aria-label={t('palette.title')}
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="palette-listbox"
+              aria-activedescendant={
+                filtered[activeIndex] ? `palette-option-${filtered[activeIndex].id}` : undefined
+              }
               className="w-full bg-transparent text-sm text-fg outline-none placeholder:text-faint"
             />
           </div>
-          <div className="max-h-[50vh] overflow-y-auto p-1.5">
+          <div id="palette-listbox" role="listbox" className="max-h-[50vh] overflow-y-auto p-1.5">
             {filtered.length === 0 ? (
               <p className="px-3 py-4 text-center text-sm text-faint">{t('palette.noResults')}</p>
             ) : (
               filtered.map((action, i) => (
                 <button
                   key={action.id}
+                  id={`palette-option-${action.id}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  tabIndex={-1}
                   onClick={() => runAndClose(action)}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={cn(

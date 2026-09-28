@@ -101,6 +101,8 @@ export function Composer({
               <button
                 className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-danger text-white"
                 onClick={() => setImages(images.filter((_, j) => j !== i))}
+                aria-label={t('composer.removeImage')}
+                title={t('composer.removeImage')}
               >
                 <X size={10} />
               </button>

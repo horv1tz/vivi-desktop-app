@@ -8,7 +8,10 @@
   --bg-sunken: #eceef5;
   --fg: #12141c;
   --fg-muted: #5b6078;
-  --fg-faint: #8b90a8;
+  /* UX-07: was #8b90a8 (~3.15:1 on --bg-elev, ~2.72:1 on --bg-sunken) — text-faint is genuinely
+     read content in places (timestamps, hints, empty-state copy), not decoration, so it needs to
+     clear WCAG AA's 4.5:1 for normal text. Darkened to clear both backgrounds (~5.5:1 / ~4.75:1). */
+  --fg-faint: #63687f;
   --border: rgba(20, 24, 40, 0.1);
   --border-strong: rgba(20, 24, 40, 0.18);
   --accent: #6d5cff;
@@ -28,7 +31,8 @@
   --bg-sunken: #080a10;
   --fg: #e8eaf4;
   --fg-muted: #a6abc4;
-  --fg-faint: #6c7190;
+  /* UX-07: was #6c7190 (~3.77:1 on --bg-elev) — same reasoning as the light theme above. */
+  --fg-faint: #7d82a0;
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
   --accent: #8b7bff;

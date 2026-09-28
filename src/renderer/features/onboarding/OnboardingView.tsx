@@ -85,7 +85,7 @@ export function OnboardingView() {
                     boxShadow: '0 20px 60px -20px var(--accent)',
                   }}
                 />
-                <h1 className="text-3xl font-semibold">{t('onboarding.welcome')}</h1>
+                <h2 className="text-3xl font-semibold">{t('onboarding.welcome')}</h2>
                 <p className="mt-2 max-w-md text-muted">{t('onboarding.welcomeHint')}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">

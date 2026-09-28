@@ -39,7 +39,7 @@ export function TitleBar() {
                   : 'bg-faint',
           )}
         />
-        <span className="font-medium text-fg">Vivi</span>
+        <h1 className="font-medium text-fg">Vivi</h1>
         <span>· {t(`state.${status ?? state}`)}</span>
       </div>
       <div className="flex-1" />
@@ -48,18 +48,24 @@ export function TitleBar() {
           <button
             className="grid h-8 w-10 place-items-center text-muted hover:bg-line/60 hover:text-fg"
             onClick={() => invoke('window:minimize')}
+            aria-label={t('window.minimize')}
+            title={t('window.minimize')}
           >
             <Minus size={14} />
           </button>
           <button
             className="grid h-8 w-10 place-items-center text-muted hover:bg-line/60 hover:text-fg"
             onClick={() => invoke('window:maximize')}
+            aria-label={t('window.maximize')}
+            title={t('window.maximize')}
           >
             <Square size={12} />
           </button>
           <button
             className="grid h-8 w-10 place-items-center text-muted hover:bg-danger hover:text-white"
             onClick={() => invoke('window:close')}
+            aria-label={t('window.close')}
+            title={t('window.close')}
           >
             <X size={14} />
           </button>
