@@ -55,7 +55,7 @@
     "fix-path": "^5.0.0",
     "i18next": "^26.4.2",
     "lucide-react": "^1.48.0",
-    "motion": "^13.4.4",
+    "motion": "^14.0.0",
     "openai": "^7.23.0",
     "proxy-chain": "^3.0.1",
     "radix-ui": "^1.6.7",
