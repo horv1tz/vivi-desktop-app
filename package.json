@@ -58,7 +58,7 @@
     "motion": "^13.4.4",
     "openai": "^7.23.0",
     "proxy-chain": "^3.0.1",
-    "radix-ui": "^1.6.7",
+    "radix-ui": "^1.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-i18next": "^17.0.15",
